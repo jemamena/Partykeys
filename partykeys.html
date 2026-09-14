@@ -629,6 +629,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
         <button class="primary" id="connectBtn">Connect MIDI</button>
         <span class="status"><span class="dot" id="connDot"></span><span id="connText">Plug the keyboard in (USB / USB-C OTG on a phone), tap Connect, then Allow</span></span>
       </div>
+      <div class="sub" id="buildTag" style="margin-top:10px;opacity:.65;font-variant-numeric:tabular-nums"></div>
     </section>
 
     <section class="panel" data-sheet="play">
@@ -742,6 +743,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
+const BUILD = '25 · 2026-09-15 · midi-activity';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -2964,6 +2966,7 @@ $('lag').value = S.lag; $('lag').oninput = e => { S.lag = +e.target.value; save(
 setBeats(S.lookBeats, true);
 applyRange();
 syncKeysReset();
+{ const bt = $('buildTag'); if (bt) bt.textContent = 'build ' + BUILD; log('PartyKeys build ' + BUILD); }
 if (!navigator.requestMIDIAccess) setConn('bad', 'This browser has no Web MIDI — on Android use Chrome');
 else if (!window.isSecureContext) setConn('warn', 'Opened from a local file — MIDI needs an https page; open the hosted link instead');
 window.addEventListener('beforeunload', () => { if (midiOut && dev().lights) sendColors(new Array(NKEYS).fill(OFF), true); dawPanic(); });
