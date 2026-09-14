@@ -147,6 +147,7 @@ body.keysGoneFull .arr.arrHidden{display:flex!important}
 #chordsRowToggleFull[aria-pressed="false"],#arrRowToggleFull[aria-pressed="false"],#keysToggleFull[aria-pressed="false"],#playRowToggleFull[aria-pressed="false"]{opacity:.4}
 #chordsRowToggleFull[aria-pressed="true"],#arrRowToggleFull[aria-pressed="true"],#keysToggleFull[aria-pressed="true"],#playRowToggleFull[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-radius:8px}
 #midiToggleBtn[aria-pressed="false"],#midiToggleBtnFull[aria-pressed="false"]{opacity:.4}
+.midiAct{background:#2ecc40!important;color:#04120a!important;border-radius:8px;opacity:1!important}   /* flashes on every incoming MIDI message — an at-a-glance "the keyboard is actually reaching the app", no log reading needed */
 #midiDawToggleBtn[aria-pressed="false"],#midiDawToggleBtnFull[aria-pressed="false"]{opacity:.4}
 #syncToggleBtn[aria-pressed="false"],#syncToggleBtnFull[aria-pressed="false"]{opacity:.4}
 #midiToggleBtn[aria-pressed="true"],#midiToggleBtnFull[aria-pressed="true"],
@@ -1108,6 +1109,8 @@ function refreshPorts() {
     for (const p of ports.values()) sel.add(new Option(p.name + (p.state === 'disconnected' ? ' (off)' : ''), p.id));
     sel.value = cur && [...ports.values()].some(p => p.id === cur) ? cur : ''; };
   fillPlain($('midiOutDaw'), access.outputs, S.midiOutDaw);
+  const names = ps => [...ps.values()].map(p => p.name + (p.state === 'disconnected' ? '(off)' : '')).join(', ') || 'none';
+  log('MIDI ports — in: ' + names(access.inputs) + ' | out: ' + names(access.outputs));
   bindPorts();
 }
 function bindPorts() {
@@ -1127,7 +1130,22 @@ function bindPorts() {
   if (midiOut && sysexGranted) pushLeds(true);
   if (typeof syncMidiDawToggleBtn === 'function') syncMidiDawToggleBtn();
 }
+let midiMonCount = 0, midiFlashT = 0;
+function midiFlash() {   // green blink on the top-bar MIDI button for every message that arrives, whether or not input is muted
+  const els = [$('midiToggleBtn'), $('midiToggleBtnFull')].filter(Boolean);
+  els.forEach(b => b.classList.add('midiAct'));
+  clearTimeout(midiFlashT);
+  midiFlashT = setTimeout(() => els.forEach(b => b.classList.remove('midiAct')), 150);
+}
+function midiMon(d) {   // first few incoming messages go to the Log, so "nothing happens when I play" can be told apart from "the notes arrive but something downstream drops them"
+  if (midiMonCount >= 12) return;
+  midiMonCount++;
+  const hex = [...d].map(b => b.toString(16).padStart(2, '0')).join(' ');
+  log('MIDI in: ' + hex + (S.midiEnabled ? '' : '   ← IGNORED: MIDI input is muted, tap the MIDI button in the top bar'));
+  if (midiMonCount === 12) log('(that\'s enough MIDI input logging — it\'s clearly arriving)');
+}
 function onMidi(e) {
+  midiMon(e.data); midiFlash();   // log/flash before the mute check, so a muted toggle shows up as arriving-but-ignored rather than as silence
   if (!S.midiEnabled) return;   // toggled off from the top-bar MIDI button — ignore physical keyboard input entirely while off
   const [st, d1, d2] = e.data; const cmd = st & 0xF0;
   const n = dev().lights ? d1 + (LOW - DEV_LOW) : d1; // PartyKeys/PopuPiano: map their C3-based keys to the chosen start octave; other keyboards play as-is
