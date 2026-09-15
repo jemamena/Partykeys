@@ -291,11 +291,13 @@ body.kbfull .kb{cursor:zoom-out}
 .keyinfo .keyGroup{display:flex;align-items:center;gap:2px;flex:none;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:2px}
 .keyinfo .keyGroup button{border-color:transparent}
 .keyinfo .keyGroup #keyFromSong{padding:0 8px}
-.selPop{position:fixed;z-index:30;display:flex;flex-direction:column;gap:2px;max-height:min(60vh,320px);overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:6px;box-shadow:0 12px 32px rgba(0,0,0,.4)}
+.selPop{position:fixed;z-index:30;display:flex;flex-direction:column;gap:2px;max-height:min(60vh,320px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:6px;box-shadow:0 12px 32px rgba(0,0,0,.4)}
 .selPop[hidden]{display:none}
 .selOpt{width:100%;text-align:left;padding:8px 10px;font-size:13px;background:none;border:1px solid transparent;border-radius:4px;min-height:0;white-space:nowrap}
 .selOpt[aria-selected="true"]{background:var(--accent)!important;color:var(--accent-ink)}
-.playPop{position:fixed;z-index:30;display:flex;flex-direction:column;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:6px;box-shadow:0 12px 32px rgba(0,0,0,.4)}
+.playPop{position:fixed;z-index:30;display:flex;flex-direction:column;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:6px;box-shadow:0 12px 32px rgba(0,0,0,.4);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.playPop>*{flex:0 0 auto}
+.selPop>*{flex:0 0 auto}
 .playPop[hidden]{display:none}
 #chordPlayPop .playOpt{display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;height:auto;text-align:left;padding:10px 14px;font-size:13px;min-height:40px;white-space:nowrap}
 #chordInvPop .playOpt{width:100%;height:auto;text-align:left;padding:9px 14px;font-size:13px;min-height:0;white-space:nowrap}
@@ -755,7 +757,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '44 · 2026-09-15 · screen-drives-lights';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '47 · 2026-09-15 · clean-landscape';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -812,6 +814,32 @@ function buildSelPop(selectId, popId) {   // built once from the hidden <select>
 function tintRootPop() {   // each root option gets a light wash of that key's own rainbow colour, so the list reads like a mini colour key — the aria-selected rule wins over this via !important
   $('rootPop').querySelectorAll('.selOpt').forEach(b => { const [r, g, bl] = hex2rgb(ROOT_COLORS[+b.dataset.value] || '#888'); b.style.background = `rgba(${r},${g},${bl},0.22)`; });
 }
+// Every drop-down in the app goes through here. On a phone in landscape there are only ~390px of height to play
+// with, so a long list (the practice exercises, the inversions, 12 roots) used to run straight off the bottom with
+// no way to reach the last few entries. Now the popup is capped to whatever room actually exists on the roomier
+// side of the button and scrolls inside that.
+function placePop(pop, btn, side) {   // side: 'below' (default) opens under the button, 'right' opens beside it
+  pop.style.maxHeight = ''; pop.style.top = ''; pop.style.left = '';
+  const r = btn.getBoundingClientRect(), M = 6;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const pw = pop.offsetWidth; let ph = pop.offsetHeight;
+  if (side === 'right') {
+    let left = r.right + M; if (left + pw > vw - M) left = Math.max(M, r.left - pw - M);
+    const room = vh - 2 * M;
+    if (ph > room) { pop.style.maxHeight = room + 'px'; ph = room; }
+    pop.style.left = left + 'px'; pop.style.top = Math.max(M, Math.min(r.top, vh - ph - M)) + 'px';
+    return;
+  }
+  const below = vh - r.bottom - 2 * M, above = r.top - 2 * M;
+  let top;
+  if (ph <= below) top = r.bottom + M;                        // fits underneath: the normal case
+  else if (ph <= above) top = r.top - ph - M;                  // doesn't fit below but does above: flip it up
+  else { const room = Math.max(below, above);                  // fits neither: take the roomier side and scroll
+    pop.style.maxHeight = room + 'px'; ph = Math.min(ph, room);
+    top = below >= above ? r.bottom + M : Math.max(M, r.top - ph - M); }
+  let left = r.left; if (left + pw > vw - M) left = Math.max(M, vw - pw - M);
+  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+}
 function syncSelBtn(selectId, btnId) { const sel = $(selectId); const o = sel.options[sel.selectedIndex]; const btn = $(btnId); const val = btn.querySelector('.selVal'); if (val) val.textContent = o ? o.text : ''; else btn.textContent = o ? o.text : ''; }
 function closeSelPop(popId, btnId) { $(popId).hidden = true; $(btnId).setAttribute('aria-expanded', 'false'); }
 function closeAllSelPops() { closeSelPop('rootPop', 'rootBtn'); closeSelPop('scaleTypePop', 'scaleTypeBtn'); }
@@ -821,12 +849,7 @@ function openSelPop(popId, btnId, selectId) {
   pop.querySelectorAll('.selOpt').forEach(b => b.setAttribute('aria-selected', b.dataset.value === String(sel.value)));
   pop.style.minWidth = Math.max(btn.getBoundingClientRect().width, 140) + 'px';
   pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
-  const r = btn.getBoundingClientRect();
-  let left = r.left, top = r.bottom + 6;
-  const pw = pop.offsetWidth, ph = pop.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
-  if (top + ph > vh - 6) top = Math.max(6, r.top - ph - 6);
-  if (left + pw > vw - 6) left = Math.max(6, vw - pw - 6);
-  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  placePop(pop, btn);
   const selOpt = pop.querySelector('[aria-selected="true"]'); if (selOpt) selOpt.scrollIntoView({ block: 'center' });
 }
 buildSelPop('root', 'rootPop'); buildSelPop('scaleType', 'scaleTypePop'); tintRootPop();
@@ -876,13 +899,15 @@ function applyRange() {
 const held = new Map();
 // tap the keyboard: full-screen keys; tap again to come back
 let kbFull = false;
-function collapseExplanationRowsDefault() {   // mobile panoramic full screen: start with both explanation rows (and the arrangement view) tucked away so the keys get all the room — the × / lit "+" and the resize handle still bring them back any time
-  if (!keyInfoHidden) { keyInfoHidden = true; $('keyInfo').classList.add('rowCollapsed'); $('keyInfoToggle').setAttribute('aria-pressed', 'true'); }
-  if (!chordInfoHidden) { chordInfoHidden = true; $('chordInfo').classList.add('rowCollapsed'); $('chordInfoToggle').setAttribute('aria-pressed', 'true'); }
-  manualHideArr = true; syncArrVisibility();
-  chordsRowHidden = true; syncChordsRowVisibility();
-  playRowHidden = true; syncPlayRowVisibility();
-  cuesRowOpen = false; syncCuesRow();
+function collapseExplanationRowsDefault() {   // rotating a phone into landscape always lands on the same clean slate: the top bar and the keys, nothing else. Every section's toggle up in the top bar brings its row back, and the resize handles still work — but a rotation never inherits whatever was open last time.
+  keyInfoHidden = true; $('keyInfo').classList.add('rowCollapsed'); $('keyInfoToggle').setAttribute('aria-pressed', 'true');
+  chordInfoHidden = true; $('chordInfo').classList.add('rowCollapsed'); $('chordInfoToggle').setAttribute('aria-pressed', 'true');
+  manualHideArr = true; syncArrVisibility();            // arrangement view
+  chordsRowHidden = true; syncChordsRowVisibility();    // chord row
+  playRowHidden = true; syncPlayRowVisibility();        // transport row
+  cuesRowOpen = false; syncCuesRow();                   // the six cue buttons
+  queueRowOpenFull = false; syncMiniQueueFull();        // mini queue
+  keysHidden = false; syncKeysVisibility();             // ...and the keys themselves are always showing
 }
 let landscapeManualOverride = false;   // mobile only: set once the user taps OUT of full-screen while still physically holding the phone in landscape — keeps the rotation watcher below from immediately snapping it back on; only an actual rotation to portrait (and back) clears it
 function syncFsPrompt() {   // the Fullscreen API can only be granted from a direct tap — a rotation event alone is never a qualifying gesture, so rotating into landscape can leave the browser's address bar showing even though the app itself is already laid out full-screen; when that happens, surface a one-tap button that supplies the missing gesture
@@ -912,7 +937,7 @@ $('fsPrompt').onclick = () => {   // this click IS a direct user gesture, so unl
       if (n !== lastN) { lastN = n; keysOverride = n; buildKeys(); renderKeys(); syncKeysReset(); } }
     else { const s = Math.max(-48, Math.min(48, startLow + Math.round(dx / 22)));
       if (s !== lastShift) { lastShift = s; lowOverride = s; buildKeys(); renderKeys(); syncKeysReset(); } } });
-  kb.addEventListener('pointerup', e => { if (!dragging && performance.now() - t0 < 400 && Math.hypot(e.clientX - x0, e.clientY - y0) < 12 && !(kbFull && touchLike())) toggleKbFull();   // on a phone/tablet, tapping the keys while already full-screen used to drop you out mid-performance — there it only ever opens full screen now, and rotating back to portrait is the way out; a mouse-driven screen keeps the old tap-to-toggle
+  kb.addEventListener('pointerup', e => { if (!dragging && performance.now() - t0 < 400 && Math.hypot(e.clientX - x0, e.clientY - y0) < 12 && !touchLike()) toggleKbFull();   // on a phone/tablet the keys never change the layout at all — a finger on them is a performance. Rotating to landscape is what opens full screen, rotating back to portrait is what leaves it. A mouse-driven screen keeps the old tap-to-toggle.
     t0 = 0; dragging = false; mode = null; kb.classList.remove('dragBW'); });
   kb.addEventListener('pointercancel', () => { t0 = 0; dragging = false; mode = null; kb.classList.remove('dragBW'); }); })();
 $('keysResetBtn').onclick = () => { keysOverride = null; lowOverride = null; buildKeys(); renderKeys(); syncKeysReset(); };
@@ -2653,12 +2678,7 @@ function openProgPop() {
     b.onclick = () => { circleProg = idx >= 0 ? PROGRESSIONS[idx] : null; progStepPtr = 0; $('circleProgBtn').setAttribute('aria-pressed', String(!!circleProg)); closeProgPop(); renderCircleProgression(); syncProgKbBtn(); renderProgKbRow(); };
   });
   pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
-  const r = btn.getBoundingClientRect();
-  let left = r.right + 6, top = r.top;
-  const pw = pop.offsetWidth, ph = pop.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
-  if (left + pw > vw - 6) left = Math.max(6, r.left - pw - 6);
-  if (top + ph > vh - 6) top = Math.max(6, vh - ph - 6);
-  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  placePop(pop, btn, 'right');
 }
 $('circleProgBtn').onclick = () => { $('circleProgPop').hidden ? openProgPop() : closeProgPop(); };
 document.addEventListener('pointerdown', e => { if (!$('circleProgPop').hidden && !e.target.closest('#circleProgPop') && !e.target.closest('#circleProgBtn')) closeProgPop(); });
@@ -2683,12 +2703,7 @@ function openTransposePop() {
   $('circleTransposeReset').onclick = () => { progTranspose = 0; renderTransposePop(); renderCircleProgression(); renderProgKbRow(); };
   pop.hidden = false; btn.setAttribute('aria-expanded', 'true');   // unhide BEFORE the first renderTransposePop() call below — that function bails out early while the popup is still hidden, so the transpose value used to come up blank every time the popup was freshly opened (only filled in once you tapped +/- or Reset) — which read as "it doesn't show the transposition is in"
   renderTransposePop();
-  const r = btn.getBoundingClientRect();
-  let left = r.right + 6, top = r.top;
-  const pw = pop.offsetWidth, ph = pop.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
-  if (left + pw > vw - 6) left = Math.max(6, r.left - pw - 6);
-  if (top + ph > vh - 6) top = Math.max(6, vh - ph - 6);
-  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  placePop(pop, btn, 'right');
 }
 $('circleTransposeBtn').onclick = () => { $('circleTransposePop').hidden ? openTransposePop() : closeTransposePop(); };
 document.addEventListener('pointerdown', e => { if (!$('circleTransposePop').hidden && !e.target.closest('#circleTransposePop') && !e.target.closest('#circleTransposeBtn')) closeTransposePop(); });
@@ -3057,12 +3072,7 @@ function closeChordPlayPop() { $('chordPlayPop').hidden = true; $('chordPlay').s
 function openChordPlayPop() {
   const pop = $('chordPlayPop'), btn = $('chordPlay');
   pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
-  const r = btn.getBoundingClientRect();
-  let left = r.left, top = r.bottom + 6;
-  const pw = pop.offsetWidth, ph = pop.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
-  if (top + ph > vh - 6) top = Math.max(6, r.top - ph - 6);
-  if (left + pw > vw - 6) left = Math.max(6, vw - pw - 6);
-  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  placePop(pop, btn);
 }
 $('chordPlay').addEventListener('pointerdown', () => { const b = $('chordPlay'); b.classList.add('primary'); setTimeout(() => b.classList.remove('primary'), 250); });
 $('chordPlay').onclick = () => { $('chordPlayPop').hidden ? openChordPlayPop() : closeChordPlayPop(); };
@@ -3078,12 +3088,7 @@ function openChordInvPop() {   // pops up as many inversions as the active chord
   pop.innerHTML = raw.tpl.map((_, i) => `<button type="button" class="playOpt" data-inv="${i}"><span>${i === 0 ? 'Root position' : INVERSION[i]}</span></button>`).join('');
   pop.querySelectorAll('[data-inv]').forEach(b => { b.setAttribute('aria-selected', +b.dataset.inv === userInv); b.onclick = () => { userInv = +b.dataset.inv; closeChordInvPop(); renderKeys(); }; });
   pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
-  const r = btn.getBoundingClientRect();
-  let left = r.left, top = r.bottom + 6;
-  const pw = pop.offsetWidth, ph = pop.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
-  if (top + ph > vh - 6) top = Math.max(6, r.top - ph - 6);
-  if (left + pw > vw - 6) left = Math.max(6, vw - pw - 6);
-  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  placePop(pop, btn);
 }
 $('chordInvBtn').onclick = () => { $('chordInvPop').hidden ? openChordInvPop() : closeChordInvPop(); };
 document.addEventListener('pointerdown', e => { if (!$('chordInvPop').hidden && !e.target.closest('#chordInvPop') && !e.target.closest('#chordInvBtn')) closeChordInvPop(); });
@@ -3166,12 +3171,7 @@ function openScaleProgPop() {
     b.onclick = () => { setScaleProgMode(mode); closeScaleProgPop(); };
   });
   pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
-  const r = btn.getBoundingClientRect();
-  let left = r.left, top = r.bottom + 6;
-  const pw = pop.offsetWidth, ph = pop.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
-  if (left + pw > vw - 6) left = Math.max(6, vw - pw - 6);
-  if (top + ph > vh - 6) top = Math.max(6, r.top - ph - 6);
-  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  placePop(pop, btn);
 }
 $('scaleProgBtn').onclick = () => { $('scaleProgPop').hidden ? openScaleProgPop() : closeScaleProgPop(); };
 document.addEventListener('pointerdown', e => { if (!$('scaleProgPop').hidden && !e.target.closest('#scaleProgPop') && !e.target.closest('#scaleProgBtn')) closeScaleProgPop(); });
