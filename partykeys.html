@@ -659,7 +659,26 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
     <div class="sheetbody">
 
     <section class="panel" data-sheet="play">
+      <h2>Cross-device sync</h2>
+<div class="sub" id="cloudStatus" style="margin:-8px 0 10px">Local only (this device)</div>
+      <details id="fbBox" style="margin:0 0 10px">
+        <summary class="sub" style="cursor:pointer">Cross-device sync setup (Firebase)</summary>
+        <div class="sub" style="margin:8px 0">Sync is already set up and working — nothing to do here. This is only if you want to point this device at a <i>different</i> Firebase project: paste its <code>firebaseConfig</code> snippet below. Forget puts it back to the built-in one.</div>
+        <textarea id="fbCfg" rows="6" placeholder="const firebaseConfig = { apiKey: &quot;...&quot;, projectId: &quot;...&quot;, ... };" style="width:100%;font:12px/1.4 ui-monospace,Menlo,monospace;background:var(--surface2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px"><button id="fbSave" class="primary" style="flex:1">Connect / retry</button><button id="fbClear" style="flex:none">Forget</button></div>
+        <div class="sub" id="fbStatus" style="margin-top:8px"></div>
+      </details>
+      <label class="check"><input type="checkbox" id="syncMode"> Sync playback live across devices</label>
+      <div class="sub" id="syncStatus" style="margin:2px 0 10px">Off — each device plays independently</div>
+      <label class="row" style="gap:8px;align-items:center;margin:0 0 4px"><span class="sub" style="flex:none">Sound comes from</span>
+        <select id="audioOwner" style="flex:1"><option value="">Every device</option><option value="me">Only this device</option></select></label>
+      <label class="row" style="gap:8px;align-items:center;margin:0 0 4px"><span class="sub" style="flex:none">This device is called</span>
+        <input id="deviceName" type="text" placeholder="Phone, Laptop…" style="flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px"></label>
+      <div class="sub" id="audioStatus" style="margin:2px 0 10px">Every device makes its own sound</div>
+      
       <h2>Chord naming</h2>
+      <label class="check"><input type="checkbox" id="followKeys" checked> Follow the song's own keys as it plays</label>
+      <div class="sub" style="margin:2px 0 10px">When a song's chords are grouped by key, the app moves to whichever of <i>those</i> keys the chord being played belongs to — so a song that modulates takes the scale colouring and the note spelling with it. Only the keys you filled in for that song are ever used.</div>
       <label class="check"><input type="checkbox" id="fitKey" checked> Keep chord names inside the song's key</label>
       <div class="sub" style="margin:2px 0 14px">On: every chord is called as the nearest of the key's own seven, so an F triad over an E bass reads <b>F/E</b> rather than <b>Fmaj7/E</b> — simpler to read, at the cost of the extension. Off: the most literally accurate name, extensions and all. Note spelling follows the key either way (E♭ in flat keys, D♯ in sharp ones).</div>
       <h2>Spoken chord names</h2>
@@ -762,23 +781,8 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
       <div class="sub" style="margin-top:6px">The keyboard's LEDs lag ~150–250 ms behind MIDI. Delay compensation makes the lights fire that much earlier than the sound.</div>
     </section>
 
-    <section class="panel" data-sheet="playlist">
-      <h2>Queue</h2>
-      <div class="sub" id="cloudStatus" style="margin:-8px 0 10px">Local only (this device)</div>
-      <details id="fbBox" style="margin:0 0 10px">
-        <summary class="sub" style="cursor:pointer">Cross-device sync setup (Firebase)</summary>
-        <div class="sub" style="margin:8px 0">Sync is already set up and working — nothing to do here. This is only if you want to point this device at a <i>different</i> Firebase project: paste its <code>firebaseConfig</code> snippet below. Forget puts it back to the built-in one.</div>
-        <textarea id="fbCfg" rows="6" placeholder="const firebaseConfig = { apiKey: &quot;...&quot;, projectId: &quot;...&quot;, ... };" style="width:100%;font:12px/1.4 ui-monospace,Menlo,monospace;background:var(--surface2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px"></textarea>
-        <div style="display:flex;gap:8px;margin-top:8px"><button id="fbSave" class="primary" style="flex:1">Connect / retry</button><button id="fbClear" style="flex:none">Forget</button></div>
-        <div class="sub" id="fbStatus" style="margin-top:8px"></div>
-      </details>
-      <label class="check"><input type="checkbox" id="syncMode"> Sync playback live across devices</label>
-      <div class="sub" id="syncStatus" style="margin:2px 0 10px">Off — each device plays independently</div>
-      <label class="row" style="gap:8px;align-items:center;margin:0 0 4px"><span class="sub" style="flex:none">Sound comes from</span>
-        <select id="audioOwner" style="flex:1"><option value="">Every device</option><option value="me">Only this device</option></select></label>
-      <label class="row" style="gap:8px;align-items:center;margin:0 0 4px"><span class="sub" style="flex:none">This device is called</span>
-        <input id="deviceName" type="text" placeholder="Phone, Laptop…" style="flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px"></label>
-      <div class="sub" id="audioStatus" style="margin:2px 0 10px">Every device makes its own sound</div>
+    <section class="panel panel-playlist" data-sheet="playlist">
+      <h2>Playlist</h2>
       <div class="queue" id="queue"></div>
       <div class="sub" id="queueEmpty">No songs yet — add some .mid files.</div>
       <button class="primary" id="addSongs" style="margin-top:12px;width:100%">+ Add songs</button>
@@ -815,7 +819,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '73 · 2026-09-15 · key-sections';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '76 · 2026-09-15 · shared-note-fade';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -824,7 +828,7 @@ const logEl = $('log');
 const log = (...a) => { logEl.textContent = (a.join(' ') + '\n' + logEl.textContent).slice(0, 4000); };
 
 /* ---------- settings ---------- */
-const defaults = { sound:'grand', lookBeats:0.125, noteColor:'#ff3d8a', nextColor:'#ffc21a', scaleColor:'#2f7cff', scaleOn:false, showPlaying:true, showNext:true, root:0, scaleType:'major', bright:100, lag:0, fold:true, loop:false, bpm:120, sig:4, accentOn:true, startOct:3, countIn:false, metro:false, keysShown: matchMedia('(max-width: 699px)').matches ? 25 : 36, arrZoom:8, device:'partykeys', pianoVol:100, songVol:100, metroVol:80, pianoMuted:false, songMuted:false, metroMuted:false, transpose:0, currentSong:'', midiIn:'', midiOut:'', arrHeight:0, playRowH:0, showFingersL:false, showFingersR:false, goodChordSound:true, badNoteSound:true, progLock:false, speakChords:false, speakDuck:45, fitKey:true, syncMode:false, midiEnabled:true, midiOutDaw:'', midiToDawEnabled:false };
+const defaults = { sound:'grand', lookBeats:0.125, noteColor:'#ff3d8a', nextColor:'#ffc21a', scaleColor:'#2f7cff', scaleOn:false, showPlaying:true, showNext:true, root:0, scaleType:'major', bright:100, lag:0, fold:true, loop:false, bpm:120, sig:4, accentOn:true, startOct:3, countIn:false, metro:false, keysShown: matchMedia('(max-width: 699px)').matches ? 25 : 36, arrZoom:8, device:'partykeys', pianoVol:100, songVol:100, metroVol:80, pianoMuted:false, songMuted:false, metroMuted:false, transpose:0, currentSong:'', midiIn:'', midiOut:'', arrHeight:0, playRowH:0, showFingersL:false, showFingersR:false, goodChordSound:true, badNoteSound:true, progLock:false, speakChords:false, speakDuck:45, fitKey:true, followKeys:true, syncMode:false, midiEnabled:true, midiOutDaw:'', midiToDawEnabled:false };
 let S = { ...defaults };
 let noteColorEff = defaults.noteColor, nextColorEff = defaults.nextColor;   // the actual on-screen "now"/"next" colour — falls back to grey whenever it collides with the current (fixed, rainbow) scale colour, as a "pick another one" flag
 try { Object.assign(S, JSON.parse(localStorage.getItem('pk-settings') || '{}')); } catch(e) {}
@@ -1718,6 +1722,7 @@ const CHORDS = [
   ['7', [0,4,7,10]], ['maj7', [0,4,7,11]], ['m7', [0,3,7,10]], ['mMaj7', [0,3,7,11]], ['dim7', [0,3,6,9]], ['m7b5', [0,3,6,10]], ['6', [0,4,7,9]], ['m6', [0,3,7,9]],
   ['add9', [0,2,4,7]], ['madd9', [0,2,3,7]], ['7sus4', [0,5,7,10]], ['9', [0,2,4,7,10]], ['maj9', [0,2,4,7,11]], ['m9', [0,2,3,7,10]]
 ];
+let lastPickKey = null;   // set by the shortlist branch below: the key of the section the chosen chord belongs to
 function chordName(notes, ctx) {   // notes: array of midi numbers -> chord name, or null when it isn't a clear chord
   // ctx (optional): { scale: Set of diatonic pitch classes, diatonic: the 7 in-key triads (root pc + core quality), prev: previous group's chord name, allowed: a user-picked shortlist of {pc,q} to restrict to }
   // used to call chords in relation to the song's key rather than in isolation, and to hold a reading through ornaments
@@ -1732,17 +1737,27 @@ function chordName(notes, ctx) {   // notes: array of midi numbers -> chord name
       // borrowed chord. Forcing D7 into Dm or A into Am would change the harmony, not just simplify it, so those fall
       // through to the literal reading below. A hand-picked shortlist has no such escape: it means exactly what it says.
     if (pcs.length < 2) return null;
-    let best = null;
+    let best = null, prevScore = null, prevKey = null;
     for (const a of ctx.allowed) { const tpl = (CHORDS.find(x => x[0] === a.q) || ['', [0, 4, 7]])[1];
       const set = tpl.map(i => (a.pc + i) % 12);
-      const missing = set.filter(p => !pcs.includes(p)).length;
-      const extra = pcs.filter(p => !set.includes(p) && p !== bass).length;   // played notes outside the chord — but the bass doesn't count, because a slash name accounts for it (that is what makes E+F A C read as F/E rather than Fmaj7/E)
+      const wantBass = a.bass === undefined || a.bass === null ? null : ((a.bass % 12) + 12) % 12;   // a chord written WITH a bass — A/G#, A/F#, A/E
+      const full = wantBass === null ? set : set.concat([wantBass]);
+      const missing = full.filter(p => !pcs.includes(p)).length;
+      const extra = pcs.filter(p => !full.includes(p) && p !== bass).length;   // played notes outside the chord — but the bass doesn't count, because a slash name accounts for it (that is what makes E+F A C read as F/E rather than Fmaj7/E)
       let score = missing * 2 + extra;
-      if (a.pc === bass) score -= 0.5;   // this chord's own root sits in the bass — a good sign it's the right one
-      if (prev && prev.root === NOTE_NAMES[a.pc] && prev.q === a.q) score -= 0.6;   // same reading as the chord just shown — don't flicker off it without a good reason
+      if (wantBass !== null) score += bass === wantBass ? -1.2 : 1.5;   // a written slash chord only really fits when its own bass note is the one being played
+      else if (a.pc === bass) score -= 0.5;   // this chord's own root sits in the bass — a good sign it's the right one
       const nn = p => a.key !== undefined ? noteNameIn(a.key, p) : NOTE_NAMES[p];   // a sectioned shortlist spells each chord in the key it was written under
-      const name = nn(a.pc) + a.q + (bass !== a.pc ? '/' + nn(bass) : '');   // name the bass whenever it isn't the root, chord tone or not — F over an E bass is F/E
-      if (!best || score < best.score) best = { name, score }; }
+      const name = nn(a.pc) + a.q + (wantBass !== null ? '/' + nn(wantBass) : (bass !== a.pc ? '/' + nn(bass) : ''));
+      const isPrev = ctx.prev && name === ctx.prev;
+      if (isPrev) { prevScore = score; prevKey = a.key ?? null; }
+      if (!best || score < best.score) best = { name, score, key: a.key ?? null }; }
+    // Hold the reading. A MIDI part rarely plays a chord the same way twice — a passing note, a missing fifth, an
+    // octave doubling — and without this the label flickers between neighbours bar after bar. So the chord already
+    // showing keeps its place unless something else fits appreciably better, not merely a hair better.
+    const HOLD = 1.25;
+    if (prevScore !== null && best && prevScore - best.score < HOLD) { lastPickKey = prevKey; return ctx.prev; }
+    lastPickKey = best ? best.key : null;   // which of the song's keys this chord was written under — the key display follows it
     return best ? best.name : null;
   }
   if (pcs.length < 3) return null;
@@ -1941,8 +1956,18 @@ function updateChords() {
   if (!now.length && liveNotes.size) now = [...liveNotes];
   // Name it with the same context the song was analysed under — its key, its own chord list and their spelling.
   // Without this the box quietly re-guessed from the notes alone, so a song that read Eb everywhere else showed D# here.
+  lastPickKey = null;
   const a = chordName(now, song && song.chordCtx ? { ...song.chordCtx, prev: lastNow } : undefined);   // null on silence or when it isn't a chord: keep what's shown
   if (a) lastNow = a;
+  // A song that changes key carries that in its own chord list: each chord belongs to a section, and the section
+  // knows its key. So when the chord that's playing belongs to a different one of the song's keys, move the app's key
+  // with it — the scale colouring, the degree numbers and the spelling all follow the modulation on their own.
+  if (a && S.followKeys && lastPickKey && (lastPickKey.root !== S.root || (!!lastPickKey.minor) !== (S.scaleType === 'minor'))) {
+    S.root = lastPickKey.root; S.scaleType = lastPickKey.minor ? 'minor' : 'major';
+    $('root').value = S.root; $('scaleType').value = S.scaleType; save(); refreshSwatches();
+    syncSelBtn('root', 'rootBtn'); syncSelBtn('scaleType', 'scaleTypeBtn');
+    lastChords = '';   // force the labels to redraw under the new spelling
+  }
   const bShown = (nextName && nextName !== lastNow) ? nextName : '';
   const key = lastNow + '|' + bShown; if (key === lastChords) return; lastChords = key;
     const asWritten = !!(song && song.customChords && song.customChords.length);   // you picked these chords yourself — show them the way you wrote them, 7ths and all, instead of the usual at-a-glance simplification
@@ -2273,8 +2298,14 @@ function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly 
     const base = isDark() ? [200,200,200] : [232,232,232]; return blackLift(m, rgb2hex(col.map((v, j) => base[j] + (v - base[j]) * f))); }   // same fade for every key — black or white, it's just the colour showing through
   // A dark colour on a black key is nearly invisible against the key itself, so the song's own note colours get the
   // same lift the scale colours already had: black keys read a shade lighter, white keys are left exactly as they were.
-  if (pressed.has(m)) return blackLift(m, noteColorEff);   // you're actually holding this key down
-  if (expected.has(m)) return blackLift(m, rgb2hex(scale(hex2rgb(noteColorEff), 0.4)));   // the song wants this next, but you haven't played it yet
+  // A note that's in the chord NOW and in the chord COMING keeps its current colour, which used to hide the fact that
+  // it carries over — every other note of the next chord was visibly fading in while this one sat still. So a shared
+  // note fades too: from wherever it is now towards the next colour, on the same curve as its neighbours.
+  const toNext = hex => { if (!soon.has(m)) return hex; const f = soon.get(m), a = 0.15 + 0.55 * f;
+    const from = hex2rgb(hex), to = hex2rgb(nextColorEff);
+    return rgb2hex(from.map((v, j) => v + (to[j] - v) * a)); };
+  if (pressed.has(m)) return blackLift(m, toNext(noteColorEff));   // you're actually holding this key down
+  if (expected.has(m)) return blackLift(m, toNext(rgb2hex(scale(hex2rgb(noteColorEff), 0.4))));   // the song wants this next, but you haven't played it yet
   if (soon.has(m)) { const f = soon.get(m); const base = isDark() ? [200,200,200] : [232,232,232]; return blackLift(m, rgb2hex(hex2rgb(nextColorEff).map((v, j) => base[j] + (v - base[j]) * (0.15 + 0.55 * f)))); }
   const c = colors[m - BASE];
   if (c !== undefined && c !== OFF) return blackLift(m, (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.45 + (isDark() ? 60 : 150) * 0.55)));
@@ -3380,7 +3411,7 @@ function scSaveSections(id, secs) {
 }
 function flatChords(secs) {   // every chord across every section, each remembering the key it was written in
   const out = [];
-  for (const sec of secs) for (const c of (sec.chords || [])) out.push({ pc: c.pc, q: c.q, key: sec.key || null });
+  for (const sec of secs) for (const c of (sec.chords || [])) out.push({ pc: c.pc, q: c.q, bass: c.bass ?? null, key: sec.key || null });
   return out;
 }
 function keyLabel(k) { return !k ? 'No key' : noteNameIn(k, k.root) + (k.minor ? ' minor' : ' major'); }
@@ -3398,7 +3429,8 @@ function scRenderChips() {
         NOTE_NAMES.map((nm, i) => '<option value="' + i + '">' + noteNameIn(sec.key, i) + '</option>').join('') +
       '</select><select class="secType"><option value="major">Major</option><option value="minor">Minor</option></select>' +
       '<button class="secDel" aria-label="Remove this key and its chords" title="Remove this key and its chords">×</button></div>' +
-      '<div class="scAdd"><select class="addRoot"></select><select class="addQ"></select><button class="addBtn">+ Add</button></div>' +
+      '<div class="scAdd"><select class="addRoot"></select><select class="addQ"></select>' +
+        '<select class="addBass" title="Bass note (for slash chords like A/G#)"></select><button class="addBtn">+ Add</button></div>' +
       '<div class="scChips"></div>';
     const root = el.querySelector('.secRoot'), type = el.querySelector('.secType');
     root.value = sec.key ? String(sec.key.root) : '';
@@ -3406,17 +3438,20 @@ function scRenderChips() {
     type.disabled = !sec.key;
     el.querySelector('.addRoot').innerHTML = NOTE_NAMES.map((nm, i) => '<option value="' + i + '">' + noteNameIn(sec.key, i) + '</option>').join('');
     el.querySelector('.addQ').innerHTML = CHORDS.map(([suffix]) => '<option value="' + suffix + '">' + QUALITY[suffix] + '</option>').join('');
+    el.querySelector('.addBass').innerHTML = '<option value="">/ no bass</option>' +
+      NOTE_NAMES.map((nm, i) => '<option value="' + i + '">/ ' + noteNameIn(sec.key, i) + '</option>').join('');
     const commit = () => { scSaveSections(scEditId, scWorking); scRenderChips(); scApplyIfLoaded(); renderQueue(); };
     root.onchange = type.onchange = () => { const r = root.value;
       sec.key = r === '' ? null : { root: +r, minor: type.value === 'minor' }; commit(); };
     el.querySelector('.secDel').onclick = () => { secs.splice(si, 1); commit(); };
     el.querySelector('.addBtn').onclick = () => {
       const pc = +el.querySelector('.addRoot').value, q = el.querySelector('.addQ').value;
-      if (!sec.chords.some(c => c.pc === pc && c.q === q)) { sec.chords.push({ pc, q }); commit(); } };
+      const bv = el.querySelector('.addBass').value, bass = bv === '' ? null : +bv;
+      if (!sec.chords.some(c => c.pc === pc && c.q === q && (c.bass ?? null) === bass)) { sec.chords.push(bass === null ? { pc, q } : { pc, q, bass }); commit(); } };
     const chips = el.querySelector('.scChips');
     (sec.chords || []).forEach((c, ci) => { const chip = document.createElement('span'); chip.className = 'scChip';
       chip.innerHTML = '<span></span><button aria-label="Remove chord">×</button>';
-      chip.firstElementChild.textContent = noteNameIn(sec.key, c.pc) + (c.q || '');
+      chip.firstElementChild.textContent = noteNameIn(sec.key, c.pc) + (c.q || '') + (c.bass === undefined || c.bass === null ? '' : '/' + noteNameIn(sec.key, c.bass));
       chip.lastElementChild.onclick = () => { sec.chords.splice(ci, 1); commit(); };
       chips.appendChild(chip); });
     box.appendChild(el);
@@ -3516,6 +3551,8 @@ function applyGain(key) { let v = (S[key + 'Muted'] || audioSilenced()) ? 0 : S[
   if (ducked && (key === 'piano' || key === 'song')) v *= 1 - (S.speakDuck || 0) / 100;   // speaking a chord name: pull the music down under it   // another device holds the sound: this one stays silent, without disturbing its own volume settings
   if (key === 'piano' && master) master.gain.value = v; if (key === 'song' && songGain) songGain.gain.value = v; if (key === 'metro' && metroGain) metroGain.gain.value = v; }
 function syncMetroVolIcon() { $('metroVolBtn').classList.toggle('muted', S.metroMuted); }   // the always-visible metronome icon in the main row swaps to a mute glyph whenever the metronome is muted, mirroring its popover's own mute button
+(() => { const c = $('followKeys'); if (!c) return; c.checked = !!S.followKeys;
+  c.onchange = e => { S.followKeys = e.target.checked; save(); }; })();
 (() => { const c = $('fitKey'); if (!c) return; c.checked = !!S.fitKey;
   c.onchange = e => { S.fitKey = e.target.checked; save();
     if (song) { markChords(song, { root: S.root, minor: S.scaleType === 'minor' }, loadSongChords(currentId)); lastChords = ''; updateChords(); drawArr(); renderKeys(); } }; })();
