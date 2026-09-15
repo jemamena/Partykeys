@@ -182,6 +182,12 @@ body.keysGoneFull .arr.arrHidden{display:flex!important}
 .scSec .scAdd{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .scSec .scAdd select{flex:1;min-width:90px}
 .scNoKey{opacity:.85;border-style:dashed}
+.qnamewrap{flex:1;min-width:0;cursor:pointer}
+.qScales{font-size:11px;color:var(--accent);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qScales:empty{display:none}
+.scWarn{margin-top:8px;padding:8px 10px;border:1px solid var(--bad);border-radius:8px;background:rgba(212,72,63,.12);font-size:12.5px}
+.scWarn .scWarnBtns{display:flex;gap:8px;margin-top:8px}
+.scWarn .scWarnBtns button{flex:1;min-height:34px}
 .scSec.scSaved{background:var(--surface);padding:8px 10px}
 .scSec.scSaved .scHead{margin-bottom:4px}
 .scSec.scSaved .scTitle{flex:1;min-width:0;font-size:13px;letter-spacing:.02em}
@@ -822,7 +828,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '79 · 2026-09-15 · chords-panel-flow';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '81 · 2026-09-15 · scales-on-row';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -3085,7 +3091,7 @@ function applySongChordSettings() {   // re-derive the key + chord reading for t
   if (!song) return;
   // A key you wrote into the chord list outranks the app's own detection. Otherwise the detected key — guessed from
   // the raw notes, and for this song "C minor" — kept being re-applied over the top and fighting the follow.
-  const key = song.customKey || firstSectionKey(currentId) || song.keySig || (song.notes.length ? detectKey(song) : null);
+  const key = firstSectionKey(currentId) || song.customKey || song.keySig || (song.notes.length ? detectKey(song) : null);
   markChords(song, key, song.customChords); applySongKey(song, key); renderKeys(); drawArr();
 }
 const idb = () => new Promise((res, rej) => { const r = indexedDB.open('partykeys', 1); r.onupgradeneeded = () => r.result.createObjectStore('songs', { keyPath: 'id' }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
@@ -3429,15 +3435,17 @@ $('cuesToggleBtnFull').onclick = () => { cuesRowOpen = !cuesRowOpen; syncCuesRow
 function renderQueue() {
   const q = $('queue'); q.innerHTML = ''; $('queueEmpty').hidden = queue.length > 0;
   queue.forEach(s => { const el = document.createElement('div'); el.className = 'qitem' + (s.id === currentId ? ' cur' : ''); el.dataset.id = s.id;
-    el.innerHTML = '<div class="grip" aria-label="Drag to reorder">⋮⋮</div><div class="qname"></div>'
-      + '<button class="qBadge qKeyBadge" aria-label="A custom key is set for this song" title="Custom key set (not auto-detected)" hidden><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 12h9M17 12v4M20 12v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>'
+    el.innerHTML = '<div class="grip" aria-label="Drag to reorder">⋮⋮</div><div class="qnamewrap"><div class="qname"></div><div class="qScales"></div></div>'
       + '<button class="qBadge qChordsBadge" aria-label="This song has a custom chord list" title="Custom chord list set" hidden><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="5" cy="15" r="2" fill="currentColor"/><circle cx="12" cy="10" r="2" fill="currentColor"/><circle cx="19" cy="13" r="2" fill="currentColor"/></svg></button>'
-      + '<button class="qchords" aria-label="Chords &amp; key" title="Chords &amp; key">♪</button><button class="qdel" aria-label="Remove">✕</button>';
+      + '<button class="qchords" aria-label="Scales &amp; chords" title="Scales &amp; chords">♪</button><button class="qdel" aria-label="Remove">✕</button>';
     el.querySelector('.qname').textContent = s.name;
-    el.querySelector('.qname').onclick = () => { loadSong(s); closeSheet(); };
-    const keyBadge = el.querySelector('.qKeyBadge'), chordsBadge = el.querySelector('.qChordsBadge');
-    keyBadge.hidden = !loadSongKey(s.id); chordsBadge.hidden = loadSongChords(s.id).length === 0;
-    keyBadge.onclick = chordsBadge.onclick = () => openSongChords(s);
+    el.querySelector('.qnamewrap').onclick = () => { loadSong(s); closeSheet(); };
+    const chordsBadge = el.querySelector('.qChordsBadge');
+    const secs = scSections(s.id), scaleNames = secs.map(x => x.key).filter(Boolean).map(keyLabel);
+    el.querySelector('.qScales').textContent = scaleNames.join(' · ');   // the song's scales, right there on the row — no hovering, no opening anything
+    chordsBadge.hidden = !secs.some(x => (x.chords || []).length);
+    chordsBadge.title = scaleNames.length ? 'Chords set — ' + scaleNames.join(', ') : 'Chords set for this song';   // the badge already says there's a chord list; hovering says which scales it covers
+    chordsBadge.onclick = () => openSongChords(s);
     el.querySelector('.qchords').onclick = () => openSongChords(s);
     el.querySelector('.qdel').onclick = () => { queue = queue.filter(x => x.id !== s.id); qSaveAll(); renderQueue(); cloudDeleteSong(s.id); };
     q.appendChild(el); });
@@ -3464,6 +3472,15 @@ function flatChords(secs) {   // every chord across every section, each remember
   return out;
 }
 function keyLabel(k) { return !k ? 'No scale' : ((k.sp || noteNameIn(k, k.root)).replace(/([A-G])b/, '$1♭').replace(/([A-G])#/, '$1♯')) + ' ' + SCALES[scaleTypeOf(k)][0]; }
+let scPending = null;   // a chord that leaves its scale, waiting on "add it anyway"
+function outOfScaleNotes(c, key) {   // which of a chord's notes fall outside the scale it is being filed under
+  if (!key) return [];   // a "No scale" section has nothing to be outside of
+  const inScaleSet = new Set(scaleArrOf(key).map(d => (d + key.root) % 12));
+  const tpl = (CHORDS.find(x => x[0] === c.q) || ['', [0, 4, 7]])[1];
+  const pcs = tpl.map(i => (c.pc + i) % 12);
+  if (c.bass !== undefined && c.bass !== null) pcs.push(c.bass % 12);
+  return [...new Set(pcs)].filter(p => !inScaleSet.has(p)).map(p => noteNameIn(key, p).replace(/([A-G])b/, '$1♭').replace(/([A-G])#/, '$1♯'));
+}
 function chordLabel(c, key) {   // the chord exactly as it was written — its own spelling wins over anything derived from the scale
   const r = c.sp || noteNameIn(key, c.pc);
   const b = c.bass === undefined || c.bass === null ? '' : '/' + (c.bsp || noteNameIn(key, c.bass));
@@ -3518,14 +3535,29 @@ function scRenderChips() {
       sec.key = r === '' ? null : { root: spellPc(r), sp: r, type: type.value };   // the spelling you picked is kept, so an E♭ section stays E♭ rather than being re-derived
       scSaveSections(scEditId, scWorking); scRenderChips(); scApplyIfLoaded(); };
     el.querySelector('.secDel').onclick = () => { secs.splice(si, 1); scEditingIdx = null; commit(); };
-    el.querySelector('.secSave').onclick = () => { scEditingIdx = null; commit(); };
+    el.querySelector('.secSave').onclick = () => { scEditingIdx = null; scPending = null; commit(); };
+    const addChord = entry => { sec.chords.push(entry); scPending = null;
+      scSaveSections(scEditId, scWorking); scRenderChips(); scApplyIfLoaded(); renderQueue(); };
     el.querySelector('.addBtn').onclick = () => {
       const sp = el.querySelector('.addRoot').value, pc = spellPc(sp), q = el.querySelector('.addQ').value;
       const bsp = el.querySelector('.addBass').value, bass = bsp === '' ? null : spellPc(bsp);
       if (pc === null) return;
-      if (!sec.chords.some(c => c.pc === pc && c.q === q && (c.bass ?? null) === bass)) {
-        const entry = { pc, q, sp }; if (bass !== null) { entry.bass = bass; entry.bsp = bsp; }
-        sec.chords.push(entry); scSaveSections(scEditId, scWorking); scRenderChips(); scApplyIfLoaded(); renderQueue(); } };
+      if (sec.chords.some(c => c.pc === pc && c.q === q && (c.bass ?? null) === bass)) return;   // already in this scale's list
+      const entry = { pc, q, sp }; if (bass !== null) { entry.bass = bass; entry.bsp = bsp; }
+      // Does every note of this chord actually belong to the scale? A chord that steps outside is often deliberate —
+      // a secondary dominant, a borrowed chord — so this asks rather than refuses, and names the notes that don't fit.
+      const outs = outOfScaleNotes(entry, sec.key);
+      if (outs.length) { scPending = { si, entry, outs }; scRenderChips(); return; }
+      addChord(entry); };
+    if (scPending && scPending.si === si) {
+      const w = document.createElement('div'); w.className = 'scWarn';
+      w.innerHTML = '<div></div><div class="scWarnBtns"><button class="warnAdd primary">Add it anyway</button><button class="warnNo">Cancel</button></div>';
+      w.firstElementChild.textContent = chordLabel(scPending.entry, sec.key) + ' is not in ' + keyLabel(sec.key) +
+        ' — ' + scPending.outs.join(', ') + (scPending.outs.length > 1 ? ' are' : ' is') + ' outside the scale.';
+      w.querySelector('.warnAdd').onclick = () => addChord(scPending.entry);
+      w.querySelector('.warnNo').onclick = () => { scPending = null; scRenderChips(); };
+      el.insertBefore(w, el.querySelector('.scChips'));
+    }
     const chips = el.querySelector('.scChips');
     (sec.chords || []).forEach((c, ci) => { const chip = document.createElement('span'); chip.className = 'scChip';
       chip.innerHTML = '<span></span><button aria-label="Remove chord">×</button>';
@@ -3536,7 +3568,7 @@ function scRenderChips() {
   });
 }
 function scApplyIfLoaded() { if (song && currentId === scEditId) { song.customChords = loadSongChords(scEditId); song.customKey = loadSongKey(scEditId); applySongChordSettings(); } }
-function openSongChords(s) { scEditId = s.id; scWorking = scSections(s.id); scEditingIdx = null;
+function openSongChords(s) { scEditId = s.id; scWorking = scSections(s.id); scEditingIdx = null; scPending = null;
   $('scSongName').textContent = s.name;
   const key = loadSongKey(s.id);
   scRenderChips();
@@ -3561,7 +3593,7 @@ $('scAddSection').onclick = () => { if (!scEditId) return;
 function loadSong(s, quiet) {
   try { stop(); song = parseMidi(s.data); posBeats = 0; lastNow = '—'; lastChords = ''; markerLoopOn = false; loopMarkers = [];
     song.customKey = loadSongKey(s.id); song.customChords = loadSongChords(s.id);
-    const key = song.customKey || firstSectionKey(s.id) || song.keySig || (song.notes.length ? detectKey(song) : null);   // detect the key first so chord naming can use it to break ties — unless this song has a key of its own, either set outright or written into its chord list
+    const key = firstSectionKey(s.id) || song.customKey || song.keySig || (song.notes.length ? detectKey(song) : null);   // detect the key first so chord naming can use it to break ties — unless this song has a key of its own, either set outright or written into its chord list
     markChords(song, key, song.customChords); currentId = s.id; S.currentSong = s.id; song.markers = loadMarkers(s.id);
     $('fileName').textContent = s.name.replace(/[_]+/g, ' ');
     setBpm(60 / fileSpbAt(song, 0), true); if (song.sig) { S.sig = Math.min(7, Math.max(2, song.sig)); $('sig').value = S.sig; buildDots(); } save(); applySongKey(song, key);
