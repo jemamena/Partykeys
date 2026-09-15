@@ -48,6 +48,16 @@ h1 span{color:var(--accent)}
 #volBtnFull{display:none;padding:0;flex:none;aspect-ratio:1/1;height:auto;width:auto}
 body.kbfull #volBtnFull{display:block}
 .sub{font-size:12px;color:var(--muted)}
+/* the long explanations live behind an ⓘ — one open at a time, and closable */
+.infoBtn{width:22px;height:22px;min-height:0;padding:0;flex:none;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--line);color:var(--muted);vertical-align:middle}
+.infoBtn .ico{width:14px;height:14px}
+.infoBtn[aria-expanded="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+h2 .infoBtn{margin-left:8px;position:relative;top:-1px}
+.explainRow{display:flex;align-items:center;gap:8px}
+.explainRow>label{flex:0 1 auto;min-width:0}
+.sub.explain{position:relative;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:9px 32px 9px 11px;line-height:1.45}
+.sub.explain[hidden]{display:none}
+.exClose{position:absolute;top:3px;right:3px;width:24px;height:24px;min-height:0;padding:0;border-radius:4px;background:transparent;border:0;color:var(--muted);font-size:13px;line-height:1}
 .scrim{position:fixed;inset:0;background:rgba(8,6,12,.55);z-index:20}
 .sheet{position:fixed;left:0;right:0;top:0;max-height:92dvh;background:var(--bg);border:1px solid var(--line);border-top:0;border-radius:0 0 4px 4px;z-index:21;display:flex;flex-direction:column;max-width:560px;margin:0 auto;box-shadow:0 12px 40px rgba(0,0,0,.35)}
 .circleOverlay{position:fixed;inset:0;background:var(--bg);z-index:25;display:flex;flex-direction:column;padding:max(12px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
@@ -209,16 +219,13 @@ body.keysGoneFull .arr.arrHidden{display:flex!important}
 .chord b{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
 #chordNow b{color:var(--text)}
 #chordNext b{color:var(--text)}
-/* metronome-style countdown to the next chord: one tick per beat, going out 4-3-2-1 as it lands */
-.cdticks{position:absolute;left:0;right:0;bottom:3px;display:flex;gap:5px;justify-content:center;align-items:center;pointer-events:none}
+/* metronome-style countdown to the next chord: one tick per beat, going out 4-3-2-1 as it lands. Silent — it only shows. */
+.cdticks{display:flex;gap:4px;align-items:center;align-self:center;flex:none;pointer-events:none}
 .cdticks:empty{display:none}
-.cdticks i{width:10px;height:10px;border-radius:2px;background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);transition:background-color .08s,transform .08s}
+.cdticks i{width:9px;height:9px;border-radius:2px;background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);transition:background-color .08s,transform .08s}
 .cdticks i.on{background:var(--accent);box-shadow:none}
 .cdticks i.now{transform:scale(1.3)}
-.chord.counting{padding-bottom:17px}
-body.kbfull .cdticks i{width:8px;height:8px}
-body.kbfull .cdticks{bottom:2px}
-body.kbfull .chord.counting{padding-bottom:13px}
+body.kbfull .cdticks i{width:7px;height:7px}
 .arr{width:100%;height:110px;flex:none;display:block;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);touch-action:none}
 .arr.arrHidden{display:none}
 .arrResize{flex:none;height:12px;margin:-3px 0;cursor:row-resize;position:relative;touch-action:none;z-index:2}
@@ -701,12 +708,12 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
       <div class="sub" id="audioStatus" style="margin:2px 0 10px">Every device makes its own sound</div>
       
       <h2>Chord naming</h2>
-      <label class="check"><input type="checkbox" id="followKeys" checked> Follow the song's own keys as it plays</label>
-      <div class="sub" style="margin:2px 0 10px">When a song's chords are grouped by key, the app moves to whichever of <i>those</i> keys the chord being played belongs to — so a song that modulates takes the scale colouring and the note spelling with it. Only the keys you filled in for that song are ever used.</div>
-      <label class="check"><input type="checkbox" id="fitKey" checked> Keep chord names inside the song's key</label>
-      <div class="sub" style="margin:2px 0 14px">On: every chord is called as the nearest of the key's own seven, so an F triad over an E bass reads <b>F/E</b> rather than <b>Fmaj7/E</b> — simpler to read, at the cost of the extension. Off: the most literally accurate name, extensions and all. Note spelling follows the key either way (E♭ in flat keys, D♯ in sharp ones).</div>
-      <h2>Spoken chord names</h2>
-      <div class="sub" style="margin:-8px 0 8px">The 🗣 button in the scale bar switches this on. While a song plays it calls the chord that's <i>coming</i>, as its look-ahead bar lights up, so there's time to move your hands.</div>
+      <div class="explainRow"><label class="check"><input type="checkbox" id="followKeys" checked> Follow the song's own keys as it plays</label><button type="button" class="infoBtn" data-explain="exFollow" aria-expanded="false" aria-label="What this does" title="What this does"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="11" x2="12" y2="16.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.3" r="1.2" fill="currentColor"/></svg></button></div>
+      <div class="sub explain" id="exFollow" hidden style="margin:2px 0 10px">When a song's chords are grouped by key, the app moves to whichever of <i>those</i> keys the chord being played belongs to — so a song that modulates takes the scale colouring and the note spelling with it. Only the keys you filled in for that song are ever used.<button type="button" class="exClose" aria-label="Close">✕</button></div>
+      <div class="explainRow"><label class="check"><input type="checkbox" id="fitKey" checked> Keep chord names inside the song's key</label><button type="button" class="infoBtn" data-explain="exFitKey" aria-expanded="false" aria-label="What this does" title="What this does"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="11" x2="12" y2="16.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.3" r="1.2" fill="currentColor"/></svg></button></div>
+      <div class="sub explain" id="exFitKey" hidden style="margin:2px 0 14px">On: every chord is called as the nearest of the key's own seven, so an F triad over an E bass reads <b>F/E</b> rather than <b>Fmaj7/E</b> — simpler to read, at the cost of the extension. Off: the most literally accurate name, extensions and all. Note spelling follows the key either way (E♭ in flat keys, D♯ in sharp ones).<button type="button" class="exClose" aria-label="Close">✕</button></div>
+      <h2>Spoken chord names<button type="button" class="infoBtn" data-explain="exSpeak" aria-expanded="false" aria-label="What this does" title="What this does"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="11" x2="12" y2="16.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.3" r="1.2" fill="currentColor"/></svg></button></h2>
+      <div class="sub explain" id="exSpeak" hidden style="margin:-4px 0 8px">The 🗣 button in the scale bar switches this on. While a song plays it calls the chord that's <i>coming</i>, as its look-ahead bar lights up, so there's time to move your hands.<button type="button" class="exClose" aria-label="Close">✕</button></div>
       <div class="row" style="margin-bottom:14px;align-items:center;gap:8px">
         <span class="sub" style="flex:none">Duck the music while it speaks</span>
         <input type="range" id="speakDuck" min="0" max="90" value="45" aria-label="How much to lower the song and keys while a chord name is spoken" style="flex:1">
@@ -765,14 +772,14 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
     </section>
 
     <section class="panel" data-sheet="play">
-      <h2>Note colours</h2>
+      <h2>Note colours<button type="button" class="infoBtn" data-explain="exColours" aria-expanded="false" aria-label="What this does" title="What this does"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="11" x2="12" y2="16.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.3" r="1.2" fill="currentColor"/></svg></button></h2>
+      <div class="sub explain" id="exColours" hidden style="margin:-4px 0 10px">Red is reserved: a chord note that isn't in the scale shows in red. Each key has its own fixed rainbow colour (starting from C), so it's not in this list — if "now" or "next" ever matches it, that swatch shows grey until you pick something else.<button type="button" class="exClose" aria-label="Close">✕</button></div>
       <div class="sub" style="margin-bottom:8px">Playing now</div>
       <div class="swatches" id="noteSw"></div>
       <div class="sub clashNote" id="noteClashNote" hidden>Same as the current scale colour — showing grey until you pick another one</div>
       <div class="sub" style="margin:14px 0 8px">Coming next</div>
       <div class="swatches" id="nextSw"></div>
       <div class="sub clashNote" id="nextClashNote" hidden>Same as the current scale colour — showing grey until you pick another one</div>
-      <div class="sub" style="margin-top:10px">Red is reserved: a chord note that isn't in the scale shows in red. Each key has its own fixed rainbow colour (starting from C), so it's not in this list — if "now" or "next" ever matches it, that swatch shows grey until you pick something else.</div>
     </section>
 
     <section class="panel" data-sheet="play">
@@ -795,14 +802,14 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 
 
     <section class="panel" data-sheet="play" id="lightsPanel">
-      <h2>Lights</h2>
+      <h2>Lights<button type="button" class="infoBtn" data-explain="exLights" aria-expanded="false" aria-label="What this does" title="What this does"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="11" x2="12" y2="16.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.3" r="1.2" fill="currentColor"/></svg></button></h2>
+      <div class="sub explain" id="exLights" hidden style="margin:-4px 0 10px">The keyboard's LEDs lag ~150–250 ms behind MIDI. Delay compensation makes the lights fire that much earlier than the sound.<button type="button" class="exClose" aria-label="Close">✕</button></div>
       <div class="row">
         <label class="field">LED brightness
           <input type="range" id="bright" min="10" max="100" value="100" style="margin-top:4px"></label>
         <label class="field">Light delay compensation (ms)
           <input type="range" id="lag" min="0" max="400" value="0" style="margin-top:4px"></label>
       </div>
-      <div class="sub" style="margin-top:6px">The keyboard's LEDs lag ~150–250 ms behind MIDI. Delay compensation makes the lights fire that much earlier than the sound.</div>
     </section>
 
     <section class="panel panel-playlist" data-sheet="playlist">
@@ -813,15 +820,14 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
     </section>
 
     <section class="panel" data-sheet="songchords">
-      <h2>Chords — <span id="scSongName"></span></h2>
-      <div class="sub" style="margin:-6px 0 4px">Add the scales this song moves through and the chords that belong to each. With none added, the song is read freely as before.</div>
+      <h2>Chords — <span id="scSongName"></span><button type="button" class="infoBtn" data-explain="exSongChords" aria-expanded="false" aria-label="What this does" title="What this does"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="11" x2="12" y2="16.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.3" r="1.2" fill="currentColor"/></svg></button></h2>
+      <div class="sub explain" id="exSongChords" hidden style="margin:-4px 0 4px">Add the scales this song moves through and the chords that belong to each. With none added, the song is read freely as before. Once you add chords here, the app will only ever pick from this list for this song — whichever one fits closest to what's playing.<button type="button" class="exClose" aria-label="Close">✕</button></div>
       <select id="scKeyRoot" hidden></select><select id="scKeyType" hidden></select>
       <div id="scSections" style="margin-top:14px"></div>
       <button id="scAddSection" class="primary" style="width:100%;margin-top:10px">+ Add a scale</button>
       <div class="row" id="scChordList" hidden></div>
       <select id="scChordRoot" hidden></select><select id="scChordQ" hidden></select><button id="scChordAdd" hidden></button>
       <div class="sub" id="scChordEmpty">No chords added yet — the app picks chords freely, like normal.</div>
-      <div class="sub" style="margin-top:6px">Once you add chords here, the app will only ever pick from this list for this song — whichever one fits closest to what's playing.</div>
     </section>
 
     <section class="panel" data-sheet="log">
@@ -838,7 +844,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '82 · 2026-09-15 · chord-countdown';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '84 · 2026-09-15 · info-buttons';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1783,7 +1789,7 @@ function chordName(notes, ctx) {   // notes: array of midi numbers -> chord name
       const extra = pcs.filter(p => !full.includes(p) && p !== bass).length;   // played notes outside the chord — but the bass doesn't count, because a slash name accounts for it (that is what makes E+F A C read as F/E rather than Fmaj7/E)
       let score = missing + extra;
       if (wantBass !== null) score += bass === wantBass ? -2 : 1.5;   // a written slash chord only really fits when its own bass note is the one being played. The bonus has to clear the hold threshold below, or A would never give way to A/G# — the two differ by one note, in the bass, and that is the whole point of writing them separately.
-      else if (a.pc === bass) score -= 0.5;   // this chord's own root sits in the bass — a good sign it's the right one
+      else if (a.pc === bass) score -= (ctx.clearBass ? 1.5 : 0.5);   // this chord's own root sits in the bass — a good sign it's the right one, and a bass note well below the rest is close to proof
       const nn = p => a.key !== undefined ? noteNameIn(a.key, p) : NOTE_NAMES[p];   // a sectioned shortlist spells each chord in the key it was written under
       const rootSp = a.sp || nn(a.pc), bassSp = p => (a.bsp && p === wantBass) ? a.bsp : nn(p);   // ...and an explicitly written ♯/♭ beats anything derived
       // A hand-written list shows EXACTLY the names in it. The automatic "/bass" suffix belongs to the key-derived
@@ -1814,10 +1820,10 @@ function chordName(notes, ctx) {   // notes: array of midi numbers -> chord name
   for (const [suffix, tpl] of CHORDS) { if (tpl.length > pcs.length || tpl.length < 3) continue;
     for (const root of pcs) { const set = tpl.map(i => (root + i) % 12); if (!set.every(p => pcs.includes(p))) continue;
       // prefer: covers all the notes, larger chords, root in the bass, plain triads over exotic names
-      let score = (pcs.length - tpl.length) * 3 + (root === bass ? 0 : 1) + (suffix === '' || suffix === 'm' ? 0 : 0.5) - tpl.length * 0.1;
+      let score = (pcs.length - tpl.length) * 3 + (root === bass ? 0 : (ctx && ctx.clearBass ? 2 : 1)) + (suffix === '' || suffix === 'm' ? 0 : 0.5) - tpl.length * 0.1;   // the bass line names the root: when it is clearly the bass, reading the chord off some other root has to be worth a lot more
       if (ctx && ctx.scale && set.every(p => ctx.scale.has(p))) score -= 1.5;   // every note of the chord is diatonic to the detected/chosen key
       if (ctx && ctx.diatonic && ctx.diatonic.some(d => d.pc === root && d.q === (SIMPLE[suffix] ?? suffix))) score -= 1.2;   // this is literally one of the key's I/ii/iii/IV/V/vi/vii chords, not just coincidentally in-scale
-      if (prev && prev.root === NOTE_NAMES[root] && prev.q === suffix) score -= 0.6;   // same reading as the chord just shown — don't flicker off it without a good reason
+      if (prev && prev.root === NOTE_NAMES[root] && prev.q === suffix) score -= (ctx && ctx.rolled ? 1.8 : 0.6);   // same reading as the chord just shown — don't flicker off it without a good reason, and least of all when this reading only came together by looking ahead into notes that may belong to the next chord
       if (!best || score < best.score) best = { name: NOTE_NAMES[root] + suffix + (bass !== root && set.includes(bass) ? '/' + NOTE_NAMES[bass] : ''), score, extra: pcs.length - tpl.length }; } }
   if (best && best.extra <= 2) return best.name;
   // no clean reading (extra notes left over, likely ornaments the caller didn't manage to strip) — hold the previous chord
@@ -1875,15 +1881,45 @@ function markChords(song, key, allowedChords) {
     ? (Array.isArray(allowedChords[0] && allowedChords[0].chords) ? flatChords(allowedChords) : allowedChords)
     : keyChords;   // sectioned ("key => chords") or the older flat list — both end up as one candidate set
   let i = 0; const ns = song.notes; song.groups = []; let prev = null;
-  while (i < ns.length) { let j = i; while (j < ns.length && ns[j].b0 <= ns[i].b0 + 0.06) j++;
-    const grp = ns.slice(i, j);
+  const EPS = 0.06, ROLL = 1;   // ROLL: how long a chord is allowed to take to arrive, in beats
+  while (i < ns.length) { let j = i; while (j < ns.length && ns[j].b0 <= ns[i].b0 + EPS) j++;
+    const grp = ns.slice(i, j), t = ns[i].b0;
     // grace notes / passing-tone adornments are much shorter than the chord they decorate — drop them from the
     // fingerprint used to name the chord (they still get coloured normally; they just don't get to pick the name)
     const durs = grp.map(n => n.b1 - n.b0).sort((a, b) => a - b), med = durs[Math.floor(durs.length / 2)] || 0;
     const core = grp.filter(n => (n.b1 - n.b0) >= 0.12 || (n.b1 - n.b0) >= med * 0.5);
-    const fingerprint = core.length >= 2 ? core : grp;
-    const name = chordName(fingerprint.map(n => n.n), song.chordCtx = { scale, diatonic, prev, allowed, fromKey: allowed === keyChords }); if (name) prev = name;
-    for (const n of grp) { n.chord = !!name; n.gname = name; } song.groups.push({ b0: ns[i].b0, name, notes: grp.map(n => n.n) }); i = j; }
+    // A chord is hardly ever struck all at once. The bass lands first and is held, the rest rolls in, notes ring on
+    // from the beat before. So the fingerprint is everything SOUNDING at this moment, not just what starts here —
+    // which also means the held bass note is in it, and it is the bass that says what the root is.
+    const held = ns.filter(n => n.b0 < t - EPS && n.b1 > t + EPS && (n.b1 - n.b0) >= 0.12);
+    let fingerprint = (core.length >= 2 ? core : grp).concat(held);
+    // Still not three different notes? Then the chord is being spread out — an arpeggio, a broken left hand — so
+    // look a little way ahead and let the rest of it count, instead of naming each note as it goes by.
+    const pcsOf = a => new Set(a.map(n => n.n % 12)).size;
+    let rolled = false;
+    if (pcsOf(fingerprint) < 3) { const roll = []; 
+      for (let k = j; k < ns.length && ns[k].b0 <= t + ROLL; k++) { if ((ns[k].b1 - ns[k].b0) >= 0.12) roll.push(ns[k]);
+        if (pcsOf(fingerprint.concat(roll)) >= 3) break; }   // stop as soon as there is a chord's worth — don't drag the one after it in too
+      if (pcsOf(fingerprint.concat(roll)) >= 3) { fingerprint = fingerprint.concat(roll); rolled = true; } }
+    // A bass note sitting well below everything else is a real bass line, not just the lowest voice of a cluster:
+    // tell chordName so it can trust it for the root rather than merely nudging towards it.
+    const sorted = [...new Set(fingerprint.map(n => n.n))].sort((a, b) => a - b);
+    const clearBass = sorted.length > 1 && sorted[1] - sorted[0] >= 5;
+    let name = chordName(fingerprint.map(n => n.n), song.chordCtx = { scale, diatonic, prev, allowed, clearBass, rolled, fromKey: allowed === keyChords });
+    if (!name && prev && pcsOf(fingerprint) < 3) name = prev;   // one or two notes on their own never rename the chord
+    if (name) prev = name;
+    for (const n of grp) { n.chord = !!name; n.gname = name; } song.groups.push({ b0: t, name, notes: grp.map(n => n.n), _ns: grp }); i = j; }
+  // Last pass: smooth the flickers. Two things pass through a chord without changing it — a reading that appears
+  // briefly between two identical neighbours (a suspension resolving, a note held over), and a short-lived inversion
+  // of the chord already playing (a walking bass, a rolled left hand). Neither is the harmony moving, so neither
+  // should make the label jump. Anything that lasts, or that genuinely goes somewhere else, is left alone.
+  const baseOf = n => (n || '').split('/')[0];
+  for (let k = 1; k < song.groups.length; k++) { const g = song.groups[k], a = song.groups[k - 1], b = song.groups[k + 1];
+    if (!g.name || !a.name || g.name === a.name) continue;
+    const span = (b ? b.b0 : song.durBeats || g.b0 + 1) - g.b0;
+    const sandwiched = b && a.name === b.name && span < 1.5, passingInversion = baseOf(g.name) === baseOf(a.name) && span <= 1;
+    if (sandwiched || passingInversion) { g.name = a.name; for (const n of g._ns) { n.chord = true; n.gname = a.name; } } }
+  for (const g of song.groups) delete g._ns;
 }
 const SIMPLE = { '':'', '5':'', '7':'', 'maj7':'', '6':'', 'add9':'', '9':'', 'maj9':'', 'm':'m', 'm7':'m', 'mMaj7':'m', 'm6':'m', 'madd9':'m', 'm9':'m', 'dim':'dim', 'dim7':'dim', 'm7b5':'dim', 'aug':'aug', 'sus2':'sus2', 'sus4':'sus4', '7sus4':'sus4' };
 const QUALITY = { '':'major', '5':'power chord', '7':'dominant 7th', 'maj7':'major 7th', '6':'major 6th', 'add9':'add 9', '9':'dominant 9th', 'maj9':'major 9th', 'm':'minor', 'm7':'minor 7th', 'mMaj7':'minor-major 7th', 'm6':'minor 6th', 'madd9':'minor add 9', 'm9':'minor 9th', 'dim':'diminished', 'dim7':'diminished 7th', 'm7b5':'half-diminished', 'aug':'augmented', 'sus2':'suspended 2nd', 'sus4':'suspended 4th', '7sus4':'7 suspended 4th' };
@@ -2759,10 +2795,27 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 const TITLES = { play:'Settings', log:'Log', playlist:'Playlist' };
 function openSheet(name) { document.querySelectorAll('.sheet .panel').forEach(p => p.hidden = p.dataset.sheet !== name); $('sheet').querySelector('.sheetbody').scrollTop = 0;
   $('sheet').hidden = false; $('scrim').hidden = false; [...$('menu').children].forEach(b => b.classList.toggle('primary', b.dataset.sheet === name)); }
-function closeSheet() { $('sheet').hidden = true; $('scrim').hidden = true; [...$('menu').children].forEach(b => b.classList.remove('primary')); }
+function closeSheet() { closeExplains(); $('sheet').hidden = true; $('scrim').hidden = true; [...$('menu').children].forEach(b => b.classList.remove('primary')); }
 $('menu').addEventListener('click', e => { const b = e.target.closest('button'); if (b) openSheet(b.dataset.sheet); });
 $('settingsBtn').onclick = $('settingsBtnFull').onclick = () => openSheet('play');
 $('closeSheet').onclick = closeSheet; $('scrim').onclick = closeSheet;
+// The long explanations used to sit under every setting and push the real controls off the screen. They now live
+// behind the ⓘ next to whatever they explain: press it to read, press it again (or the ✕) to put it away. Only one
+// is open at a time, so opening a second never leaves the sheet full of text.
+function closeExplains(except) {
+  document.querySelectorAll('.sub.explain').forEach(x => { if (x !== except) x.hidden = true; });
+  document.querySelectorAll('.infoBtn').forEach(b => { if (!except || b.dataset.explain !== except.id) b.setAttribute('aria-expanded', 'false'); });
+}
+document.querySelectorAll('.infoBtn').forEach(b => { b.onclick = e => {
+  e.preventDefault(); e.stopPropagation();   // several of these sit inside a <label>, where a plain click would flip the checkbox
+  const t = $(b.dataset.explain); if (!t) return;
+  const opening = t.hidden; closeExplains(opening ? t : null);
+  t.hidden = !opening; b.setAttribute('aria-expanded', String(opening));
+  if (opening) t.scrollIntoView({ block: 'nearest' });
+}; });
+document.querySelectorAll('.exClose').forEach(b => { b.onclick = e => { e.preventDefault(); e.stopPropagation();
+  const box = b.closest('.explain'); if (box) { box.hidden = true;
+    const src = document.querySelector('.infoBtn[data-explain="' + box.id + '"]'); if (src) src.setAttribute('aria-expanded', 'false'); } }; });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 const FIFTHS_ORDER = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5];   // pitch classes around the circle of fifths, starting at C, clockwise, each a fifth above the last
 const KEY_SIGS = ['0', '1♯', '2♯', '3♯', '4♯', '5♯', '6♯/6♭', '5♭', '4♭', '3♭', '2♭', '1♭'];   // key signature, indexed by position around FIFTHS_ORDER
