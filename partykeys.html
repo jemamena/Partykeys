@@ -223,7 +223,9 @@ body.kbfull #playBtn{min-height:var(--playRowH,50px);font-size:17px}
 .muteBtn[aria-pressed="true"] .off{display:block}
 .playrow{display:flex;gap:6px}
 .playrowTransport,.playrowMarkers{display:contents}   /* default (desktop/normal mobile-portrait): the 2 groups are just flat items of .playrow, same single-row layout as before — the mobile media query below (and full-screen mode further down) turn them into real stacked rows */
-.markerBtnFull{display:block;padding:0;flex:none;aspect-ratio:1/1;height:auto;width:auto;font-weight:700;font-size:14px}   /* shown in both modes now — the play row is the only place these live */
+.markerBtnFull{display:block;padding:0;flex:none;aspect-ratio:1/1;height:auto;width:auto;font-weight:700;font-size:14px}
+.markerBtnFull.cueEmpty{opacity:.45;border-style:dashed}
+.markerBtnFull.cueHere{outline:2px solid var(--accent);outline-offset:-2px}   /* shown in both modes now — the play row is the only place these live */
 #markerLoopBtnFull{display:flex;align-items:center;justify-content:center}
 #markerLoopBtnFull .ico{width:16px;height:16px}
 #markerLoopBtnFull[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
@@ -650,6 +652,13 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
     <div class="sheetbody">
 
     <section class="panel" data-sheet="play">
+      <h2>Spoken chord names</h2>
+      <div class="sub" style="margin:-8px 0 8px">The 🗣 button in the scale bar switches this on. While a song plays it calls the chord that's <i>coming</i>, as its look-ahead bar lights up, so there's time to move your hands.</div>
+      <div class="row" style="margin-bottom:14px;align-items:center;gap:8px">
+        <span class="sub" style="flex:none">Duck the music while it speaks</span>
+        <input type="range" id="speakDuck" min="0" max="90" value="45" aria-label="How much to lower the song and keys while a chord name is spoken" style="flex:1">
+        <span class="mono" id="speakDuckVal">45</span><span class="sub" style="flex:none">%</span>
+      </div>
       <h2>MIDI connection</h2>
       <div class="row" style="margin-bottom:10px">
         <label class="field">Keyboard
@@ -800,7 +809,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '69 · 2026-09-15 · one-device-sounds';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '71 · 2026-09-15 · speak-next-duck';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -809,7 +818,7 @@ const logEl = $('log');
 const log = (...a) => { logEl.textContent = (a.join(' ') + '\n' + logEl.textContent).slice(0, 4000); };
 
 /* ---------- settings ---------- */
-const defaults = { sound:'grand', lookBeats:0.125, noteColor:'#ff3d8a', nextColor:'#ffc21a', scaleColor:'#2f7cff', scaleOn:false, showPlaying:true, showNext:true, root:0, scaleType:'major', bright:100, lag:0, fold:true, loop:false, bpm:120, sig:4, accentOn:true, startOct:3, countIn:false, metro:false, keysShown: matchMedia('(max-width: 699px)').matches ? 25 : 36, arrZoom:8, device:'partykeys', pianoVol:100, songVol:100, metroVol:80, pianoMuted:false, songMuted:false, metroMuted:false, transpose:0, currentSong:'', midiIn:'', midiOut:'', arrHeight:0, playRowH:0, showFingersL:false, showFingersR:false, goodChordSound:true, badNoteSound:true, progLock:false, speakChords:false, syncMode:false, midiEnabled:true, midiOutDaw:'', midiToDawEnabled:false };
+const defaults = { sound:'grand', lookBeats:0.125, noteColor:'#ff3d8a', nextColor:'#ffc21a', scaleColor:'#2f7cff', scaleOn:false, showPlaying:true, showNext:true, root:0, scaleType:'major', bright:100, lag:0, fold:true, loop:false, bpm:120, sig:4, accentOn:true, startOct:3, countIn:false, metro:false, keysShown: matchMedia('(max-width: 699px)').matches ? 25 : 36, arrZoom:8, device:'partykeys', pianoVol:100, songVol:100, metroVol:80, pianoMuted:false, songMuted:false, metroMuted:false, transpose:0, currentSong:'', midiIn:'', midiOut:'', arrHeight:0, playRowH:0, showFingersL:false, showFingersR:false, goodChordSound:true, badNoteSound:true, progLock:false, speakChords:false, speakDuck:45, syncMode:false, midiEnabled:true, midiOutDaw:'', midiToDawEnabled:false };
 let S = { ...defaults };
 let noteColorEff = defaults.noteColor, nextColorEff = defaults.nextColor;   // the actual on-screen "now"/"next" colour — falls back to grey whenever it collides with the current (fixed, rainbow) scale colour, as a "pick another one" flag
 try { Object.assign(S, JSON.parse(localStorage.getItem('pk-settings') || '{}')); } catch(e) {}
@@ -1771,14 +1780,36 @@ function speakableChord(name) {   // "C#m7" -> "C sharp minor 7th", so the speec
   const say = n => n.replace('#', ' sharp');
   return say(c.root) + ' ' + (QUALITY[c.q] || c.q || 'major') + (c.bass ? ' over ' + say(c.bass) : '');
 }
+let ducked = 0;   // how many utterances are in flight — the music stays down until the last one finishes
+function duckMusic(on) {
+  ducked = Math.max(0, ducked + (on ? 1 : -1));
+  ['piano', 'song'].forEach(applyGain);   // the metronome is left alone: it's the timekeeper, and it doesn't compete with speech the way the music does
+}
+function say(txt) {   // one place that speaks, so ducking and cancelling can't get out of step
+  if (!txt || !window.speechSynthesis) return;
+  try {
+    speechSynthesis.cancel(); if (ducked) { ducked = 0; ['piano', 'song'].forEach(applyGain); }   // a cancelled utterance never fires its 'end', so reset rather than leak a duck
+    const u = new SpeechSynthesisUtterance(txt); u.rate = 1.05;
+    u.onstart = () => duckMusic(true);
+    u.onend = u.onerror = () => duckMusic(false);
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
 function speakChordMaybe() {   // called after every redraw; the lastSpoken guard means it only speaks when the chord actually changes
   if (!S.speakChords || !window.speechSynthesis) return;
+  // While a song is running, what's useful is the chord that's COMING — announced as its lookahead bar lights up,
+  // so there's time to move your hands. The chord you're already playing is on screen in front of you.
+  if ((playing || stepMode) && S.showNext && nextName) {
+    const nxt = speakableChord(transposeName(nextName, S.transpose));
+    if (nxt && nxt !== lastSpoken) { lastSpoken = nxt; say(nxt); }
+    return;
+  }
   const showing = !$('chordInfo').hidden && lastNow;
   if (!showing) { lastSpoken = ''; return; }
   const txt = speakableChord(transposeName(lastNow, S.transpose));
   if (!txt || txt === lastSpoken) return;
   lastSpoken = txt;
-  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(txt); u.rate = 1.05; speechSynthesis.speak(u); } catch (e) {}
+  say(txt);
 }
 function splitChord(name) { const m = name.match(/^([A-G]#?)([^/]*)(?:\/([A-G]#?))?$/); return m ? { root: m[1], q: m[2], bass: m[3] || '' } : null; }
 function simpleName(name) { const c = splitChord(name); if (!c) return name; return c.root + (SIMPLE[c.q] ?? c.q); }
@@ -2187,9 +2218,11 @@ function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly 
   if (previewKeys.has(m) && previewKeys.get(m) < 0) return RED;   // chord note outside the scale
   if (previewKeys.has(m)) { const f = previewKeys.get(m); const col = hex2rgb(scaleChordSel ? ROOT_COLORS[S.root] : ((arrPreview || preview === 'now') ? noteColorEff : nextColorEff));
     const base = isDark() ? [200,200,200] : [232,232,232]; return blackLift(m, rgb2hex(col.map((v, j) => base[j] + (v - base[j]) * f))); }   // same fade for every key — black or white, it's just the colour showing through
-  if (pressed.has(m)) return noteColorEff;   // you're actually holding this key down
-  if (expected.has(m)) return rgb2hex(scale(hex2rgb(noteColorEff), 0.4));   // the song wants this next, but you haven't played it yet
-  if (soon.has(m)) { const f = soon.get(m); const base = isDark() ? [200,200,200] : [232,232,232]; return rgb2hex(hex2rgb(nextColorEff).map((v, j) => base[j] + (v - base[j]) * (0.15 + 0.55 * f))); }
+  // A dark colour on a black key is nearly invisible against the key itself, so the song's own note colours get the
+  // same lift the scale colours already had: black keys read a shade lighter, white keys are left exactly as they were.
+  if (pressed.has(m)) return blackLift(m, noteColorEff);   // you're actually holding this key down
+  if (expected.has(m)) return blackLift(m, rgb2hex(scale(hex2rgb(noteColorEff), 0.4)));   // the song wants this next, but you haven't played it yet
+  if (soon.has(m)) { const f = soon.get(m); const base = isDark() ? [200,200,200] : [232,232,232]; return blackLift(m, rgb2hex(hex2rgb(nextColorEff).map((v, j) => base[j] + (v - base[j]) * (0.15 + 0.55 * f)))); }
   const c = colors[m - BASE];
   if (c !== undefined && c !== OFF) return blackLift(m, (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.45 + (isDark() ? 60 : 150) * 0.55)));
   if (S.scaleOn && !inScale(m)) return OUT_OF_SCALE;   // not in the key: black, whether it's a white key or a black one
@@ -2258,14 +2291,24 @@ function drawArr() {
     if (la === null || !(lb > la) || lb < x0 || la > x0 + VIS) return;   // nothing to draw, or it's off screen
     const xa = Math.max(KW, bx(la)), xb = Math.min(W, bx(lb)), w = Math.max(0, xb - xa);
     const [lr, lg, lbl] = hex2rgb(cs.getPropertyValue('--accent').trim());
+    const startOn = bx(la) >= KW, endOn = bx(lb) <= W;
     g.fillStyle = `rgba(${lr},${lg},${lbl},${dark ? 0.09 : 0.13})`; g.fillRect(xa, RUL, w, H - RUL);   // the repeating stretch
-    g.fillStyle = `rgba(${lr},${lg},${lbl},0.9)`; g.fillRect(xa, 0, w, 3);                              // the loop bar itself
-    g.fillStyle = `rgb(${lr},${lg},${lbl})`;                                                            // end caps, only where the edge is really on screen
-    if (bx(la) >= KW) g.fillRect(xa, 0, 2.5, RUL);
-    if (bx(lb) <= W) g.fillRect(xb - 2.5, 0, 2.5, RUL);
+    // Live's loop brace: a bar along the top of the ruler with a short hook turning down at each end
+    const BAR = 3, HOOK = Math.min(9, RUL - 3);
+    g.fillStyle = `rgb(${lr},${lg},${lbl})`;
+    g.fillRect(xa, 0, w, BAR);
+    if (startOn) g.fillRect(xa, 0, BAR, HOOK);
+    if (endOn) g.fillRect(xb - BAR, 0, BAR, HOOK);
+    // the loop glyph itself — two arrows chasing each other, the same mark Live puts on its loop switch
+    if (w > 34) { const cy = RUL + 9, cx = xa + 11, rx = 6, ry = 4;
+      g.strokeStyle = `rgba(${lr},${lg},${lbl},0.95)`; g.lineWidth = 1.6; g.beginPath();
+      g.moveTo(cx - rx, cy); g.lineTo(cx + rx - 2, cy); g.stroke();                       // top run
+      g.beginPath(); g.moveTo(cx - rx + 2, cy + ry); g.lineTo(cx + rx, cy + ry); g.stroke();   // bottom run
+      g.beginPath(); g.moveTo(cx + rx - 4, cy - 3); g.lineTo(cx + rx - 1, cy); g.lineTo(cx + rx - 4, cy + 3); g.stroke();       // right arrow head
+      g.beginPath(); g.moveTo(cx - rx + 4, cy + ry + 3); g.lineTo(cx - rx + 1, cy + ry); g.lineTo(cx - rx + 4, cy + ry - 3); g.stroke(); }   // left arrow head
     g.strokeStyle = `rgba(${lr},${lg},${lbl},0.45)`; g.lineWidth = 1;                                   // edges, so the region reads even where the tint is faint
-    if (bx(la) >= KW) { g.beginPath(); g.moveTo(Math.round(xa) + .5, RUL); g.lineTo(Math.round(xa) + .5, H); g.stroke(); }
-    if (bx(lb) <= W) { g.beginPath(); g.moveTo(Math.round(xb) - .5, RUL); g.lineTo(Math.round(xb) - .5, H); g.stroke(); }
+    if (startOn) { g.beginPath(); g.moveTo(Math.round(xa) + .5, RUL); g.lineTo(Math.round(xa) + .5, H); g.stroke(); }
+    if (endOn) { g.beginPath(); g.moveTo(Math.round(xb) - .5, RUL); g.lineTo(Math.round(xb) - .5, H); g.stroke(); }
   })();
   // markers: tap the ruler strip to drop one, tap a flag to jump there, hold a flag to remove it — passed markers dim once the start line reaches them
   if (song && song.markers && song.markers.length) { const [ar, ag, ab] = hex2rgb(cs.getPropertyValue('--accent').trim());
@@ -2329,7 +2372,12 @@ function drawArr() {
 }
 const MARKER_BTNS = 6;
 function syncMarkerButtons() { const marks = (song && song.markers) || [];
-  for (let i = 0; i < MARKER_BTNS; i++) { const b = $('markerBtn' + i + 'Full'); b.disabled = i >= marks.length;
+  for (let i = 0; i < MARKER_BTNS; i++) { const b = $('markerBtn' + i + 'Full');
+    const empty = i >= marks.length;
+    b.disabled = !song || (markerLoopOn && empty) || (empty && i > marks.length);   // the next free slot stays live so a cue can be dropped on it; the ones past it don't
+    b.classList.toggle('cueEmpty', empty);
+    b.classList.toggle('cueHere', !empty && Math.abs(marks[i] - posBeats) < 0.02);   // sitting on this cue: pressing again removes it
+    b.title = empty ? 'Drop a cue at the start line' : (Math.abs(marks[i] - posBeats) < 0.02 ? 'Press again to remove this cue' : 'Jump to cue ' + (i + 1));
     b.setAttribute('aria-pressed', String(markerLoopOn && loopMarkers.includes(i))); }
   syncMarkerLoopBtn(); }   // 1-6 buttons stay sorted-from-start since they always mirror song.markers' current index order
 let markerLoopOn = false;   // loop mode: while armed, tapping a marker button selects it (lit) as a loop bound instead of jumping there — pick exactly two (in any order) to define the loop's start and end
@@ -2338,14 +2386,29 @@ function syncMarkerLoopBtn() { const btn = $('markerLoopBtnFull'); if (!btn) ret
   const eligible = marks.length >= 2; if (!eligible) { markerLoopOn = false; loopMarkers = []; }
   loopMarkers = loopMarkers.filter(i => i < marks.length);   // markers can be removed from under a live selection — drop any index that no longer exists
   btn.disabled = !eligible; btn.setAttribute('aria-pressed', String(markerLoopOn)); }
-$('markerLoopBtnFull').onclick = () => { markerLoopOn = !markerLoopOn; syncMarkerButtons(); liveBroadcast(); };
+$('markerLoopBtnFull').onclick = () => { markerLoopOn = !markerLoopOn; syncMarkerButtons(); drawArr(); liveBroadcast(); };   // redraw now — the loop bracket must show or vanish on the press, not on the next time something else happens to repaint the arrangement
 function markerBtnClick(i) {
-  if (!song || !song.markers || i >= song.markers.length) return;
-  if (!markerLoopOn) { seekToBeat(song.markers[i]); return; }
+  if (!song) return;
+  const marks = song.markers || (song.markers = []);
+  if (!markerLoopOn) {
+    if (i >= marks.length) {   // an empty slot: park the start line where you want it and press the number to drop a cue there
+      const beat = Math.max(0, Math.min(song.durBeats, Math.round(posBeats)));
+      if (marks.some(m => Math.abs(m - beat) < 0.02)) return;   // there's already a cue on this beat
+      marks.push(beat); marks.sort((a, b) => a - b); saveMarkers(); syncMarkerButtons(); drawArr(); liveBroadcast();
+      return;
+    }
+    if (Math.abs(marks[i] - posBeats) < 0.02) {   // pressing the cue you're already sitting on removes it
+      marks.splice(i, 1); loopMarkers = loopMarkers.filter(x => x !== i).map(x => x > i ? x - 1 : x);
+      saveMarkers(); syncMarkerButtons(); drawArr(); liveBroadcast();
+      return;
+    }
+    seekToBeat(marks[i]); return;   // otherwise it's a plain jump
+  }
+  if (i >= marks.length) return;   // loop mode only ever picks from cues that exist
   const at = loopMarkers.indexOf(i);
   if (at >= 0) loopMarkers.splice(at, 1);
   else { loopMarkers.push(i); if (loopMarkers.length > 2) loopMarkers.shift(); }   // choosing a third bumps the oldest of the two — always at most 2 lit
-  syncMarkerButtons(); liveBroadcast();
+  syncMarkerButtons(); drawArr(); liveBroadcast();
 }
 function seekToBeat(beat) {   // jump the start line to a beat (used by the ruler's tap-a-marker gesture and by the 1-4 marker buttons in the transport bar)
   if (!song) return;
@@ -3335,9 +3398,13 @@ function initVolMute(volId, valId, muteId, key) {   // shared wiring for a volum
   syncMuteBtn(muteId, S[key + 'Muted']);
   $(muteId).onclick = () => { S[key + 'Muted'] = !S[key + 'Muted']; syncMuteBtn(muteId, S[key + 'Muted']); save(); applyGain(key); };
 }
-function applyGain(key) { const v = (S[key + 'Muted'] || audioSilenced()) ? 0 : S[key + 'Vol'] / 100;   // another device holds the sound: this one stays silent, without disturbing its own volume settings
+function applyGain(key) { let v = (S[key + 'Muted'] || audioSilenced()) ? 0 : S[key + 'Vol'] / 100;
+  if (ducked && (key === 'piano' || key === 'song')) v *= 1 - (S.speakDuck || 0) / 100;   // speaking a chord name: pull the music down under it   // another device holds the sound: this one stays silent, without disturbing its own volume settings
   if (key === 'piano' && master) master.gain.value = v; if (key === 'song' && songGain) songGain.gain.value = v; if (key === 'metro' && metroGain) metroGain.gain.value = v; }
 function syncMetroVolIcon() { $('metroVolBtn').classList.toggle('muted', S.metroMuted); }   // the always-visible metronome icon in the main row swaps to a mute glyph whenever the metronome is muted, mirroring its popover's own mute button
+(() => { const sl = $('speakDuck'), out = $('speakDuckVal'); if (!sl) return;
+  sl.value = S.speakDuck; out.textContent = S.speakDuck;
+  sl.oninput = e => { S.speakDuck = +e.target.value; out.textContent = S.speakDuck; save(); if (ducked) ['piano', 'song'].forEach(applyGain); }; })();
 $('metroVol').value = S.metroVol; $('metroVolVal').textContent = S.metroVol; $('metroVol').oninput = e => { S.metroVol = +e.target.value; $('metroVolVal').textContent = S.metroVol; if (S.metroMuted) { S.metroMuted = false; syncMuteBtn('metroMuteBtn', false); syncMetroVolIcon(); } save(); applyGain('metro'); };
 initVolMute('metroVol', 'metroVolVal', 'metroMuteBtn', 'metro');
 $('metroMuteBtn').addEventListener('click', syncMetroVolIcon);
