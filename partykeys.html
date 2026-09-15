@@ -625,6 +625,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
             <option value="partykeys">PartyKeys 36 (lights)</option>
             <option value="generic">Other MIDI keyboard (no lights)</option>
           </select></label>
+        <div class="sub" id="noLightsHint" hidden style="color:var(--bad);margin-top:6px;flex-basis:100%">Key lights are switched off by this setting — choose “PartyKeys 36 (lights)” to get them back.</div>
       </div>
       <div class="row">
         <label class="field">MIDI in (keys you play)
@@ -753,7 +754,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '36 · 2026-09-15 · minikb-blacks';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '37 · 2026-09-15 · lights-hint';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1226,6 +1227,7 @@ function bindPorts() {
   if (midiOut) { enterLedMode(); }
   const bits = []; if (midiIn) bits.push('in: ' + midiIn.name); if (midiOut) bits.push('out: ' + midiOut.name);
   if (midiOut && !sysexGranted) bits.push('no SysEx — lights off');
+  if ((midiIn || midiOut) && !dev().lights) bits.push('lights off — Keyboard is set to “no lights”');
   setConn(midiOut ? 'on' : (midiIn ? 'warn' : 'warn'), bits.join(' · ') || 'MIDI ready — pick the PartyKeys ports');
   if (midiOut && sysexGranted) pushLeds(true);
   if (typeof syncMidiDawToggleBtn === 'function') syncMidiDawToggleBtn();
@@ -2938,7 +2940,7 @@ $('metroPlayChip').onclick = () => { ensureAudio(); if (playing || stepMode || c
 $('metroPlayChipFull').onclick = () => $('metroPlayChip').click();
 syncChips(); syncMetroPlay();
 $('keysShown').value = S.keysShown; $('keysShown').onchange = e => { S.keysShown = +e.target.value; keysOverride = null; save(); applyRange(); syncKeysReset(); };
-const syncDevice = () => { const g = !dev().lights; $('midiOut').disabled = g; $('midiOut').closest('label').style.opacity = g ? .4 : ''; $('lightsPanel').style.opacity = g ? .4 : ''; $('lightsPanel').querySelectorAll('input').forEach(i => i.disabled = g); };
+const syncDevice = () => { const g = !dev().lights; $('midiOut').disabled = g; $('midiOut').closest('label').style.opacity = g ? .4 : ''; $('lightsPanel').style.opacity = g ? .4 : ''; $('lightsPanel').querySelectorAll('input').forEach(i => i.disabled = g); const h = $('noLightsHint'); if (h) h.hidden = !g; };
 $('device').value = S.device; $('device').onchange = e => { S.device = e.target.value; save(); ledModeSent = false; applyRange(); if (access) refreshPorts(); syncDevice(); }; syncDevice();
 $('loop').checked = S.loop; $('loop').onchange = e => { S.loop = e.target.checked; save(); };
 $('fold').checked = S.fold; $('fold').onchange = e => { S.fold = e.target.checked; save(); renderKeys(); };
