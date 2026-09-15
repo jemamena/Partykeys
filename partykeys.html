@@ -783,6 +783,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 
     <section class="panel" data-sheet="log">
       <h2>Log</h2>
+      <div style="display:flex;gap:8px;margin:-8px 0 8px"><button id="logCopy" style="flex:1">Copy all</button><button id="logClear" style="flex:none">Clear</button></div>
       <pre class="log" id="log"></pre>
     </section>
 
@@ -794,7 +795,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '62 · 2026-09-15 · sync-auto-retry';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '63 · 2026-09-15 · sync-auth-optional';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -2965,26 +2966,47 @@ async function connectFirebase(cfg) {
   if (!firebase.apps.length) firebase.initializeApp(cfg);
   else { const live = firebase.app().options || {};   // Firebase initialises once per page load — a different project can't take over an already-running one
     if (live.projectId && cfg.projectId && live.projectId !== cfg.projectId) throw new Error('Saved. Reload the page to connect to ' + cfg.projectId + ' (the page is still running on ' + live.projectId + ').'); }
-  try { await firebase.auth().signInAnonymously(); }
+  // Signing in is best-effort, NOT a gate: if the Firestore rules don't require auth, the app works without it.
+  // Only the database itself gets to decide whether we're allowed in, so a sign-in problem is recorded and we carry on.
+  let authOk = false, authWhy = '';
+  try { await firebase.auth().signInAnonymously(); authOk = true; }
   catch (e) {
-    const c = (e && e.code) || '';
-    if (/operation-not-allowed/.test(c)) throw new Error('Firebase: turn on Anonymous sign-in — console → Build → Authentication → Sign-in method → Anonymous → Enable.');
-    if (/configuration-not-found/.test(c)) throw new Error('Firebase: Authentication has not been set up yet — console → Build → Authentication → Get started, then enable Anonymous.');
-    if (/api-key|invalid-api-key/.test(c)) throw new Error('Firebase: that project\'s API key was rejected.');
-    if (/network/.test(c)) throw new Error('Firebase: no network connection to Google.');
-    throw new Error('Firebase sign-in failed: ' + (c || (e && e.message) || e));
+    const c = (e && e.code) || '', m = (e && e.message) || String(e);
+    log('Firebase anonymous sign-in failed:', c, m);   // the full message usually names the real cause inside it
+    authWhy = /operation-not-allowed|internal-error|configuration-not-found|CONFIGURATION_NOT_FOUND/.test(c + ' ' + m)
+      ? 'Anonymous sign-in is not enabled (console → Build → Authentication → Get started → Anonymous → Enable)'
+      : 'sign-in failed: ' + (c || m);
   }
   const db = firebase.firestore();
-  try { await db.doc('syncLive/ping').get(); }   // one read up front, so "no Firestore yet" is reported here rather than as silent nothing later
+  try { await db.doc('syncLive/ping').get(); }   // the database has the final say — this one read turns a silent nothing into a plain answer
   catch (e) {
-    const c = (e && e.code) || '';
-    if (/not-found|unavailable/.test(c)) throw new Error('Firebase: no Firestore database yet — console → Build → Firestore Database → Create database.');
-    if (/permission-denied/.test(c)) throw new Error('Firebase: Firestore rules are blocking this app. Set them to allow read/write when request.auth != null.');
-    throw new Error('Firestore unreachable: ' + (c || (e && e.message) || e));
+    const c = (e && e.code) || '', m = (e && e.message) || String(e);
+    log('Firestore check failed:', c, m);
+    if (/not-found/.test(c)) throw new Error('No Firestore database in this project yet — console → Build → Firestore Database → Create database.');
+    if (/permission-denied/.test(c)) throw new Error(authOk
+      ? 'Firestore rules are blocking this app — set them to: allow read, write: if request.auth != null;'
+      : authWhy + ' — and the rules require a signed-in user, so nothing can get through.');
+    if (/unavailable|network/.test(c)) throw new Error('Cannot reach Firestore from this device (network or firewall).');
+    throw new Error('Firestore unreachable: ' + (c || m));
   }
+  if (!authOk) log('Connected to Firestore WITHOUT signing in — the rules are allowing anonymous access.');
   return db;
 }
 function setFbStatus(t) { const el = $('fbStatus'); if (el) el.textContent = t; }
+(() => {   // copying the log out is the quickest way to show someone what actually went wrong
+  const btn = $('logCopy'); if (!btn) return;
+  btn.onclick = async () => {
+    const txt = 'PartyKeys build ' + BUILD + '\n' + navigator.userAgent + '\n' + location.href + '\n\n' + $('log').textContent;
+    let ok = false;
+    try { await navigator.clipboard.writeText(txt); ok = true; } catch (e) {
+      try { const ta = document.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); } catch (e2) {}   // clipboard API needs https + a permission on some phones; this fallback doesn't
+    }
+    const was = btn.textContent; btn.textContent = ok ? 'Copied' : 'Press and hold the log to copy';
+    setTimeout(() => { btn.textContent = was; }, 1600);
+  };
+  const cl = $('logClear'); if (cl) cl.onclick = () => { $('log').textContent = ''; };
+})();
 /* Connecting is automatic, and so is trying again. A first attempt can fail for reasons that fix themselves —
    the phone had no signal at load, the laptop was asleep, or the Firebase project was still being set up in another
    tab — so rather than sitting on "local only" until someone presses a button, back off and keep retrying, and go
