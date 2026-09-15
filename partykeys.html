@@ -753,7 +753,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '34 · 2026-09-15 · bluetooth';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '36 · 2026-09-15 · minikb-blacks';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1157,8 +1157,9 @@ async function connectBle() {
     bleChar.addEventListener('characteristicvaluechanged', bleOnData);
     bleSysexIn = null; ledModeSent = false; lastSent.fill('');
     log('Bluetooth MIDI connected: ' + (bleDevice.name || 'unnamed device'));
-    setConn('on', 'Bluetooth: ' + (bleDevice.name || 'connected'));
-    if (dev().lights) { enterLedMode(); pushLeds(true); }
+    if (dev().lights) { setConn('on', 'Bluetooth: ' + (bleDevice.name || 'connected')); enterLedMode(); pushLeds(true); }
+    else { setConn('warn', 'Bluetooth connected — but key lights are off: Keyboard is set to "Other MIDI keyboard (no lights)"');
+      log('Key lights are disabled by the Keyboard setting — switch it back to "PartyKeys 36 (lights)" in Settings'); }
   } catch (e) {
     if (e && e.name === 'NotFoundError') { setConn('warn', 'No Bluetooth keyboard picked — make sure the PartyKeys is in pairing mode'); return; }
     setConn('bad', 'Bluetooth failed: ' + ((e && e.message) || e));
@@ -1260,9 +1261,7 @@ function outSend(bytes) {   // the LEDs are driven over USB when it's there, oth
 function enterLedMode() { if (!dev().lights) return; if (!midiOut && !bleReady()) return; if (midiOut && !sysexGranted) return;
   if (outSend([...HDR, 0x0F, 0x01, 0xF7])) { ledModeSent = true; log('LED mode enabled on', midiOut ? midiOut.name : (bleDevice && bleDevice.name) || 'Bluetooth'); } }
 const lastSent = [];
-function sendColors(colors, force) {   // colors: array[NKEYS] of [r,g,b]
-  if ((!midiOut && !bleReady()) || !dev().lights) return;
-  if (!ledModeSent) enterLedMode();
+function buildColorMsg(colors, force) {   // the LED frame for whatever changed since the last one, or null when nothing did
   const groups = new Map();
   for (let i = 0; i < NKEYS; i++) {
     const c = colors[i]; const key = c.join(',');
@@ -1271,14 +1270,29 @@ function sendColors(colors, force) {   // colors: array[NKEYS] of [r,g,b]
     if (!groups.has(key)) groups.set(key, { c, keys: [] });
     groups.get(key).keys.push(i);
   }
-  if (!groups.size) return;
+  if (!groups.size) return null;
   const msg = [...HDR, 0x15, groups.size];
   for (const g of groups.values()) {
     for (const v of g.c) { const b = Math.max(0, Math.min(255, Math.round(v))); msg.push(Math.floor(b / 128), b % 128); }
     msg.push(g.keys.length, ...g.keys);
   }
   msg.push(0xF7);
-  outSend(msg);
+  return msg;
+}
+let bleColorT = 0, bleColorLatest = null, bleColorForce = false;
+function sendColors(colors, force) {   // colors: array[NKEYS] of [r,g,b]
+  if ((!midiOut && !bleReady()) || !dev().lights) return;
+  if (!ledModeSent) enterLedMode();
+  if (midiOut) { const m = buildColorMsg(colors, force); if (m) outSend(m); return; }
+  // Bluetooth: a full frame is several 20-byte packets and BLE is far slower than USB, so renderKeys firing on
+  // every note would queue faster than the link drains and the lights would lag or stall. Coalesce to ~20 fps.
+  bleColorLatest = colors.slice(); bleColorForce = bleColorForce || !!force;
+  if (bleColorT) return;
+  bleColorT = setTimeout(() => {
+    bleColorT = 0;
+    const c = bleColorLatest, f = bleColorForce; bleColorLatest = null; bleColorForce = false;
+    if (!c) return; const m = buildColorMsg(c, f); if (m) outSend(m);
+  }, 50);
 }
 
 /* ---------- MIDI file parsing ---------- */
@@ -2427,7 +2441,7 @@ function buildCircleMiniKb() {
   html += CMK_BLACK.map(b => `<div class="cmkBlack" data-pc="${b.pc}" style="left:calc(${(b.after + 1) / 7 * 100}% - 4.25%)"></div>`).join('');
   wrap.innerHTML = html;
 }
-function updateCircleMiniKb() {   // a quick-reference octave strip, coloured by the same rule as the big keyboard: the scale in one hue (bright root, dimmer rest), everything outside the key black
+function updateCircleMiniKb() {   // a quick-reference octave strip, coloured by the same rule as the big keyboard: the scale in one hue (bright root, dimmer rest, black keys lifted towards white), everything outside the key black
   const wrap = $('circleMiniKb'); if (!wrap || wrap.hidden) return;
   if (!wrap.children.length) buildCircleMiniKb();
   const set = SCALES[S.scaleType][1];
@@ -2435,8 +2449,7 @@ function updateCircleMiniKb() {   // a quick-reference octave strip, coloured by
   wrap.querySelectorAll('.cmkWhite, .cmkBlack').forEach(el => {
     const pc = +el.dataset.pc, rel = ((pc - S.root) % 12 + 12) % 12;
     el.style.background = !set.includes(rel) ? OUT_OF_SCALE
-      : rel === 0 ? ROOT_COLORS[S.root]
-      : rgb2hex(scale(rootRgb, 0.5));
+      : blackLift(pc, rel === 0 ? ROOT_COLORS[S.root] : rgb2hex(scale(rootRgb, 0.5)));   // black keys in the scale keep the scale's hue, just lifted towards white — same rule as the big keyboard
   });
 }
 function updateRomanLabels() {
