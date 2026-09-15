@@ -795,7 +795,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '63 · 2026-09-15 · sync-auth-optional';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '66 · 2026-09-15 · sync-metronome';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1525,7 +1525,7 @@ function metroTick() {
 }
 function flashDot(when, idx) { setTimeout(() => { if (!metroOn && !counting) return; ['beatDots', 'beatDotsFull'].forEach(id => [...$(id).children].forEach((d, i) => d.classList.toggle('hit', i === idx))); }, Math.max(0, (when - ctx.currentTime) * 1000)); }
 function buildDots() { const n = barLen(); for (const id of ['beatDots', 'beatDotsFull']) { $(id).innerHTML = ''; for (let i = 0; i < n; i++) { const d = document.createElement('i'); if (S.accentOn && i === 0) d.classList.add('acc'); $(id).appendChild(d); } } }
-function setBpm(v, quiet) { S.bpm = Math.min(240, Math.max(40, Math.round(v))); $('bpm').value = S.bpm; if (!quiet) save(); showBpm(); if (song) updateTime(); }
+function setBpm(v, quiet) { const was = S.bpm; S.bpm = Math.min(240, Math.max(40, Math.round(v))); $('bpm').value = S.bpm; if (!quiet) save(); showBpm(); if (song) updateTime(); if (S.bpm !== was) liveBroadcastSoon(); }
 function showBpm() { const fileTempo = !S.metro && !metroOn && song;   /* hearing the standalone click doesn't lock you to the file's tempo — bpm/tap should stay live */ $('bpmVal').textContent = fileTempo ? Math.round(60 / fileSpbAt(song, posBeats)) : S.bpm; $('bpmFull').textContent = $('bpmVal').textContent + ' bpm'; $('bpmVal').style.color = fileTempo ? 'var(--muted)' : ''; ['bpmDown', 'bpmUp', 'tapBtn', 'tapBigBtn', 'bpmReset', 'bpmDownFull', 'bpmUpFull'].forEach(id => $(id).disabled = !!fileTempo); $('bpmReset').disabled = $('bpmReset').disabled || !song; $('bpmDrag').title = fileTempo ? 'File tempo (turn Metro on to set your own)' : 'Drag left/right'; $('tempoGroup').classList.toggle('dim', !S.metro && !metroOn); }
 
 /* ---------- count-in ---------- */
@@ -3065,25 +3065,46 @@ async function initCloud() {
 
 /* ---------- live cross-device sync (opt-in — mirrors play/pause, song choice, playhead position and physical-keyboard note hits onto every other device with it switched on) ---------- */
 const deviceId = (() => { try { let id = sessionStorage.getItem('pk-device-id'); if (!id) { id = 'd' + (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)); sessionStorage.setItem('pk-device-id', id); } return id; } catch (e) { return 'd' + Math.random().toString(36).slice(2); } })();   // sessionStorage, not localStorage: two tabs of this same artifact in one browser must NOT share an id, or every broadcast between them gets dropped as a self-echo
-let liveSeq = 0, lastRemoteSeq = 0, applyingRemote = false, liveUnsub = null, liveBroadcastTimer = null;
+// Seeded from the clock, not from 0: a page reload used to restart this device's counter at 1, and the other
+// device — still remembering the high number from before — would dismiss every message as stale and go silent.
+let liveSeq = Date.now();
+const lastSeqBy = new Map();   // ...and "have I seen this already?" is per sender. One shared counter meant whichever device started broadcasting second had all its early messages thrown away, because the other device's numbering had already run ahead. That is the bug behind "the playlist syncs but pressing play does nothing".
+let applyingRemote = false, liveUnsub = null, liveBroadcastTimer = null;
+let liveLogged = false, liveStaleLogged = false, liveSentLogged = false, liveErrLogged = false;   // log the first message that actually lands, so "is the other device reaching me at all?" is answerable from the Log tab
 function setSyncStatus(t) { const el = $('syncStatus'); if (el) el.textContent = t; }
 async function liveBroadcast(extra) {   // writes this device's full current state — always the whole picture, not a diff, so a device that just switched sync on catches up immediately from whatever the last write was
   if (!cloudDb || !S.syncMode || applyingRemote) return;
+  if (!liveSentLogged) { liveSentLogged = true; log('Live sync: this device is broadcasting its state.'); }
   try { await cloudDb.doc('syncLive/state').set({ by: deviceId, seq: ++liveSeq, at: Date.now(),
-    songId: currentId || null, playing: !!playing, posBeats: song ? posBeats : 0, markerLoopOn: !!markerLoopOn, loopMarkers: loopMarkers.slice(), metro: !!S.metro, countIn: !!S.countIn, ...extra }); }
-  catch (e) {}
+    songId: currentId || null, playing: !!playing, posBeats: song ? posBeats : 0, markerLoopOn: !!markerLoopOn, loopMarkers: loopMarkers.slice(), metro: !!S.metro, countIn: !!S.countIn,
+    bpm: S.bpm, sig: S.sig, accentOn: !!S.accentOn, metroHear: !!metroOn, ...extra }); }   // the whole metronome panel travels too: tempo, time signature, accent, and whether the click is running on its own
+  catch (e) { if (!liveErrLogged) { liveErrLogged = true; log('Live sync: broadcast REFUSED —', (e && e.code) || '', (e && e.message) || e); setSyncStatus('Cannot write live state — check the Firestore rules'); } }
 }
+let liveSoonT = null;
+function liveBroadcastSoon() { if (liveSoonT) return; liveSoonT = setTimeout(() => { liveSoonT = null; liveBroadcast(); }, 250); }   // dragging the tempo fires continuously — coalesce, so one drag is a couple of writes rather than a hundred
 function stopLiveBroadcastTimer() { if (liveBroadcastTimer) clearInterval(liveBroadcastTimer); liveBroadcastTimer = null; }
 function startLiveBroadcastTimer() { stopLiveBroadcastTimer(); liveBroadcastTimer = setInterval(() => { if (playing) liveBroadcast(); }, 400); }   // while playing, keep the playhead roughly in step on the other end without writing on every 25ms tick
 async function applyLiveState(data) {   // a state doc that just arrived from another device with sync on — becomes this device's own transport state, best-effort (the round trip is Firestore-listener speed, not sample-accurate)
   if (!data || data.by === deviceId) return;   // our own broadcast echoing back
-  if (typeof data.seq === 'number') { if (data.seq <= lastRemoteSeq) return; lastRemoteSeq = data.seq; }
+  if (typeof data.seq === 'number') { const prev = lastSeqBy.get(data.by) || 0;
+    if (data.seq <= prev) { if (!liveStaleLogged) { liveStaleLogged = true; log('Live sync: ignoring an out-of-order update from', data.by, '(seq ' + data.seq + ' after ' + prev + ')'); } return; }
+    lastSeqBy.set(data.by, data.seq); }
+  if (!liveLogged) { liveLogged = true; log('Live sync: receiving updates from another device — the link is working.'); }
+  if (data.playing && !playing) {   // a remote "play" is not a tap, and browsers keep audio suspended until this page is touched
+    if (!ctx) log('Live sync: remote play arrived before this device had any audio — tap the page once to let it make sound.');
+    else if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) {} 
+      if (ctx.state !== 'running') log('Live sync: this browser is holding audio suspended — tap the page once, then it will follow.'); }
+  }
   applyingRemote = true;
   try {
     if (data.songId && data.songId !== currentId) { const s = queue.find(x => x.id === data.songId); if (s) loadSong(s, true); }
     if (data.cmd === 'note' && data.note) { if (data.note.on) noteOn(data.note.n, data.note.vel || 90, 'midi'); else noteOff(data.note.n, 'midi'); }
     if (typeof data.metro === 'boolean' && data.metro !== S.metro) $('metroChip').click();   // reuse the real toggle's own start/stop-mid-playback logic rather than reimplementing it here
     if (typeof data.countIn === 'boolean' && data.countIn !== S.countIn) $('countChip').click();
+    if (typeof data.bpm === 'number' && data.bpm !== S.bpm) setBpm(data.bpm);
+    if (typeof data.sig === 'number' && data.sig !== S.sig) { S.sig = data.sig; $('sig').value = S.sig; save(); buildDots(); }
+    if (typeof data.accentOn === 'boolean' && data.accentOn !== S.accentOn) { S.accentOn = data.accentOn; save(); $('accentChip').setAttribute('aria-pressed', S.accentOn); syncChips(); buildDots(); }
+    if (typeof data.metroHear === 'boolean' && data.metroHear !== metroOn && !playing && !stepMode) $('metroPlayChip').click();   // the click running on its own, between songs
     if (song && typeof data.posBeats === 'number') { const drift = Math.abs(posBeats - data.posBeats);
       if (data.cmd === 'seek' || drift > 0.2) { posBeats = Math.max(0, Math.min(song.durBeats, data.posBeats)); lastCtx = ctx.currentTime;
         nextIdx = song.notes.findIndex(n => n.b1 > posBeats); if (nextIdx < 0) nextIdx = song.notes.length; hit.clear(); updateTime(); renderKeys(); } }
@@ -3272,14 +3293,14 @@ $('tapBtn').onclick = () => { doTap(); $('tapPop').hidden = false; posPopupNear(
 $('tapBigBtn').addEventListener('pointerdown', () => { const b = $('tapBigBtn'); b.classList.add('primary'); setTimeout(() => b.classList.remove('primary'), 140); });
 $('tapBigBtn').onclick = doTap;
 document.addEventListener('pointerdown', e => { if (!$('tapPop').hidden && !e.target.closest('#tapPop') && !e.target.closest('#tapBtn')) $('tapPop').hidden = true; });
-$('sig').value = S.sig; $('sig').onchange = e => { S.sig = +e.target.value; save(); buildDots(); drawArr(); };
-$('accentChip').setAttribute('aria-pressed', S.accentOn); $('accentChip').onclick = () => { S.accentOn = !S.accentOn; save(); $('accentChip').setAttribute('aria-pressed', S.accentOn); buildDots(); };
+$('sig').value = S.sig; $('sig').onchange = e => { S.sig = +e.target.value; save(); buildDots(); drawArr(); liveBroadcast(); };
+$('accentChip').setAttribute('aria-pressed', S.accentOn); $('accentChip').onclick = () => { S.accentOn = !S.accentOn; save(); $('accentChip').setAttribute('aria-pressed', S.accentOn); buildDots(); liveBroadcast(); };
 buildDots(); setBpm(S.bpm, true);
 const syncChips = () => { document.body.classList.toggle('metro-on', S.metro); $('metroBit').classList.toggle('off', !S.metro && !metroOn); $('metroChip').setAttribute('aria-pressed', S.metro); $('countChip').setAttribute('aria-pressed', S.countIn); $('metroChipFull').setAttribute('aria-pressed', S.metro); $('playBtn').disabled = !song && !S.metro; showBpm(); };
 $('metroChip').onclick = () => { S.metro = !S.metro; save(); syncChips(); liveBroadcast(); if (stepMode) { stepMode = false; hit.clear(); clearInterval(stepTimer); stepTimer = null; play(); return; } if (isRunning()) { if (S.metro && !metroOn) { advance(); posBeats = Math.round(posBeats); metroStart(ctx.currentTime + 0.05, posBeats); lastCtx = ctx.currentTime + 0.05; } else if (!S.metro && metroOn) { advance(); metroStop(); if (!playing) pause(); } } };
 $('countChip').onclick = () => { S.countIn = !S.countIn; save(); syncChips(); liveBroadcast(); };
 $('metroChipFull').onclick = () => $('metroChip').click();
-$('metroPlayChip').onclick = () => { ensureAudio(); if (playing || stepMode || counting) return; buildDots(); if (metroOn) metroStop(); else metroStart(ctx.currentTime + 0.05, 0); };
+$('metroPlayChip').onclick = () => { ensureAudio(); if (playing || stepMode || counting) return; buildDots(); if (metroOn) metroStop(); else metroStart(ctx.currentTime + 0.05, 0); liveBroadcast(); };
 $('metroPlayChipFull').onclick = () => $('metroPlayChip').click();
 syncChips(); syncMetroPlay();
 $('keysShown').value = S.keysShown; $('keysShown').onchange = e => { S.keysShown = +e.target.value; keysOverride = null; save(); applyRange(); syncKeysReset(); };
