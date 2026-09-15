@@ -755,7 +755,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '43 · 2026-09-15 · resting-lights';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '44 · 2026-09-15 · screen-drives-lights';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -781,7 +781,6 @@ const CHORD_GREY = '#9aa0a8';   // tapped in-key chord — both its label button
 const OUT_OF_SCALE = '#000';
 const BLACK_KEY_LIT = '#ffffff';   // HARDWARE only: a dim scale colour on the PartyKeys' black keys reads as "off", so a lit black key burns plain white there
 const FAINT_BLACK = [18, 18, 18];   // HARDWARE only: a black key that isn't lit keeps a faint glow so it stays findable in the dark
-const hwOnly = new Set();   // keys whose colour is for the LEDs alone — the screen must treat these as "not lit" or resting/faint keys would light up on screen too
 const PRESSED_SCREEN = '#ffffff';   // SCREEN only: a key you're holding goes white (the hardware LED goes out instead — the two deliberately disagree)
 const isBlackKey = m => [1, 3, 6, 8, 10].includes(((m % 12) + 12) % 12);
 const blackLift = (m, hex) => isBlackKey(m) ? rgb2hex(hex2rgb(hex).map(v => v + (255 - v) * 0.38)) : hex;   // on screen a black key keeps the scale's own colour, just lifted so it still reads against the dark key   // scale on: notes outside the key go black on both keyboards, so the only thing lit is what you can actually play — the scale itself stays one hue in two tones (bright root, dim rest)
@@ -1585,17 +1584,8 @@ function computeColors() {
     if (pressed.has(m)) colors[i] = note; else if (expected.has(m)) colors[i] = noteLight; else if (soon.has(m)) colors[i] = scale(next, 0.1 + 0.9 * soon.get(m)); else if (showScale && inScale(m)) colors[i] = (m % 12 === S.root) ? rootC : sc; }
   if (scaleNote !== null && scaleNote >= BASE && scaleNote <= END) colors[scaleNote - BASE] = scale(hex2rgb(ROOT_COLORS[S.root]), b);
   if (arpNote !== null && arpNote >= BASE && arpNote <= END) colors[arpNote - BASE] = scale(hex2rgb(scaleChordSel ? ROOT_COLORS[S.root] : noteColorEff), b);
-  const anyLit = colors.some(c => c !== OFF);
-  hwOnly.clear();
-  if (!anyLit) {
-    // Nothing to show — no scale, no chord, no exercise, song paused. Mirror the plain keyboard on the LEDs:
-    // white keys full white, black keys a whisper. Better than a dead board, and it matches what's on screen.
-    for (let i = 0; i < RANGE; i++) { const m = i + BASE; colors[i] = isBlackKey(m) ? scale(FAINT_BLACK, b) : scale([255, 255, 255], b); hwOnly.add(m); }
-  } else {
-    for (let i = 0; i < RANGE; i++) if (isBlackKey(i + BASE) && colors[i] !== OFF) colors[i] = scale([255, 255, 255], b);   // any lit black key burns white on the hardware too
-    for (let i = 0; i < RANGE; i++) if (isBlackKey(i + BASE) && colors[i] === OFF) { colors[i] = scale(FAINT_BLACK, b); hwOnly.add(i + BASE); }   // the rest of the black keys: findable, not fully dark
-  }
-  for (const n of liveNotes) if (n >= BASE && n <= END) colors[n - BASE] = OFF;   // held keys go dark on the hardware too, matching the screen
+  // NOTE: colors[] stays "pure" here — it is an input to the screen's colour decision, not the LED frame.
+  // The LED frame is derived from what the screen actually shows, in hwFrame() below, so the two can never drift apart.
   return { colors, expected, pressed, soon, BASE };
 }
 const CHORDS = [
@@ -2108,9 +2098,26 @@ function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly 
   if (expected.has(m)) return rgb2hex(scale(hex2rgb(noteColorEff), 0.4));   // the song wants this next, but you haven't played it yet
   if (soon.has(m)) { const f = soon.get(m); const base = isDark() ? [200,200,200] : [232,232,232]; return rgb2hex(hex2rgb(nextColorEff).map((v, j) => base[j] + (v - base[j]) * (0.15 + 0.55 * f))); }
   const c = colors[m - BASE];
-  if (c !== undefined && c !== OFF && !hwOnly.has(m)) return blackLift(m, (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.45 + (isDark() ? 60 : 150) * 0.55)));
+  if (c !== undefined && c !== OFF) return blackLift(m, (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.45 + (isDark() ? 60 : 150) * 0.55)));
   if (S.scaleOn && !inScale(m)) return OUT_OF_SCALE;   // not in the key: black, whether it's a white key or a black one
   return '';
+}
+// ---- the PartyKeys' own LEDs, derived from the screen ----
+// One rule: whatever a key looks like on screen is what the LED shows. The only deliberate differences are the
+// four we agreed: a key you're holding goes dark on the board (white on screen); a lit black key burns white on
+// the board (the scale colour is invisible on black plastic); an unlit black key keeps a faint glow so it's still
+// findable; and a white key that's out of the key goes fully out. Nothing else may reach the board.
+function hwColorFor(m, colors, BASE, expected, pressed, soon, b) {
+  if (liveNotes.has(m)) return OFF;   // holding it → light out (the screen does the opposite and goes white)
+  const css = keyBgColorLit(m, colors, BASE, expected, pressed, soon);
+  if (!css || css === OUT_OF_SCALE)   // screen shows a plain / blacked-out key: the board shows a plain key too
+    return isBlackKey(m) ? scale(FAINT_BLACK, b) : (css === OUT_OF_SCALE ? OFF : scale([255, 255, 255], b));
+  return isBlackKey(m) ? scale(hex2rgb(BLACK_KEY_LIT), b) : scale(hex2rgb(css), b);
+}
+function hwFrame(colors, BASE, expected, pressed, soon) {   // the LOW..HIGH window the hardware actually owns, regardless of where the screen is scrolled
+  const b = S.bright / 100, out = [];
+  for (let i = 0; i < NKEYS; i++) out.push(hwColorFor(LOW + i, colors, BASE, expected, pressed, soon, b));
+  return out;
 }
 function litNotesInView() {   // every key currently visible on screen (left to right) that's actually lit up, in the exact same terms renderKeys paints them
   const { colors, expected, pressed, soon, BASE } = computeColors();
@@ -2123,8 +2130,8 @@ function renderKeys() {
   const relBtn = $('relScaleBtn'); if (relBtn) relBtn.disabled = !(S.scaleType === 'major' || S.scaleType === 'minor');
   const { colors, expected, pressed, soon, BASE } = computeColors();
   for (let i = 0; i < VIEW; i++) { const el = keyEls[i]; const m = DLOW + i; el.style.backgroundColor = keyBgColor(m, colors, BASE, expected, pressed, soon); }
-  sendColors(colors.slice(LOW - BASE, LOW - BASE + NKEYS), false);
-  speakChordMaybe();   // the physical LEDs always reflect the hardware's own LOW..HIGH window, regardless of where the screen is scrolled to
+  sendColors(hwFrame(colors, BASE, expected, pressed, soon), false);
+  speakChordMaybe();
   drawArr();
 }
 const arr = $('arr');
@@ -2312,7 +2319,7 @@ function seekToBeat(beat) {   // jump the start line to a beat (used by the rule
   if (S.playRowH) document.documentElement.style.setProperty('--playRowH', S.playRowH + 'px');
 })();
 window.addEventListener('resize', drawArr);
-function pushLeds(force) { const { colors } = computeColors(); sendColors(colors, force); }
+function pushLeds(force) { const { colors, expected, pressed, soon, BASE } = computeColors(); sendColors(hwFrame(colors, BASE, expected, pressed, soon), force); }
 
 /* ---------- knob (beats, 1/32 .. 1) ---------- */
 const MINB = 1/32, MAXB = 4;
