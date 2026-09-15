@@ -755,7 +755,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '41 · 2026-09-15 · say-chords';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '43 · 2026-09-15 · resting-lights';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -780,7 +780,8 @@ const RED = '#e0202a';   // reserved: chord notes outside the scale
 const CHORD_GREY = '#9aa0a8';   // tapped in-key chord — both its label button and the keys it lights up (grey, not green, so it never fights the rainbow scale colour or the now/next colours)
 const OUT_OF_SCALE = '#000';
 const BLACK_KEY_LIT = '#ffffff';   // HARDWARE only: a dim scale colour on the PartyKeys' black keys reads as "off", so a lit black key burns plain white there
-const FAINT_BLACK = [18, 18, 18];   // HARDWARE only: an unlit black key keeps a faint glow so the PartyKeys' black keys stay findable in the dark. Assigned by reference so the screen can spot it and treat it as "not lit" — otherwise out-of-scale keys would light up on screen too
+const FAINT_BLACK = [18, 18, 18];   // HARDWARE only: a black key that isn't lit keeps a faint glow so it stays findable in the dark
+const hwOnly = new Set();   // keys whose colour is for the LEDs alone — the screen must treat these as "not lit" or resting/faint keys would light up on screen too
 const PRESSED_SCREEN = '#ffffff';   // SCREEN only: a key you're holding goes white (the hardware LED goes out instead — the two deliberately disagree)
 const isBlackKey = m => [1, 3, 6, 8, 10].includes(((m % 12) + 12) % 12);
 const blackLift = (m, hex) => isBlackKey(m) ? rgb2hex(hex2rgb(hex).map(v => v + (255 - v) * 0.38)) : hex;   // on screen a black key keeps the scale's own colour, just lifted so it still reads against the dark key   // scale on: notes outside the key go black on both keyboards, so the only thing lit is what you can actually play — the scale itself stays one hue in two tones (bright root, dim rest)
@@ -1191,7 +1192,7 @@ async function connectBle() {
     bleChar.addEventListener('characteristicvaluechanged', bleOnData);
     bleSysexIn = null; ledModeSent = false; lastSent.fill(''); bleWriteOk = 0; bleWriteFail = 0; bleNoResponse = true; bleSplit = false;
     log('Bluetooth MIDI connected: ' + (bleDevice.name || 'unnamed device'));
-    if (dev().lights) { setConn('on', 'Bluetooth: ' + (bleDevice.name || 'connected')); enterLedMode(); pushLeds(true); }
+    if (dev().lights) { setConn('on', 'Bluetooth: ' + (bleDevice.name || 'connected')); pushLeds(true); }   // LED mode is entered lazily, on the first frame that actually lights something
     else { setConn('warn', 'Bluetooth connected — but key lights are off: Keyboard is set to "Other MIDI keyboard (no lights)"');
       log('Key lights are disabled by the Keyboard setting — switch it back to "PartyKeys 36 (lights)" in Settings'); }
   } catch (e) {
@@ -1257,7 +1258,7 @@ function bindPorts() {
   S.midiIn = $('midiIn').value; S.midiOut = $('midiOut').value; S.midiOutDaw = $('midiOutDaw').value; save();
   if (midiIn) midiIn.onmidimessage = onMidi;
   ledModeSent = false; lastSent.fill('');
-  if (midiOut) { enterLedMode(); }
+  // LED mode is entered lazily by sendColors, on the first frame that actually lights something
   const bits = []; if (midiIn) bits.push('in: ' + midiIn.name); if (midiOut) bits.push('out: ' + midiOut.name);
   if (midiOut && !sysexGranted) bits.push('no SysEx — lights off');
   if ((midiIn || midiOut) && !dev().lights) bits.push('lights off — Keyboard is set to “no lights”');
@@ -1317,7 +1318,12 @@ function buildColorMsg(colors, force) {   // the LED frame for whatever changed 
 let bleColorT = 0, bleColorLatest = null, bleColorForce = false;
 function sendColors(colors, force) {   // colors: array[NKEYS] of [r,g,b]
   if ((!midiOut && !bleReady()) || !dev().lights) return;
-  if (!ledModeSent) enterLedMode();
+  if (!ledModeSent) {
+    // Entering LED mode takes the keyboard's lighting away from its own firmware. Don't do that until there is
+    // actually something to show, or turning the app on just blacks the keyboard out — worse than leaving it alone.
+    if (!colors.some(c => c !== OFF)) return;
+    enterLedMode();
+  }
   if (midiOut) { const m = buildColorMsg(colors, force); if (m) outSend(m); return; }
   // Bluetooth: a full frame is several 20-byte packets and BLE is far slower than USB, so renderKeys firing on
   // every note would queue faster than the link drains and the lights would lag or stall. Coalesce to ~20 fps.
@@ -1580,8 +1586,15 @@ function computeColors() {
   if (scaleNote !== null && scaleNote >= BASE && scaleNote <= END) colors[scaleNote - BASE] = scale(hex2rgb(ROOT_COLORS[S.root]), b);
   if (arpNote !== null && arpNote >= BASE && arpNote <= END) colors[arpNote - BASE] = scale(hex2rgb(scaleChordSel ? ROOT_COLORS[S.root] : noteColorEff), b);
   const anyLit = colors.some(c => c !== OFF);
-  for (let i = 0; i < RANGE; i++) if (isBlackKey(i + BASE) && colors[i] !== OFF) colors[i] = scale([255, 255, 255], b);   // any lit black key burns white on the hardware too
-  if (anyLit) for (let i = 0; i < RANGE; i++) if (isBlackKey(i + BASE) && colors[i] === OFF) colors[i] = FAINT_BLACK;   // the rest of the black keys: a whisper of white rather than fully dark, so you can still place your hand
+  hwOnly.clear();
+  if (!anyLit) {
+    // Nothing to show — no scale, no chord, no exercise, song paused. Mirror the plain keyboard on the LEDs:
+    // white keys full white, black keys a whisper. Better than a dead board, and it matches what's on screen.
+    for (let i = 0; i < RANGE; i++) { const m = i + BASE; colors[i] = isBlackKey(m) ? scale(FAINT_BLACK, b) : scale([255, 255, 255], b); hwOnly.add(m); }
+  } else {
+    for (let i = 0; i < RANGE; i++) if (isBlackKey(i + BASE) && colors[i] !== OFF) colors[i] = scale([255, 255, 255], b);   // any lit black key burns white on the hardware too
+    for (let i = 0; i < RANGE; i++) if (isBlackKey(i + BASE) && colors[i] === OFF) { colors[i] = scale(FAINT_BLACK, b); hwOnly.add(i + BASE); }   // the rest of the black keys: findable, not fully dark
+  }
   for (const n of liveNotes) if (n >= BASE && n <= END) colors[n - BASE] = OFF;   // held keys go dark on the hardware too, matching the screen
   return { colors, expected, pressed, soon, BASE };
 }
@@ -2095,7 +2108,7 @@ function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly 
   if (expected.has(m)) return rgb2hex(scale(hex2rgb(noteColorEff), 0.4));   // the song wants this next, but you haven't played it yet
   if (soon.has(m)) { const f = soon.get(m); const base = isDark() ? [200,200,200] : [232,232,232]; return rgb2hex(hex2rgb(nextColorEff).map((v, j) => base[j] + (v - base[j]) * (0.15 + 0.55 * f))); }
   const c = colors[m - BASE];
-  if (c !== undefined && c !== OFF && c !== FAINT_BLACK) return blackLift(m, (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.45 + (isDark() ? 60 : 150) * 0.55)));
+  if (c !== undefined && c !== OFF && !hwOnly.has(m)) return blackLift(m, (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.45 + (isDark() ? 60 : 150) * 0.55)));
   if (S.scaleOn && !inScale(m)) return OUT_OF_SCALE;   // not in the key: black, whether it's a white key or a black one
   return '';
 }
