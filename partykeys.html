@@ -755,6 +755,11 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
       </details>
       <label class="check"><input type="checkbox" id="syncMode"> Sync playback live across devices</label>
       <div class="sub" id="syncStatus" style="margin:2px 0 10px">Off — each device plays independently</div>
+      <label class="row" style="gap:8px;align-items:center;margin:0 0 4px"><span class="sub" style="flex:none">Sound comes from</span>
+        <select id="audioOwner" style="flex:1"><option value="">Every device</option><option value="me">Only this device</option></select></label>
+      <label class="row" style="gap:8px;align-items:center;margin:0 0 4px"><span class="sub" style="flex:none">This device is called</span>
+        <input id="deviceName" type="text" placeholder="Phone, Laptop…" style="flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px"></label>
+      <div class="sub" id="audioStatus" style="margin:2px 0 10px">Every device makes its own sound</div>
       <div class="queue" id="queue"></div>
       <div class="sub" id="queueEmpty">No songs yet — add some .mid files.</div>
       <button class="primary" id="addSongs" style="margin-top:12px;width:100%">+ Add songs</button>
@@ -795,7 +800,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '66 · 2026-09-15 · sync-metronome';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '69 · 2026-09-15 · one-device-sounds';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1012,6 +1017,7 @@ function ensureAudio() {
   master.connect(comp).connect(ctx.destination);
   songGain = ctx.createGain(); songGain.gain.value = S.songMuted ? 0 : S.songVol / 100; songGain.connect(comp);
   metroGain = ctx.createGain(); metroGain.gain.value = S.metroMuted ? 0 : S.metroVol / 100; metroGain.connect(comp);
+  ['piano', 'song', 'metro'].forEach(applyGain);   // the audio graph is built lazily, on the first tap — if another device holds the sound by then, start silent rather than blaring one note first
   buildPianoSamples();
 }
 /* --- modelled piano: rendered once into sample buffers (one every 3 semitones), then played back like samples --- */
@@ -1570,6 +1576,7 @@ function pause() {
   $('playBtn').textContent = '▶ Play'; $('playBtn').classList.remove('playing'); renderKeys(); if (song) updateTime(); releaseWake();
 }
 function isRunning() { return playing || metroOn || counting || stepMode; }
+function songRunning() { return playing || counting || stepMode; }   // what the Play button asks. isRunning() also counts the metronome clicking on its own, and using that here made Play act as Pause while the click ran: the first press only silenced the click, and you had to press again to actually start. A standalone click is not the song playing.
 function chordsBlocked() { return playing || stepMode || counting; }   // hearing the metronome click on its own shouldn't stop you from exploring scale/chord info — only actual song playback (or note-practice, or the count-in click) should
 function stop() { pause(); posBeats = 0; if (song) for (const n of song.notes) n.missed = false; renderKeys(); if (song) updateTime(); }
 function killFileVoices() { for (const v of fileVoices.values()) v.stop(0); fileVoices.clear(); }
@@ -2240,6 +2247,26 @@ function drawArr() {
     g.strokeStyle = dark ? (isBar ? '#4a4a4a' : '#333') : (isBar ? '#a0a0a0' : '#c2c2c2'); g.lineWidth = 1;
     g.beginPath(); g.moveTo(Math.round(x) + .5, RUL); g.lineTo(Math.round(x) + .5, H); g.stroke();
     if (isBar) { g.fillStyle = cs.getPropertyValue('--muted').trim(); g.fillText(String(b / bar + 1), x + 4, RUL / 2); } }
+  // loop region, drawn the way Ableton shows it: a bright bar along the ruler with a cap at each end, and a soft
+  // tint over the beats that actually repeat. Marker loop takes precedence; failing that, "loop" means the whole song.
+  (() => {
+    let la = null, lb = null;
+    if (markerLoopOn && song && song.markers && loopMarkers.length === 2) {
+      const m = [song.markers[loopMarkers[0]], song.markers[loopMarkers[1]]];
+      if (m[0] !== undefined && m[1] !== undefined) { la = Math.min(m[0], m[1]); lb = Math.max(m[0], m[1]); }
+    } else if (S.loop && song) { la = 0; lb = song.durBeats; }
+    if (la === null || !(lb > la) || lb < x0 || la > x0 + VIS) return;   // nothing to draw, or it's off screen
+    const xa = Math.max(KW, bx(la)), xb = Math.min(W, bx(lb)), w = Math.max(0, xb - xa);
+    const [lr, lg, lbl] = hex2rgb(cs.getPropertyValue('--accent').trim());
+    g.fillStyle = `rgba(${lr},${lg},${lbl},${dark ? 0.09 : 0.13})`; g.fillRect(xa, RUL, w, H - RUL);   // the repeating stretch
+    g.fillStyle = `rgba(${lr},${lg},${lbl},0.9)`; g.fillRect(xa, 0, w, 3);                              // the loop bar itself
+    g.fillStyle = `rgb(${lr},${lg},${lbl})`;                                                            // end caps, only where the edge is really on screen
+    if (bx(la) >= KW) g.fillRect(xa, 0, 2.5, RUL);
+    if (bx(lb) <= W) g.fillRect(xb - 2.5, 0, 2.5, RUL);
+    g.strokeStyle = `rgba(${lr},${lg},${lbl},0.45)`; g.lineWidth = 1;                                   // edges, so the region reads even where the tint is faint
+    if (bx(la) >= KW) { g.beginPath(); g.moveTo(Math.round(xa) + .5, RUL); g.lineTo(Math.round(xa) + .5, H); g.stroke(); }
+    if (bx(lb) <= W) { g.beginPath(); g.moveTo(Math.round(xb) - .5, RUL); g.lineTo(Math.round(xb) - .5, H); g.stroke(); }
+  })();
   // markers: tap the ruler strip to drop one, tap a flag to jump there, hold a flag to remove it — passed markers dim once the start line reaches them
   if (song && song.markers && song.markers.length) { const [ar, ag, ab] = hex2rgb(cs.getPropertyValue('--accent').trim());
     for (let mi = 0; mi < song.markers.length; mi++) { const mb = song.markers[mi]; if (mb < x0 - 1 || mb > x0 + VIS + 1) continue; const x = bx(mb); if (x < KW) continue;
@@ -2434,7 +2461,8 @@ $('tArcBg').setAttribute('d', arcPath(-135, 135));
 function tAngle(t) { return -135 + (t - MINT) / (MAXT - MINT) * 270; }
 function setTranspose(t, quiet) {
   t = Math.min(MAXT, Math.max(MINT, Math.round(t)));
-  S.transpose = t; if (!quiet) save();
+  const wasT = S.transpose; S.transpose = t; if (!quiet) save();
+  if (t !== wasT) liveBroadcastSoon();   // the transpose knob is a drag, same as the tempo — coalesce the writes
   const ang = tAngle(t), mid = tAngle(0);
   $('tArcVal').setAttribute('d', Math.abs(ang - mid) > 0.5 ? arcPath(Math.min(ang, mid), Math.max(ang, mid)) : '');
   const [x, y] = polar(ang, 28); $('tPtr').setAttribute('x2', x); $('tPtr').setAttribute('y2', y);
@@ -3046,6 +3074,7 @@ async function initCloud() {
   setCloudStatus('Syncing…');
   cloudDb.collection('songs').onSnapshot(cloudApplySnapshot, e => { setCloudStatus('Sync error — using the local copy'); log('cloud snapshot error', (e && e.message) || e); });
   initLiveSync();
+  initAudioOwner();
 }
 (() => {
   const box = $('fbCfg'); if (!box) return;
@@ -3070,14 +3099,57 @@ const deviceId = (() => { try { let id = sessionStorage.getItem('pk-device-id');
 let liveSeq = Date.now();
 const lastSeqBy = new Map();   // ...and "have I seen this already?" is per sender. One shared counter meant whichever device started broadcasting second had all its early messages thrown away, because the other device's numbering had already run ahead. That is the bug behind "the playlist syncs but pressing play does nothing".
 let applyingRemote = false, liveUnsub = null, liveBroadcastTimer = null;
-let liveLogged = false, liveStaleLogged = false, liveSentLogged = false, liveErrLogged = false;   // log the first message that actually lands, so "is the other device reaching me at all?" is answerable from the Log tab
+let liveLogged = false, liveStaleLogged = false, liveSentLogged = false, liveErrLogged = false;
+/* ---------- which device actually makes the sound ----------
+   Playing the same song out of a phone and a laptop half a second apart is worse than either on its own. So one
+   device can claim the audio and every other one goes silent. The claim lives in its own document rather than
+   riding along with the live-playback state, so it works whether or not playback sync is switched on — and it is
+   a single shared value, so there can never be two devices each believing they are the one that sounds. */
+let audioOwner = null, audioOwnerName = '', audioUnsub = null;
+const deviceName = () => { try { return localStorage.getItem('pk-device-name') || ''; } catch (e) { return ''; } };
+const audioSilenced = () => !!audioOwner && audioOwner !== deviceId;
+function syncAudioOwnerUi() {
+  const sel = $('audioOwner'); if (sel) sel.value = audioOwner === deviceId ? 'me' : '';
+  const st = $('audioStatus');
+  if (st) st.textContent = !audioOwner ? 'Every device makes its own sound'
+    : audioOwner === deviceId ? 'This device is the one you hear — the others are silent'
+    : 'Silent here — the sound is on ' + (audioOwnerName || 'another device');
+  ['piano', 'song', 'metro'].forEach(applyGain);   // re-apply, so the change is heard immediately
+}
+async function claimAudio(mine) {
+  audioOwner = mine ? deviceId : null; audioOwnerName = mine ? deviceName() : '';
+  syncAudioOwnerUi();
+  if (!cloudDb) return;
+  try { await cloudDb.doc('syncLive/audio').set({ owner: audioOwner, name: audioOwnerName, at: Date.now() }); }
+  catch (e) { log('Could not share the audio choice:', (e && e.message) || e); }
+}
+function initAudioOwner() {
+  if (audioUnsub) { audioUnsub(); audioUnsub = null; }
+  if (!cloudDb) return;
+  audioUnsub = cloudDb.collection('syncLive').onSnapshot(snap => {
+    const d = snap.docs.find(x => x.id === 'audio'); if (!d) return;
+    const v = d.data() || {}; const was = audioSilenced();
+    audioOwner = v.owner || null; audioOwnerName = v.name || '';
+    syncAudioOwnerUi();
+    if (audioSilenced() && !was) log('Sound moved to ' + (audioOwnerName || 'another device') + ' — this one is silent now.');
+  }, () => {});
+}
+(() => {
+  const sel = $('audioOwner'); if (sel) sel.onchange = e => claimAudio(e.target.value === 'me');
+  const nm = $('deviceName'); if (!nm) return;
+  nm.value = deviceName();
+  nm.onchange = () => { try { localStorage.setItem('pk-device-name', nm.value.trim()); } catch (e) {}
+    if (audioOwner === deviceId) claimAudio(true); };   // renaming the device that holds the sound should update what the others show
+  syncAudioOwnerUi();
+})();   // log the first message that actually lands, so "is the other device reaching me at all?" is answerable from the Log tab
 function setSyncStatus(t) { const el = $('syncStatus'); if (el) el.textContent = t; }
 async function liveBroadcast(extra) {   // writes this device's full current state — always the whole picture, not a diff, so a device that just switched sync on catches up immediately from whatever the last write was
   if (!cloudDb || !S.syncMode || applyingRemote) return;
   if (!liveSentLogged) { liveSentLogged = true; log('Live sync: this device is broadcasting its state.'); }
   try { await cloudDb.doc('syncLive/state').set({ by: deviceId, seq: ++liveSeq, at: Date.now(),
     songId: currentId || null, playing: !!playing, posBeats: song ? posBeats : 0, markerLoopOn: !!markerLoopOn, loopMarkers: loopMarkers.slice(), metro: !!S.metro, countIn: !!S.countIn,
-    bpm: S.bpm, sig: S.sig, accentOn: !!S.accentOn, metroHear: !!metroOn, ...extra }); }   // the whole metronome panel travels too: tempo, time signature, accent, and whether the click is running on its own
+    bpm: S.bpm, sig: S.sig, accentOn: !!S.accentOn, metroHear: !!metroOn,
+    loop: !!S.loop, transpose: S.transpose | 0, ...extra }); }   // ...and the rest of the play bar. Volumes and the row show/hide toggles deliberately stay local: those are about this device's speakers and this device's screen, not about the music.   // the whole metronome panel travels too: tempo, time signature, accent, and whether the click is running on its own
   catch (e) { if (!liveErrLogged) { liveErrLogged = true; log('Live sync: broadcast REFUSED —', (e && e.code) || '', (e && e.message) || e); setSyncStatus('Cannot write live state — check the Firestore rules'); } }
 }
 let liveSoonT = null;
@@ -3105,6 +3177,9 @@ async function applyLiveState(data) {   // a state doc that just arrived from an
     if (typeof data.sig === 'number' && data.sig !== S.sig) { S.sig = data.sig; $('sig').value = S.sig; save(); buildDots(); }
     if (typeof data.accentOn === 'boolean' && data.accentOn !== S.accentOn) { S.accentOn = data.accentOn; save(); $('accentChip').setAttribute('aria-pressed', S.accentOn); syncChips(); buildDots(); }
     if (typeof data.metroHear === 'boolean' && data.metroHear !== metroOn && !playing && !stepMode) $('metroPlayChip').click();   // the click running on its own, between songs
+    if (typeof data.loop === 'boolean' && data.loop !== S.loop) { S.loop = data.loop; save(); $('loop').checked = S.loop; drawArr(); }
+    if (typeof data.transpose === 'number' && data.transpose !== S.transpose) setTranspose(data.transpose);
+    if (data.cmd === 'clearColor') clearPerfHistory();
     if (song && typeof data.posBeats === 'number') { const drift = Math.abs(posBeats - data.posBeats);
       if (data.cmd === 'seek' || drift > 0.2) { posBeats = Math.max(0, Math.min(song.durBeats, data.posBeats)); lastCtx = ctx.currentTime;
         nextIdx = song.notes.findIndex(n => n.b1 > posBeats); if (nextIdx < 0) nextIdx = song.notes.length; hit.clear(); updateTime(); renderKeys(); } }
@@ -3224,9 +3299,10 @@ $('fileInput').onchange = async e => { const files = [...e.target.files]; e.targ
   qSaveAll(); renderQueue(); if (!song && first) loadSong(first);
   added.forEach(cloudUploadSong); };
 qLoadAll().then(() => { renderQueue(); const s = queue.find(x => x.id === S.currentSong) || queue[0]; if (s) loadSong(s, true); initCloud(); });
-$('playBtn').onclick = async () => { if (isRunning()) { pause(); liveBroadcast(); } else { await play(); liveBroadcast(); } };   // the periodic broadcast timer (every 400ms while playing) catches up regardless if a count-in delays the actual start past this first, best-effort broadcast
+$('playBtn').onclick = async () => { if (songRunning()) { pause(); liveBroadcast(); } else { await play(); liveBroadcast(); } };   // the periodic broadcast timer (every 400ms while playing) catches up regardless if a count-in delays the actual start past this first, best-effort broadcast
 $('stopBtn').onclick = $('stopBtnFull').onclick = () => { stop(); liveBroadcast({ cmd: 'seek' }); };
-$('clearColorBtn').onclick = clearPerfHistory; $('clearColorBtnFull').onclick = clearPerfHistory;
+const clearColorHere = () => { clearPerfHistory(); liveBroadcast({ cmd: 'clearColor' }); };
+$('clearColorBtn').onclick = clearColorHere; $('clearColorBtnFull').onclick = clearColorHere;
 for (let mi = 0; mi < MARKER_BTNS; mi++) $('markerBtn' + mi + 'Full').onclick = () => markerBtnClick(mi);
 $('stopBtnFull').addEventListener('pointerdown', () => { const b = $('stopBtnFull'); b.classList.add('primary'); setTimeout(() => b.classList.remove('primary'), 160); });
 $('stopBtn').addEventListener('pointerdown', () => { const b = $('stopBtn'); b.classList.add('primary'); setTimeout(() => b.classList.remove('primary'), 160); });
@@ -3259,7 +3335,7 @@ function initVolMute(volId, valId, muteId, key) {   // shared wiring for a volum
   syncMuteBtn(muteId, S[key + 'Muted']);
   $(muteId).onclick = () => { S[key + 'Muted'] = !S[key + 'Muted']; syncMuteBtn(muteId, S[key + 'Muted']); save(); applyGain(key); };
 }
-function applyGain(key) { const v = S[key + 'Muted'] ? 0 : S[key + 'Vol'] / 100;
+function applyGain(key) { const v = (S[key + 'Muted'] || audioSilenced()) ? 0 : S[key + 'Vol'] / 100;   // another device holds the sound: this one stays silent, without disturbing its own volume settings
   if (key === 'piano' && master) master.gain.value = v; if (key === 'song' && songGain) songGain.gain.value = v; if (key === 'metro' && metroGain) metroGain.gain.value = v; }
 function syncMetroVolIcon() { $('metroVolBtn').classList.toggle('muted', S.metroMuted); }   // the always-visible metronome icon in the main row swaps to a mute glyph whenever the metronome is muted, mirroring its popover's own mute button
 $('metroVol').value = S.metroVol; $('metroVolVal').textContent = S.metroVol; $('metroVol').oninput = e => { S.metroVol = +e.target.value; $('metroVolVal').textContent = S.metroVol; if (S.metroMuted) { S.metroMuted = false; syncMuteBtn('metroMuteBtn', false); syncMetroVolIcon(); } save(); applyGain('metro'); };
@@ -3306,7 +3382,7 @@ syncChips(); syncMetroPlay();
 $('keysShown').value = S.keysShown; $('keysShown').onchange = e => { S.keysShown = +e.target.value; keysOverride = null; save(); applyRange(); syncKeysReset(); };
 const syncDevice = () => { const g = !dev().lights; $('midiOut').disabled = g; $('midiOut').closest('label').style.opacity = g ? .4 : ''; $('lightsPanel').style.opacity = g ? .4 : ''; $('lightsPanel').querySelectorAll('input').forEach(i => i.disabled = g); const h = $('noLightsHint'); if (h) h.hidden = !g; };
 $('device').value = S.device; $('device').onchange = e => { S.device = e.target.value; save(); ledModeSent = false; applyRange(); if (access) refreshPorts(); syncDevice(); }; syncDevice();
-$('loop').checked = S.loop; $('loop').onchange = e => { S.loop = e.target.checked; save(); };
+$('loop').checked = S.loop; $('loop').onchange = e => { S.loop = e.target.checked; save(); drawArr(); liveBroadcast(); };
 $('fold').checked = S.fold; $('fold').onchange = e => { S.fold = e.target.checked; save(); renderKeys(); };
 const setPreview = (p, force) => { preview = force ? p : (preview === p) ? null : p; userInv = 0; closeChordInvPop(); if (preview) { clearScaleChordSel(); arrPreview = false; } $('chordNow').classList.toggle('sel', preview === 'now'); $('chordNext').classList.toggle('sel', preview === 'next');
   const name = preview === 'now' ? lastNow : preview === 'next' ? nextName : ''; const notes = preview === 'now' ? nowNotes : preview === 'next' && nextGroup ? nextGroup.notes : [];
