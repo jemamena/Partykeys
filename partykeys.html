@@ -175,6 +175,13 @@ body.keysGoneFull .arr.arrHidden{display:flex!important}
 .qitem .qBadge[hidden]{display:none}
 #scChordList{display:flex;flex-wrap:wrap;gap:8px}
 .scChip{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 12px;border-radius:14px;background:var(--surface2);border:1px solid var(--line);font-size:13px}
+.scSec{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;background:var(--surface2)}
+.scSec .scHead{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.scSec .scHead select{flex:1;min-width:90px}
+.scSec .scChips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;min-height:4px}
+.scSec .scAdd{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.scSec .scAdd select{flex:1;min-width:90px}
+.scNoKey{opacity:.85;border-style:dashed}
 .scChip button{width:20px;height:20px;min-height:0;padding:0;border-radius:50%;flex:none;font-size:12px;line-height:1}
 .xtog{position:absolute;top:4px;left:4px;width:28px;height:28px;min-height:0;padding:0;font-size:18px;font-weight:700;line-height:1;border-radius:2px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.8);opacity:1}
 .kbReset{position:absolute;bottom:26px;right:6px;z-index:6;width:30px;height:30px;min-height:0;padding:0;border-radius:4px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:var(--accent-ink);border:1px solid transparent;box-shadow:0 1px 5px rgba(0,0,0,.35)}
@@ -652,6 +659,9 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
     <div class="sheetbody">
 
     <section class="panel" data-sheet="play">
+      <h2>Chord naming</h2>
+      <label class="check"><input type="checkbox" id="fitKey" checked> Keep chord names inside the song's key</label>
+      <div class="sub" style="margin:2px 0 14px">On: every chord is called as the nearest of the key's own seven, so an F triad over an E bass reads <b>F/E</b> rather than <b>Fmaj7/E</b> — simpler to read, at the cost of the extension. Off: the most literally accurate name, extensions and all. Note spelling follows the key either way (E♭ in flat keys, D♯ in sharp ones).</div>
       <h2>Spoken chord names</h2>
       <div class="sub" style="margin:-8px 0 8px">The 🗣 button in the scale bar switches this on. While a song plays it calls the chord that's <i>coming</i>, as its look-ahead bar lights up, so there's time to move your hands.</div>
       <div class="row" style="margin-bottom:14px;align-items:center;gap:8px">
@@ -783,14 +793,10 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
           <select id="scKeyType"><option value="major">Major</option><option value="minor">Minor</option></select></label>
       </div>
       <div class="sub" style="margin-top:2px">Leave the key on Auto to use whatever key the app is already set to.</div>
-      <div class="row" style="flex-wrap:nowrap;gap:10px;margin-top:16px;align-items:flex-end">
-        <label class="field" style="flex:1;min-width:0">Add a chord
-          <select id="scChordRoot"></select></label>
-        <label class="field" style="flex:1;min-width:0">&nbsp;
-          <select id="scChordQ"></select></label>
-        <button id="scChordAdd" style="flex:none">+ Add</button>
-      </div>
-      <div class="row" id="scChordList" style="margin-top:12px"></div>
+      <div id="scSections" style="margin-top:14px"></div>
+      <button id="scAddSection" style="width:100%;margin-top:10px">+ Add another key</button>
+      <div class="row" id="scChordList" hidden></div>
+      <select id="scChordRoot" hidden></select><select id="scChordQ" hidden></select><button id="scChordAdd" hidden></button>
       <div class="sub" id="scChordEmpty">No chords added yet — the app picks chords freely, like normal.</div>
       <div class="sub" style="margin-top:6px">Once you add chords here, the app will only ever pick from this list for this song — whichever one fits closest to what's playing.</div>
     </section>
@@ -809,7 +815,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '71 · 2026-09-15 · speak-next-duck';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '73 · 2026-09-15 · key-sections';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -818,7 +824,7 @@ const logEl = $('log');
 const log = (...a) => { logEl.textContent = (a.join(' ') + '\n' + logEl.textContent).slice(0, 4000); };
 
 /* ---------- settings ---------- */
-const defaults = { sound:'grand', lookBeats:0.125, noteColor:'#ff3d8a', nextColor:'#ffc21a', scaleColor:'#2f7cff', scaleOn:false, showPlaying:true, showNext:true, root:0, scaleType:'major', bright:100, lag:0, fold:true, loop:false, bpm:120, sig:4, accentOn:true, startOct:3, countIn:false, metro:false, keysShown: matchMedia('(max-width: 699px)').matches ? 25 : 36, arrZoom:8, device:'partykeys', pianoVol:100, songVol:100, metroVol:80, pianoMuted:false, songMuted:false, metroMuted:false, transpose:0, currentSong:'', midiIn:'', midiOut:'', arrHeight:0, playRowH:0, showFingersL:false, showFingersR:false, goodChordSound:true, badNoteSound:true, progLock:false, speakChords:false, speakDuck:45, syncMode:false, midiEnabled:true, midiOutDaw:'', midiToDawEnabled:false };
+const defaults = { sound:'grand', lookBeats:0.125, noteColor:'#ff3d8a', nextColor:'#ffc21a', scaleColor:'#2f7cff', scaleOn:false, showPlaying:true, showNext:true, root:0, scaleType:'major', bright:100, lag:0, fold:true, loop:false, bpm:120, sig:4, accentOn:true, startOct:3, countIn:false, metro:false, keysShown: matchMedia('(max-width: 699px)').matches ? 25 : 36, arrZoom:8, device:'partykeys', pianoVol:100, songVol:100, metroVol:80, pianoMuted:false, songMuted:false, metroMuted:false, transpose:0, currentSong:'', midiIn:'', midiOut:'', arrHeight:0, playRowH:0, showFingersL:false, showFingersR:false, goodChordSound:true, badNoteSound:true, progLock:false, speakChords:false, speakDuck:45, fitKey:true, syncMode:false, midiEnabled:true, midiOutDaw:'', midiToDawEnabled:false };
 let S = { ...defaults };
 let noteColorEff = defaults.noteColor, nextColorEff = defaults.nextColor;   // the actual on-screen "now"/"next" colour — falls back to grey whenever it collides with the current (fixed, rainbow) scale colour, as a "pick another one" flag
 try { Object.assign(S, JSON.parse(localStorage.getItem('pk-settings') || '{}')); } catch(e) {}
@@ -845,6 +851,28 @@ const GREY_WARN = '#8a8a8a';   // shown instead of the now/next colour when it c
 
 /* ---------- scales ---------- */
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NOTE_FLATS = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+// Chord identity stays sharp-spelled everywhere inside the app, so matching, templates and saved shortlists are
+// unaffected. Spelling is a presentation question, settled here at the moment a name is shown or spoken: a key with
+// flats in its signature reads Eb and Bb, a key with sharps reads F# and C#. Minor keys follow their relative major.
+const FLAT_MAJORS = new Set([5, 10, 3, 8, 1, 6]);   // F Bb Eb Ab Db Gb
+let preSpelled = false;   // set while a song's own sectioned chord list is in force
+function keyUsesFlats() {
+  const rel = S.scaleType === 'minor' ? (S.root + 3) % 12 : S.root;   // a minor key carries its relative major's signature
+  if (S.scaleType !== 'major' && S.scaleType !== 'minor') return FLAT_MAJORS.has(S.root);
+  return FLAT_MAJORS.has(rel);
+}
+const noteNameKey = pc => (keyUsesFlats() ? NOTE_FLATS : NOTE_NAMES)[((pc % 12) + 12) % 12];
+function keyFlats(k) {   // the same signature rule, for any key — used to spell each section of a song's chord list in its own key
+  if (!k) return false;
+  const rel = k.minor ? (k.root + 3) % 12 : k.root;
+  return FLAT_MAJORS.has(rel);
+}
+const noteNameIn = (k, pc) => (keyFlats(k) ? NOTE_FLATS : NOTE_NAMES)[((pc % 12) + 12) % 12];
+function spellName(name) {   // re-spell every note letter in a chord name for the current key — "D#m7/A#" -> "Ebm7/Bb"
+  if (!name || preSpelled || !keyUsesFlats()) return name;   // a song with a sectioned chord list has already spelled its names in each section's own key — don't second-guess them
+  return name.replace(/[A-G]#/g, m => NOTE_FLATS[NOTE_NAMES.indexOf(m)]);
+}
 const SCALES = {
   major:['Major (Ionian)',[0,2,4,5,7,9,11]], minor:['Natural minor',[0,2,3,5,7,8,10]],
   harmMinor:['Harmonic minor',[0,2,3,5,7,8,11]], melMinor:['Melodic minor',[0,2,3,5,7,9,11]],
@@ -1698,16 +1726,22 @@ function chordName(notes, ctx) {   // notes: array of midi numbers -> chord name
   const pcs = [...new Set(notes.map(n => n % 12))];
   const bass = Math.min(...notes) % 12;
   const prev = ctx && ctx.prev ? splitChord(ctx.prev) : null;
-  if (ctx && ctx.allowed && ctx.allowed.length) {   // a song-specific chord list is set: never guess outside it — always land on whichever of those chords is the closest fit
+  if (ctx && ctx.allowed && ctx.allowed.length
+      && !(ctx.fromKey && ctx.scale && pcs.some(p => !ctx.scale.has(p)))) {   // a chord list is in force: land on whichever of those fits closest.
+      // The exception is the key's own list against a chord that genuinely leaves the key — a secondary dominant, a
+      // borrowed chord. Forcing D7 into Dm or A into Am would change the harmony, not just simplify it, so those fall
+      // through to the literal reading below. A hand-picked shortlist has no such escape: it means exactly what it says.
     if (pcs.length < 2) return null;
     let best = null;
     for (const a of ctx.allowed) { const tpl = (CHORDS.find(x => x[0] === a.q) || ['', [0, 4, 7]])[1];
       const set = tpl.map(i => (a.pc + i) % 12);
-      const missing = set.filter(p => !pcs.includes(p)).length, extra = pcs.filter(p => !set.includes(p)).length;   // chord tones not played, and played notes outside the chord
+      const missing = set.filter(p => !pcs.includes(p)).length;
+      const extra = pcs.filter(p => !set.includes(p) && p !== bass).length;   // played notes outside the chord — but the bass doesn't count, because a slash name accounts for it (that is what makes E+F A C read as F/E rather than Fmaj7/E)
       let score = missing * 2 + extra;
       if (a.pc === bass) score -= 0.5;   // this chord's own root sits in the bass — a good sign it's the right one
       if (prev && prev.root === NOTE_NAMES[a.pc] && prev.q === a.q) score -= 0.6;   // same reading as the chord just shown — don't flicker off it without a good reason
-      const name = NOTE_NAMES[a.pc] + a.q + (bass !== a.pc && set.includes(bass) ? '/' + NOTE_NAMES[bass] : '');
+      const nn = p => a.key !== undefined ? noteNameIn(a.key, p) : NOTE_NAMES[p];   // a sectioned shortlist spells each chord in the key it was written under
+      const name = nn(a.pc) + a.q + (bass !== a.pc ? '/' + nn(bass) : '');   // name the bass whenever it isn't the root, chord tone or not — F over an E bass is F/E
       if (!best || score < best.score) best = { name, score }; }
     return best ? best.name : null;
   }
@@ -1754,13 +1788,28 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 function romanDeg(i, q) {   // scale-degree roman numeral, cased/marked by the triad's quality — upper for major/aug, lower for minor/dim, ° for dim, + for aug
   const r = ROMAN[i]; return q === 'm' ? r.toLowerCase() : q === 'dim' ? r.toLowerCase() + '°' : q === 'aug' ? r + '+' : r;
 }
-function markChords(song, key, allowedChords) {   // flag notes whose onset group forms a chord (used to colour the arrangement)
+function diatonicSevenths(scaleArr, root) {   // the key's own seventh chords, so Cmaj7 and Am7 aren't flattened into plain triads
+  const Q = { '4,7,11': 'maj7', '4,7,10': '7', '3,7,10': 'm7', '3,6,10': 'm7b5', '3,7,11': 'mMaj7', '3,6,9': 'dim7' };
+  return scaleArr.map((deg, i) => { const at = k => scaleArr[(i + k) % 7] + (i + k >= 7 ? 12 : 0);
+    const iv = [2, 4, 6].map(k => (at(k) - deg + 12) % 12);
+    const q = Q[iv.join(',')]; return q ? { pc: (deg + root) % 12, q } : null; }).filter(Boolean);
+}
+function markChords(song, key, allowedChords) {
+  preSpelled = !!(allowedChords && allowedChords.length && Array.isArray(allowedChords[0] && allowedChords[0].chords));   // flag notes whose onset group forms a chord (used to colour the arrangement)
   // key (optional, {root, minor}): calls chords in relation to the song's key rather than in isolation —
   // e.g. Am7 and C6 are the exact same notes, and "searching the song" (the detected key) is what tells them apart.
   // allowedChords (optional, [{pc,q}, ...]): a song-specific shortlist — when set, every group is read as whichever of those chords fits closest, nothing else.
   const scale = key ? new Set(SCALES[key.minor ? 'minor' : 'major'][1].map(d => (d + key.root) % 12)) : null;
   const diatonic = key ? diatonicTriads(SCALES[key.minor ? 'minor' : 'major'][1], key.root) : null;
-  const allowed = allowedChords && allowedChords.length ? allowedChords : null;
+  // "Keep to the key": with no hand-picked shortlist, fall back to the key's own seven chords. That runs every group
+  // through the same closest-fit scoring a shortlist uses, so an odd-but-true reading (Fmaj7/E, Amaj7/G#) lands on
+  // the plain in-key chord underneath it instead. Extensions outside the key are the information deliberately given up.
+  const keyChords = key && S.fitKey
+    ? diatonic.map(d => ({ pc: d.pc, q: d.q })).concat(diatonicSevenths(SCALES[key.minor ? 'minor' : 'major'][1], key.root))
+    : null;   // triads first, sevenths after: on a tie the simpler name wins, which is what turns Fmaj7/E back into F/E
+  const allowed = allowedChords && allowedChords.length
+    ? (Array.isArray(allowedChords[0] && allowedChords[0].chords) ? flatChords(allowedChords) : allowedChords)
+    : keyChords;   // sectioned ("key => chords") or the older flat list — both end up as one candidate set
   let i = 0; const ns = song.notes; song.groups = []; let prev = null;
   while (i < ns.length) { let j = i; while (j < ns.length && ns[j].b0 <= ns[i].b0 + 0.06) j++;
     const grp = ns.slice(i, j);
@@ -1769,7 +1818,7 @@ function markChords(song, key, allowedChords) {   // flag notes whose onset grou
     const durs = grp.map(n => n.b1 - n.b0).sort((a, b) => a - b), med = durs[Math.floor(durs.length / 2)] || 0;
     const core = grp.filter(n => (n.b1 - n.b0) >= 0.12 || (n.b1 - n.b0) >= med * 0.5);
     const fingerprint = core.length >= 2 ? core : grp;
-    const name = chordName(fingerprint.map(n => n.n), { scale, diatonic, prev, allowed }); if (name) prev = name;
+    const name = chordName(fingerprint.map(n => n.n), song.chordCtx = { scale, diatonic, prev, allowed, fromKey: allowed === keyChords }); if (name) prev = name;
     for (const n of grp) { n.chord = !!name; n.gname = name; } song.groups.push({ b0: ns[i].b0, name, notes: grp.map(n => n.n) }); i = j; }
 }
 const SIMPLE = { '':'', '5':'', '7':'', 'maj7':'', '6':'', 'add9':'', '9':'', 'maj9':'', 'm':'m', 'm7':'m', 'mMaj7':'m', 'm6':'m', 'madd9':'m', 'm9':'m', 'dim':'dim', 'dim7':'dim', 'm7b5':'dim', 'aug':'aug', 'sus2':'sus2', 'sus4':'sus4', '7sus4':'sus4' };
@@ -1777,7 +1826,7 @@ const QUALITY = { '':'major', '5':'power chord', '7':'dominant 7th', 'maj7':'maj
 let lastSpoken = '';
 function speakableChord(name) {   // "C#m7" -> "C sharp minor 7th", so the speech engine says something musical rather than spelling it out
   const c = splitChord(name); if (!c) return '';
-  const say = n => n.replace('#', ' sharp');
+  const say = n => { const sp = spellName(n); return sp[1] === 'b' ? sp[0] + ' flat' : sp.replace('#', ' sharp'); };   // spoken the way the key spells it: "E flat", not "D sharp"
   return say(c.root) + ' ' + (QUALITY[c.q] || c.q || 'major') + (c.bass ? ' over ' + say(c.bass) : '');
 }
 let ducked = 0;   // how many utterances are in flight — the music stays down until the last one finishes
@@ -1856,7 +1905,7 @@ function renderChordDegRow(degMap) {   // degree numbers in their own strip, abo
 }
 function explainChord(name) { const c = splitChord(name); if (!c) return '';
   const tpl = (CHORDS.find(x => x[0] === c.q) || ['', [0,4,7]])[1]; const r = NOTE_NAMES.indexOf(c.root);
-  return c.root + ' ' + (QUALITY[c.q] || c.q) + ' · ' + tpl.map(i => NOTE_NAMES[(r + i) % 12]).join(' ') + (c.bass ? ' · ' + c.bass + ' in the bass' : ''); }
+  return spellName(c.root) + ' ' + (QUALITY[c.q] || c.q) + ' · ' + tpl.map(i => noteNameKey(r + i)).join(' ') + (c.bass ? ' · ' + spellName(c.bass) + ' in the bass' : ''); }
 function equivalentNames(name, notes) {   // other valid readings of the same pitch classes (e.g. Am7 == C6) — the "relative" chord
   const c = splitChord(name); if (!c || !notes || !notes.length) return [];
   const pcs = [...new Set(notes.map(n => n % 12))]; if (pcs.length < 3) return [];
@@ -1890,11 +1939,15 @@ function updateChords() {
   else { let f = 0; if (song && nextGroup) { const pos = position(); const from = isFinite(start) ? start : pos; const span = nextGroup.b0 - from; f = span > 0 ? Math.max(0, Math.min(1, (pos - from) / span)) : 1; }
     const [r2, g2, b2] = hex2rgb(nextColorEff); $('chordNext').style.background = f > 0 ? `rgba(${r2},${g2},${b2},${(0.4 * f).toFixed(3)})` : ''; }   // fades up until the next chord lands
   if (!now.length && liveNotes.size) now = [...liveNotes];
-  const a = chordName(now);            // null on silence or when it isn't a chord: keep what's shown
+  // Name it with the same context the song was analysed under — its key, its own chord list and their spelling.
+  // Without this the box quietly re-guessed from the notes alone, so a song that read Eb everywhere else showed D# here.
+  const a = chordName(now, song && song.chordCtx ? { ...song.chordCtx, prev: lastNow } : undefined);   // null on silence or when it isn't a chord: keep what's shown
   if (a) lastNow = a;
   const bShown = (nextName && nextName !== lastNow) ? nextName : '';
   const key = lastNow + '|' + bShown; if (key === lastChords) return; lastChords = key;
-  $('chordNow').querySelector('b').textContent = simpleName(transposeName(lastNow, S.transpose)); $('chordNext').querySelector('b').textContent = simpleName(transposeName(bShown, S.transpose));
+    const asWritten = !!(song && song.customChords && song.customChords.length);   // you picked these chords yourself — show them the way you wrote them, 7ths and all, instead of the usual at-a-glance simplification
+  const show = n => spellName(asWritten ? transposeName(n, S.transpose) : simpleName(transposeName(n, S.transpose)));
+  $('chordNow').querySelector('b').textContent = show(lastNow); $('chordNext').querySelector('b').textContent = show(bShown);
 }
 let lastNow = '—', nowNotes = [], nextGroup = null, nextName = '', preview = null;   // preview: 'now' | 'next' | null (chord shown on the keys while paused)
 let arrPreview = false, arrNotes = [];   // tapped the arrangement while paused: light the raw notes sitting at the start line, on the keys and in the arrangement itself — not a "chord", so no chordInfo row
@@ -2050,14 +2103,14 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
 }
 function showScaleChordPreview() {   // tapped a scale-degree chord label: show it in the "now" field/explanation row, in green, like a normal now-chord preview
   const { root: pc, q } = scaleChordSel;
-  const name = NOTE_NAMES[pc] + q;
+  const name = NOTE_NAMES[pc] + q;   // internal name stays sharp — spellName() re-spells it wherever it is shown
   let rootMidi = DLOW; while (rootMidi % 12 !== pc) rootMidi++; if (scaleProgOctMode()) rootMidi += scaleProgOct * 12;
   const tpl = invertTpl((CHORDS.find(x => x[0] === q) || ['', [0,4,7]])[1], userInv);
   const notes = tpl.map(iv => rootMidi + iv).filter(n => n <= DLOW + NKEYS - 1);
   lastNow = name; nowNotes = notes; lastChords = '';
   const [gr, gg, gb] = hex2rgb(CHORD_GREY);
   $('chordNow').style.background = `rgba(${gr},${gg},${gb},0.65)`;
-  $('chordNow').querySelector('b').textContent = scaleProgDom7Mode() ? transposeName(name, S.transpose) : simpleName(transposeName(name, S.transpose));   // the 7 is the whole point of the jazz drill, so don't let the label simplify it away
+  $('chordNow').querySelector('b').textContent = spellName(scaleProgDom7Mode() ? transposeName(name, S.transpose) : simpleName(transposeName(name, S.transpose)));   // the 7 is the whole point of the jazz drill, so don't let the label simplify it away
   $('chordText').textContent = chordTextFor(name, notes);
   $('chordInfo').hidden = false;
   syncHands();
@@ -2094,7 +2147,7 @@ function renderScaleChordRow() {   // a black key's chord label gets its own row
   const partsW = [], partsB = [];
   for (const { el, d } of matches) {
     const left = el.style.left, width = el.style.width, isBlack = el.classList.contains('b');
-    const label = NOTE_NAMES[d.pc] + (SIMPLE[d.q] ?? d.q);
+    const label = noteNameKey(d.pc) + (SIMPLE[d.q] ?? d.q);
     const sel = scaleChordSel && scaleChordSel.root === d.pc && scaleChordSel.q === d.q;
     (isBlack ? partsB : partsW).push(`<div class="scChordWrap ${isBlack ? 'b' : 'w'}" style="left:${left};width:${width}"><button type="button" class="scChord" data-pc="${d.pc}" data-q="${d.q}" aria-pressed="${sel ? 'true' : 'false'}" style="font-size:${labelFs}px">${label}</button></div>`); }
   row.hidden = !partsW.length; row.innerHTML = partsW.join('');
@@ -2580,7 +2633,7 @@ function refreshSwatches() {
   [['noteSw', 'noteColor'], ['nextSw', 'nextColor']].forEach(([id, key]) => { [...$(id).querySelectorAll('.sw')].forEach(b => b.classList.toggle('sel', b.title === S[key]));
     const w = $(id).querySelector('.cpick'); w.style.background = PRESETS.includes(S[key]) ? '' : S[key]; w.querySelector('input').value = S[key]; });
   $('noteClashNote').hidden = noteColorEff !== GREY_WARN; $('nextClashNote').hidden = nextColorEff !== GREY_WARN;
-  [['lgScale', ROOT_COLORS[S.root]], ['lgScaleFull', ROOT_COLORS[S.root]]].forEach(([id, c]) => { const [r, g, b] = hex2rgb(c); $(id).style.background = c; $(id).style.color = (r * 299 + g * 587 + b * 114) / 1000 > 140 ? '#1C1824' : '#FFFFFF'; }); $('lgScale').textContent = $('lgScaleFull').textContent = NOTE_NAMES[S.root] + ' ' + SCALES[S.scaleType][0].replace(/ \(.*\)$/, '').toLowerCase(); $('lgScale').classList.toggle('off', !S.scaleOn); $('lgScaleFull').classList.toggle('off', !S.scaleOn); $('lgScaleFull').setAttribute('aria-pressed', S.scaleOn); $('lgScale').setAttribute('aria-pressed', S.scaleOn);
+  [['lgScale', ROOT_COLORS[S.root]], ['lgScaleFull', ROOT_COLORS[S.root]]].forEach(([id, c]) => { const [r, g, b] = hex2rgb(c); $(id).style.background = c; $(id).style.color = (r * 299 + g * 587 + b * 114) / 1000 > 140 ? '#1C1824' : '#FFFFFF'; }); $('lgScale').textContent = $('lgScaleFull').textContent = noteNameKey(S.root) + ' ' + SCALES[S.scaleType][0].replace(/ \(.*\)$/, '').toLowerCase(); $('lgScale').classList.toggle('off', !S.scaleOn); $('lgScaleFull').classList.toggle('off', !S.scaleOn); $('lgScaleFull').setAttribute('aria-pressed', S.scaleOn); $('lgScale').setAttribute('aria-pressed', S.scaleOn);
   $('xNow').setAttribute('aria-pressed', S.showPlaying); $('xNext').setAttribute('aria-pressed', S.showNext); $('chordNow').classList.toggle('layer-off', !S.showPlaying); $('chordNext').classList.toggle('layer-off', !S.showNext);
   const tone = c => { const [r, g, b] = hex2rgb(c); return (r * 299 + g * 587 + b * 114) / 1000 > 140 ? '#1C1824' : '#FFFFFF'; };
   $('keyInfoToggle').style.setProperty('--toggle-lit', ROOT_COLORS[S.root]); $('keyInfoToggle').style.setProperty('--toggle-ink', tone(ROOT_COLORS[S.root]));   // the collapsed rows' + buttons pick up the same colours as the scale swatch / the now-chord highlight, so they read as "this one's the scale row" / "this one's the chord row" at a glance
@@ -2727,10 +2780,10 @@ function syncCircleSelection() {
   renderCircleRootArc();
   const c = $('circleCenter'); if (!c) return;
   const isMinor = S.scaleType === 'minor';
-  c.querySelector('b').textContent = NOTE_NAMES[S.root] + (isMinor ? 'm' : '');
+  c.querySelector('b').textContent = noteNameKey(S.root) + (isMinor ? 'm' : '');
   const i = isMinor ? FIFTHS_ORDER.indexOf(relMajorPc(S.root)) : FIFTHS_ORDER.indexOf(S.root);
   const sigEl = $('circleCenterSig'); if (sigEl) sigEl.textContent = i < 0 ? '' : (KEY_SIGS[i] === '0' ? 'no sharps/flats' : KEY_SIGS[i]);
-  const minEl = $('circleCenterMinor'); if (minEl) minEl.textContent = isMinor ? 'relative major: ' + NOTE_NAMES[relMajorPc(S.root)] : 'relative minor: ' + NOTE_NAMES[relMinorPc(S.root)] + 'm';
+  const minEl = $('circleCenterMinor'); if (minEl) minEl.textContent = isMinor ? 'relative major: ' + noteNameKey(relMajorPc(S.root)) : 'relative minor: ' + noteNameKey(relMinorPc(S.root)) + 'm';
   updateRomanLabels();
   renderCircleProgression();
   updateCircleMiniKb();
@@ -3168,7 +3221,11 @@ let liveLogged = false, liveStaleLogged = false, liveSentLogged = false, liveErr
    device can claim the audio and every other one goes silent. The claim lives in its own document rather than
    riding along with the live-playback state, so it works whether or not playback sync is switched on — and it is
    a single shared value, so there can never be two devices each believing they are the one that sounds. */
-let audioOwner = null, audioOwnerName = '', audioUnsub = null;
+let audioOwner = null, audioOwnerName = '', audioUnsub = null, audioBeat = null;
+// A claim is only honoured while the device that made it is still around. The owner re-asserts every few minutes;
+// everyone else ignores a claim that has gone quiet for longer than this. Without that, a device that claimed the
+// sound and then went away would leave every other device silent for good, with nothing obvious to undo.
+const AUDIO_STALE = 15 * 60 * 1000;
 const deviceName = () => { try { return localStorage.getItem('pk-device-name') || ''; } catch (e) { return ''; } };
 const audioSilenced = () => !!audioOwner && audioOwner !== deviceId;
 function syncAudioOwnerUi() {
@@ -3185,6 +3242,9 @@ async function claimAudio(mine) {
   if (!cloudDb) return;
   try { await cloudDb.doc('syncLive/audio').set({ owner: audioOwner, name: audioOwnerName, at: Date.now() }); }
   catch (e) { log('Could not share the audio choice:', (e && e.message) || e); }
+  if (audioBeat) { clearInterval(audioBeat); audioBeat = null; }
+  if (mine) audioBeat = setInterval(() => { if (audioOwner === deviceId && cloudDb)
+    cloudDb.doc('syncLive/audio').set({ owner: deviceId, name: deviceName(), at: Date.now() }).catch(() => {}); }, 5 * 60 * 1000);
 }
 function initAudioOwner() {
   if (audioUnsub) { audioUnsub(); audioUnsub = null; }
@@ -3192,6 +3252,8 @@ function initAudioOwner() {
   audioUnsub = cloudDb.collection('syncLive').onSnapshot(snap => {
     const d = snap.docs.find(x => x.id === 'audio'); if (!d) return;
     const v = d.data() || {}; const was = audioSilenced();
+    const stale = v.owner && v.owner !== deviceId && v.at && (Date.now() - v.at) > AUDIO_STALE;
+    if (stale) { if (audioOwner) log('Ignoring an audio claim from a device that has gone quiet — sound is back on everywhere.'); audioOwner = null; audioOwnerName = ''; syncAudioOwnerUi(); return; }
     audioOwner = v.owner || null; audioOwnerName = v.name || '';
     syncAudioOwnerUi();
     if (audioSilenced() && !was) log('Sound moved to ' + (audioOwnerName || 'another device') + ' — this one is silent now.');
@@ -3302,15 +3364,66 @@ function renderQueue() {
   renderMiniQueueFull();
 }
 let scEditId = null;   // id of the song the "Chords & key" panel is currently editing (may not be the loaded song)
-function scRenderChips() { const chords = loadSongChords(scEditId); const box = $('scChordList'); box.innerHTML = '';
-  $('scChordEmpty').hidden = chords.length > 0;
-  chords.forEach((c, i) => { const chip = document.createElement('span'); chip.className = 'scChip';
-    chip.innerHTML = '<span></span><button aria-label="Remove chord">×</button>';
-    chip.firstElementChild.textContent = NOTE_NAMES[c.pc] + (c.q || '');
-    chip.lastElementChild.onclick = () => { const next = loadSongChords(scEditId); next.splice(i, 1); saveSongChords(scEditId, next); scRenderChips(); scApplyIfLoaded(); renderQueue(); };
-    box.appendChild(chip); }); }
+/* ---------- a song's chords, grouped by key ----------
+   A song can change key partway through, and some passages belong to no key at all. So the shortlist is a list of
+   sections — each one a key (or "no key") and the chords that belong to it:  key => chords / key2 => chords /
+   noKey => chords. Naming picks the closest chord from all sections at once; what a section's key decides is how its
+   chords are SPELLED (E♭ in a flat key, D♯ in a sharp one) and whether they are held to that key at all. */
+function scSections(id) {   // always hands back the sectioned shape, upgrading the old flat list on the way
+  const raw = loadSongChords(id);
+  if (!raw.length) return [];
+  if (raw[0] && Array.isArray(raw[0].chords)) return raw;   // already sectioned
+  return [{ key: loadSongKey(id) || null, chords: raw }];   // an older song: its one list becomes one section under its own key
+}
+function scSaveSections(id, secs) {
+  saveSongChords(id, secs.filter(x => (x.chords && x.chords.length) || x.key));   // an empty section with no key set is just the blank row you were about to fill in — don't keep piling those up
+}
+function flatChords(secs) {   // every chord across every section, each remembering the key it was written in
+  const out = [];
+  for (const sec of secs) for (const c of (sec.chords || [])) out.push({ pc: c.pc, q: c.q, key: sec.key || null });
+  return out;
+}
+function keyLabel(k) { return !k ? 'No key' : noteNameIn(k, k.root) + (k.minor ? ' minor' : ' major'); }
+let scWorking = null;   // the sections as they are being edited. A half-built section — key chosen, no chords yet, or the other way round — has to survive on screen while you finish it, so the editor works on this copy and only the meaningful parts get written to storage.
+function scRenderChips() {
+  const box = $('scSections'); if (!box) return;
+  const secs = scWorking || (scWorking = scSections(scEditId));
+  box.innerHTML = '';
+  $('scChordEmpty').hidden = secs.some(x => (x.chords || []).length);
+  secs.forEach((sec, si) => {
+    const el = document.createElement('div');
+    el.className = 'scSec' + (sec.key ? '' : ' scNoKey');
+    el.innerHTML =
+      '<div class="scHead"><select class="secRoot"><option value="">No key</option>' +
+        NOTE_NAMES.map((nm, i) => '<option value="' + i + '">' + noteNameIn(sec.key, i) + '</option>').join('') +
+      '</select><select class="secType"><option value="major">Major</option><option value="minor">Minor</option></select>' +
+      '<button class="secDel" aria-label="Remove this key and its chords" title="Remove this key and its chords">×</button></div>' +
+      '<div class="scAdd"><select class="addRoot"></select><select class="addQ"></select><button class="addBtn">+ Add</button></div>' +
+      '<div class="scChips"></div>';
+    const root = el.querySelector('.secRoot'), type = el.querySelector('.secType');
+    root.value = sec.key ? String(sec.key.root) : '';
+    type.value = sec.key && sec.key.minor ? 'minor' : 'major';
+    type.disabled = !sec.key;
+    el.querySelector('.addRoot').innerHTML = NOTE_NAMES.map((nm, i) => '<option value="' + i + '">' + noteNameIn(sec.key, i) + '</option>').join('');
+    el.querySelector('.addQ').innerHTML = CHORDS.map(([suffix]) => '<option value="' + suffix + '">' + QUALITY[suffix] + '</option>').join('');
+    const commit = () => { scSaveSections(scEditId, scWorking); scRenderChips(); scApplyIfLoaded(); renderQueue(); };
+    root.onchange = type.onchange = () => { const r = root.value;
+      sec.key = r === '' ? null : { root: +r, minor: type.value === 'minor' }; commit(); };
+    el.querySelector('.secDel').onclick = () => { secs.splice(si, 1); commit(); };
+    el.querySelector('.addBtn').onclick = () => {
+      const pc = +el.querySelector('.addRoot').value, q = el.querySelector('.addQ').value;
+      if (!sec.chords.some(c => c.pc === pc && c.q === q)) { sec.chords.push({ pc, q }); commit(); } };
+    const chips = el.querySelector('.scChips');
+    (sec.chords || []).forEach((c, ci) => { const chip = document.createElement('span'); chip.className = 'scChip';
+      chip.innerHTML = '<span></span><button aria-label="Remove chord">×</button>';
+      chip.firstElementChild.textContent = noteNameIn(sec.key, c.pc) + (c.q || '');
+      chip.lastElementChild.onclick = () => { sec.chords.splice(ci, 1); commit(); };
+      chips.appendChild(chip); });
+    box.appendChild(el);
+  });
+}
 function scApplyIfLoaded() { if (song && currentId === scEditId) { song.customChords = loadSongChords(scEditId); song.customKey = loadSongKey(scEditId); applySongChordSettings(); } }
-function openSongChords(s) { scEditId = s.id;
+function openSongChords(s) { scEditId = s.id; scWorking = scSections(s.id);
   $('scSongName').textContent = s.name;
   const key = loadSongKey(s.id);
   $('scKeyRoot').value = key ? String(key.root) : '';
@@ -3322,9 +3435,10 @@ $('scChordRoot').innerHTML = NOTE_NAMES.map((nm, i) => `<option value="${i}">${n
 $('scChordQ').innerHTML = CHORDS.map(([suffix]) => `<option value="${suffix}">${QUALITY[suffix]}</option>`).join('');
 $('scKeyRoot').onchange = $('scKeyType').onchange = () => { if (!scEditId) return;
   const root = $('scKeyRoot').value; saveSongKey(scEditId, root === '' ? null : { root: +root, minor: $('scKeyType').value === 'minor' }); scApplyIfLoaded(); };
-$('scChordAdd').onclick = () => { if (!scEditId) return;
-  const pc = +$('scChordRoot').value, q = $('scChordQ').value; const chords = loadSongChords(scEditId);
-  if (!chords.some(c => c.pc === pc && c.q === q)) { chords.push({ pc, q }); saveSongChords(scEditId, chords); scRenderChips(); scApplyIfLoaded(); renderQueue(); } };
+$('scAddSection').onclick = () => { if (!scEditId) return;
+  const secs = scWorking || (scWorking = scSections(scEditId));
+  secs.push({ key: secs.length ? null : (loadSongKey(scEditId) || { root: S.root, minor: S.scaleType === 'minor' }), chords: [] });   // the first section defaults to the song's key; the ones after start as "no key" until you set one
+  scSaveSections(scEditId, secs); scRenderChips(); scApplyIfLoaded(); };
 // drag to reorder
 (() => { let dragEl = null, id = null;
   $('queue').addEventListener('pointerdown', e => { const grip = e.target.closest('.grip'); if (!grip) return; dragEl = grip.closest('.qitem'); id = dragEl.dataset.id; dragEl.classList.add('drag'); grip.setPointerCapture(e.pointerId); e.preventDefault(); });
@@ -3402,6 +3516,9 @@ function applyGain(key) { let v = (S[key + 'Muted'] || audioSilenced()) ? 0 : S[
   if (ducked && (key === 'piano' || key === 'song')) v *= 1 - (S.speakDuck || 0) / 100;   // speaking a chord name: pull the music down under it   // another device holds the sound: this one stays silent, without disturbing its own volume settings
   if (key === 'piano' && master) master.gain.value = v; if (key === 'song' && songGain) songGain.gain.value = v; if (key === 'metro' && metroGain) metroGain.gain.value = v; }
 function syncMetroVolIcon() { $('metroVolBtn').classList.toggle('muted', S.metroMuted); }   // the always-visible metronome icon in the main row swaps to a mute glyph whenever the metronome is muted, mirroring its popover's own mute button
+(() => { const c = $('fitKey'); if (!c) return; c.checked = !!S.fitKey;
+  c.onchange = e => { S.fitKey = e.target.checked; save();
+    if (song) { markChords(song, { root: S.root, minor: S.scaleType === 'minor' }, loadSongChords(currentId)); lastChords = ''; updateChords(); drawArr(); renderKeys(); } }; })();
 (() => { const sl = $('speakDuck'), out = $('speakDuckVal'); if (!sl) return;
   sl.value = S.speakDuck; out.textContent = S.speakDuck;
   sl.oninput = e => { S.speakDuck = +e.target.value; out.textContent = S.speakDuck; save(); if (ducked) ['piano', 'song'].forEach(applyGain); }; })();
