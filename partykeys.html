@@ -638,6 +638,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
       <div class="row between" style="margin-top:12px">
         <button class="primary" id="connectBtn">Connect MIDI</button>
         <button id="bleBtn" style="flex:none">Bluetooth</button>
+        <button id="testLightsBtn" style="flex:none">Test lights</button>
         <span class="status"><span class="dot" id="connDot"></span><span id="connText">Plug the keyboard in (USB / USB-C OTG on a phone), tap Connect, then Allow</span></span>
       </div>
       <div class="sub" id="buildTag" style="margin-top:10px;opacity:.65;font-variant-numeric:tabular-nums"></div>
@@ -754,7 +755,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '37 · 2026-09-15 · lights-hint';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '40 · 2026-09-15 · ble-onepacket';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1093,23 +1094,55 @@ const BLE_MIDI_CHAR = '7772e5db-3868-4112-a1a9-f2669d106bf3';
 let bleDevice = null, bleChar = null, bleSysexIn = null, bleWriteQ = Promise.resolve();
 const bleReady = () => !!bleChar;
 const bleTs = () => { const t = Date.now() & 0x1fff; return [0x80 | (t >> 7), 0x80 | (t & 0x7f)]; };
-function bleWrite(arr) {   // serialised: BLE writes must not overlap or packets arrive interleaved
-  if (!bleChar) return Promise.resolve();
+let bleWriteOk = 0, bleWriteFail = 0, bleNoResponse = true, bleSplit = false;
+async function bleRaw(arr) {   // the actual GATT write — throws, so callers can adapt
   const buf = new Uint8Array(arr);
-  bleWriteQ = bleWriteQ
-    .then(() => bleChar.writeValueWithoutResponse ? bleChar.writeValueWithoutResponse(buf) : bleChar.writeValue(buf))
-    .catch(e => log('BLE write failed:', e.message));
+  if (bleNoResponse && bleChar.writeValueWithoutResponse) {
+    try { await bleChar.writeValueWithoutResponse(buf); return; }
+    catch (e) {
+      if (arr.length > 20) throw e;   // almost certainly just too long for this link — let the caller split rather than blaming the write mode
+      bleNoResponse = false; log('BLE write-without-response refused (' + (e.name || 'error') + ') — using acknowledged writes');
+    }
+  }
+  await bleChar.writeValue(buf);
+}
+function bleWrite(arr) {   // serialised: BLE writes must not overlap, or packets interleave
+  if (!bleChar) return Promise.resolve();
+  bleWriteQ = bleWriteQ.then(async () => {
+    try { await bleRaw(arr); bleWriteOk++; if (bleWriteOk <= 3) log('BLE out ok — ' + arr.length + ' bytes'); }
+    catch (e) { bleWriteFail++; if (bleWriteFail <= 3) log('BLE write failed:', (e.name || '') + ' ' + (e.message || '')); }
+    await new Promise(r => setTimeout(r, 6));   // a BLE link drops writes pushed faster than its connection interval
+  });
   return bleWriteQ;
 }
 function bleSend(bytes) {
   if (!bleChar) return;
   const [h, t] = bleTs();
   if (bytes[0] !== 0xF0) { bleWrite([h, t, ...bytes]); return; }
-  const body = [...bytes].slice(1, -1), CH = 16;   // SysEx has to be split across packets: first carries F0, continuations carry the header only, F7 closes it
-  let i = Math.min(body.length, CH);
-  bleWrite([h, t, 0xF0, ...body.slice(0, i)]);
-  while (i < body.length) { const n = Math.min(body.length - i, CH); bleWrite([h, ...body.slice(i, i + n)]); i += n; }
-  bleWrite([h, t, 0xF7]);
+  const body = [...bytes].slice(1, -1);
+  bleWriteQ = bleWriteQ.then(async () => {
+    // Android normally negotiates an MTU far bigger than the 20-byte minimum, so send the whole SysEx as ONE
+    // packet first: no continuation packets means nothing for the device's parser to drop. Split only if refused.
+    if (!bleSplit) {
+      try {
+        await bleRaw([h, t, 0xF0, ...body, t, 0xF7]); bleWriteOk++;
+        if (bleWriteOk <= 3) log('BLE out ok — ' + (body.length + 5) + ' bytes, one packet');
+        await new Promise(r => setTimeout(r, 6));
+        return;
+      } catch (e) { bleSplit = true; log('BLE refused a ' + (body.length + 5) + '-byte packet (' + (e.name || 'error') + ') — splitting from here on'); }
+    }
+    const CH = 15;
+    let i = Math.min(body.length, CH);
+    const pkts = [[h, t, 0xF0, ...body.slice(0, i)]];
+    while (i < body.length) { const n = Math.min(body.length - i, CH); pkts.push([h, ...body.slice(i, i + n)]); i += n; }
+    const last = pkts[pkts.length - 1];
+    if (last.length + 2 <= 20) last.push(t, 0xF7); else pkts.push([h, t, 0xF7]);   // the closing F7 needs a timestamp, and devices prefer it on the tail of the last data packet
+    for (const pk of pkts) {
+      try { await bleRaw(pk); bleWriteOk++; }
+      catch (e) { bleWriteFail++; if (bleWriteFail <= 3) log('BLE write failed:', (e.name || '') + ' ' + (e.message || '')); }
+      await new Promise(r => setTimeout(r, 6));
+    }
+  });
 }
 function bleParse(bytes) {   // one BLE-MIDI packet -> the MIDI messages inside it (SysEx may span several packets)
   const b = bytes, out = [];
@@ -1156,7 +1189,7 @@ async function connectBle() {
     bleChar = await svc.getCharacteristic(BLE_MIDI_CHAR);
     await bleChar.startNotifications();
     bleChar.addEventListener('characteristicvaluechanged', bleOnData);
-    bleSysexIn = null; ledModeSent = false; lastSent.fill('');
+    bleSysexIn = null; ledModeSent = false; lastSent.fill(''); bleWriteOk = 0; bleWriteFail = 0; bleNoResponse = true; bleSplit = false;
     log('Bluetooth MIDI connected: ' + (bleDevice.name || 'unnamed device'));
     if (dev().lights) { setConn('on', 'Bluetooth: ' + (bleDevice.name || 'connected')); enterLedMode(); pushLeds(true); }
     else { setConn('warn', 'Bluetooth connected — but key lights are off: Keyboard is set to "Other MIDI keyboard (no lights)"');
@@ -2627,6 +2660,14 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTranspo
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('circleOverlay').hidden) closeCircle(); });
 $('connectBtn').onclick = connect;
 $('bleBtn').onclick = connectBle;
+$('testLightsBtn').onclick = () => {   // all keys white for a moment, then back — proves the LED path end to end without needing a scale or chord
+  if (!midiOut && !bleReady()) { setConn('warn', 'Connect the keyboard first — USB or Bluetooth'); return; }
+  if (!dev().lights) { setConn('warn', 'Key lights are off — Keyboard is set to “Other MIDI keyboard (no lights)”'); return; }
+  ledModeSent = false; enterLedMode(); lastSent.fill('');
+  log('Test lights: all keys white');
+  sendColors(new Array(NKEYS).fill([255, 255, 255]), true);
+  setTimeout(() => { lastSent.fill(''); log('Test lights: back to normal'); pushLeds(true); }, 1500);
+};
 $('midiIn').onchange = bindPorts; $('midiOut').onchange = bindPorts; $('midiOutDaw').onchange = bindPorts;
 function syncMidiToggleBtn() { const on = !!S.midiEnabled; const txt = on ? 'MIDI input on — tap to mute the physical keyboard' : 'MIDI input muted — tap to re-enable the physical keyboard';
   [$('midiToggleBtn'), $('midiToggleBtnFull')].forEach(b => { if (!b) return; b.setAttribute('aria-pressed', String(on)); b.title = txt; b.setAttribute('aria-label', txt); }); }
