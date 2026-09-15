@@ -819,7 +819,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '76 · 2026-09-15 · shared-note-fade';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '78 · 2026-09-15 · scales-and-spelling';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -869,10 +869,21 @@ function keyUsesFlats() {
 const noteNameKey = pc => (keyUsesFlats() ? NOTE_FLATS : NOTE_NAMES)[((pc % 12) + 12) % 12];
 function keyFlats(k) {   // the same signature rule, for any key — used to spell each section of a song's chord list in its own key
   if (!k) return false;
-  const rel = k.minor ? (k.root + 3) % 12 : k.root;
+  if (k.sp) return k.sp.length > 1 && k.sp[1] === 'b';   // the scale's own root was written with a flat, so the rest follows suit
+  const t = scaleTypeOf(k);
+  const rel = (t === 'minor' || t === 'harmMinor' || t === 'melMinor' || t === 'dorian' || t === 'phrygian' || t === 'locrian' || t === 'pentMinor') ? (k.root + 3) % 12 : k.root;
   return FLAT_MAJORS.has(rel);
 }
 const noteNameIn = (k, pc) => (keyFlats(k) ? NOTE_FLATS : NOTE_NAMES)[((pc % 12) + 12) % 12];
+// A song section names a SCALE, not just major-or-minor: Dorian, Mixolydian, harmonic minor, a pentatonic, whatever
+// the passage actually is. Older sections stored {root, minor} and still read correctly through here.
+const scaleTypeOf = k => !k ? 'major' : (k.type && SCALES[k.type] ? k.type : (k.minor ? 'minor' : 'major'));
+const scaleArrOf = k => SCALES[scaleTypeOf(k)][1];
+// Every spelling a chord root or bass can be written as. Picking "Eb" rather than "D#" is how you say which scale it
+// belongs to, so the app never has to guess the accidental from the key signature.
+const SPELLINGS = [['C',0],['C#',1],['Db',1],['D',2],['D#',3],['Eb',3],['E',4],['Fb',4],['E#',5],['F',5],['F#',6],['Gb',6],
+  ['G',7],['G#',8],['Ab',8],['A',9],['A#',10],['Bb',10],['B',11],['Cb',11]];
+const spellPc = sp => { const f = SPELLINGS.find(x => x[0] === sp); return f ? f[1] : null; };
 function spellName(name) {   // re-spell every note letter in a chord name for the current key — "D#m7/A#" -> "Ebm7/Bb"
   if (!name || preSpelled || !keyUsesFlats()) return name;   // a song with a sectioned chord list has already spelled its names in each section's own key — don't second-guess them
   return name.replace(/[A-G]#/g, m => NOTE_FLATS[NOTE_NAMES.indexOf(m)]);
@@ -1722,6 +1733,8 @@ const CHORDS = [
   ['7', [0,4,7,10]], ['maj7', [0,4,7,11]], ['m7', [0,3,7,10]], ['mMaj7', [0,3,7,11]], ['dim7', [0,3,6,9]], ['m7b5', [0,3,6,10]], ['6', [0,4,7,9]], ['m6', [0,3,7,9]],
   ['add9', [0,2,4,7]], ['madd9', [0,2,3,7]], ['7sus4', [0,5,7,10]], ['9', [0,2,4,7,10]], ['maj9', [0,2,4,7,11]], ['m9', [0,2,3,7,10]]
 ];
+let lastPickAmbiguous = false;   // the chosen chord is written under more than one of the song's keys, so it can't call a modulation alone
+let keyPending = null, keyVotes = 0;   // a modulation has to be confirmed by two chords in a row before the display moves
 let lastPickKey = null;   // set by the shortlist branch below: the key of the section the chosen chord belongs to
 function chordName(notes, ctx) {   // notes: array of midi numbers -> chord name, or null when it isn't a clear chord
   // ctx (optional): { scale: Set of diatonic pitch classes, diatonic: the 7 in-key triads (root pc + core quality), prev: previous group's chord name, allowed: a user-picked shortlist of {pc,q} to restrict to }
@@ -1742,22 +1755,39 @@ function chordName(notes, ctx) {   // notes: array of midi numbers -> chord name
       const set = tpl.map(i => (a.pc + i) % 12);
       const wantBass = a.bass === undefined || a.bass === null ? null : ((a.bass % 12) + 12) % 12;   // a chord written WITH a bass — A/G#, A/F#, A/E
       const full = wantBass === null ? set : set.concat([wantBass]);
-      const missing = full.filter(p => !pcs.includes(p)).length;
+      // Not every absent note means the same thing. Players leave out fifths constantly and the chord is still that
+      // chord; a missing ROOT almost always means you are looking at the wrong chord. Weighing them equally is what
+      // made an A with an added 9th and no fifth score the same as a genuine mismatch.
+      const weightOf = p => { const iv = ((p - a.pc) % 12 + 12) % 12;
+        return iv === 0 ? 3 : (iv === 3 || iv === 4) ? 2 : iv === 7 ? 0.6 : 1.5; };
+      const missing = full.filter(p => !pcs.includes(p)).reduce((n, p) => n + weightOf(p), 0);
       const extra = pcs.filter(p => !full.includes(p) && p !== bass).length;   // played notes outside the chord — but the bass doesn't count, because a slash name accounts for it (that is what makes E+F A C read as F/E rather than Fmaj7/E)
-      let score = missing * 2 + extra;
-      if (wantBass !== null) score += bass === wantBass ? -1.2 : 1.5;   // a written slash chord only really fits when its own bass note is the one being played
+      let score = missing + extra;
+      if (wantBass !== null) score += bass === wantBass ? -2 : 1.5;   // a written slash chord only really fits when its own bass note is the one being played. The bonus has to clear the hold threshold below, or A would never give way to A/G# — the two differ by one note, in the bass, and that is the whole point of writing them separately.
       else if (a.pc === bass) score -= 0.5;   // this chord's own root sits in the bass — a good sign it's the right one
       const nn = p => a.key !== undefined ? noteNameIn(a.key, p) : NOTE_NAMES[p];   // a sectioned shortlist spells each chord in the key it was written under
-      const name = nn(a.pc) + a.q + (wantBass !== null ? '/' + nn(wantBass) : (bass !== a.pc ? '/' + nn(bass) : ''));
+      const rootSp = a.sp || nn(a.pc), bassSp = p => (a.bsp && p === wantBass) ? a.bsp : nn(p);   // ...and an explicitly written ♯/♭ beats anything derived
+      // A hand-written list shows EXACTLY the names in it. The automatic "/bass" suffix belongs to the key-derived
+      // list, where it is what turns Fmaj7/E into F/E; on your own list it was inventing names you never wrote
+      // (a G with E in the bass coming out as "G/E"), which is precisely what "no other chords" rules out.
+      const name = rootSp + a.q + (wantBass !== null ? '/' + bassSp(wantBass)
+        : (ctx.fromKey && bass !== a.pc ? '/' + nn(bass) : ''));
       const isPrev = ctx.prev && name === ctx.prev;
       if (isPrev) { prevScore = score; prevKey = a.key ?? null; }
-      if (!best || score < best.score) best = { name, score, key: a.key ?? null }; }
+      if (!best || score < best.score) best = { name, score, key: a.key ?? null, pcOf: a.pc, qOf: a.q, bassOf: wantBass }; }
     // Hold the reading. A MIDI part rarely plays a chord the same way twice — a passing note, a missing fifth, an
     // octave doubling — and without this the label flickers between neighbours bar after bar. So the chord already
     // showing keeps its place unless something else fits appreciably better, not merely a hair better.
     const HOLD = 1.25;
     if (prevScore !== null && best && prevScore - best.score < HOLD) { lastPickKey = prevKey; return ctx.prev; }
+    // A chord that simply isn't in the list — a passing diminished, a secondary dominant you didn't write down —
+    // must not be forced onto the nearest entry. Hold whatever is showing and wait for a chord the list knows.
+    const FIT = 2;
+    if (!ctx.fromKey && best && best.score > FIT) { lastPickKey = prevKey; return ctx.prev || null; }
     lastPickKey = best ? best.key : null;   // which of the song's keys this chord was written under — the key display follows it
+    // Is this chord written under more than one of the song's keys? An Eb that appears only in the Eb section names
+    // the modulation on its own; a C that sits in both the C and F sections proves nothing by itself.
+    lastPickAmbiguous = !!best && ctx.allowed.filter(x => x.pc === best.pcOf && x.q === best.qOf && ((x.bass ?? null) === best.bassOf)).length > 1;
     return best ? best.name : null;
   }
   if (pcs.length < 3) return null;
@@ -1790,8 +1820,8 @@ function detectKey(song) {
 }
 function applySongKey(song, key) {
   const k = key !== undefined ? key : (song.keySig || (song.notes.length ? detectKey(song) : null)); if (!k) return;
-  S.root = k.root; S.scaleType = k.minor ? 'minor' : 'major'; $('root').value = S.root; $('scaleType').value = S.scaleType; save(); refreshSwatches(); syncSelBtn('root', 'rootBtn'); syncSelBtn('scaleType', 'scaleTypeBtn');
-  log('Key:', NOTE_NAMES[k.root] + (k.minor ? ' minor' : ' major'), song.keySig ? '(from file)' : '(detected)');
+  S.root = k.root; S.scaleType = scaleTypeOf(k); $('root').value = S.root; $('scaleType').value = S.scaleType; save(); refreshSwatches(); syncSelBtn('root', 'rootBtn'); syncSelBtn('scaleType', 'scaleTypeBtn');
+  log('Scale:', (k.sp || NOTE_NAMES[k.root]) + ' ' + SCALES[scaleTypeOf(k)][0], song.keySig ? '(from file)' : '(detected)');
 }
 function diatonicTriads(scaleArr, root) {   // the 7 in-key triads for a scale (major/minor), as {pc, q, deg} using the SIMPLE quality letters — deg is the 0-based scale-degree index (for roman numerals)
   return scaleArr.map((deg, i) => { const third = scaleArr[(i + 2) % 7] + (i + 2 >= 7 ? 12 : 0), fifth = scaleArr[(i + 4) % 7] + (i + 4 >= 7 ? 12 : 0);
@@ -1814,13 +1844,13 @@ function markChords(song, key, allowedChords) {
   // key (optional, {root, minor}): calls chords in relation to the song's key rather than in isolation —
   // e.g. Am7 and C6 are the exact same notes, and "searching the song" (the detected key) is what tells them apart.
   // allowedChords (optional, [{pc,q}, ...]): a song-specific shortlist — when set, every group is read as whichever of those chords fits closest, nothing else.
-  const scale = key ? new Set(SCALES[key.minor ? 'minor' : 'major'][1].map(d => (d + key.root) % 12)) : null;
-  const diatonic = key ? diatonicTriads(SCALES[key.minor ? 'minor' : 'major'][1], key.root) : null;
+  const scale = key ? new Set(scaleArrOf(key).map(d => (d + key.root) % 12)) : null;
+  const diatonic = key ? diatonicTriads(scaleArrOf(key), key.root) : null;
   // "Keep to the key": with no hand-picked shortlist, fall back to the key's own seven chords. That runs every group
   // through the same closest-fit scoring a shortlist uses, so an odd-but-true reading (Fmaj7/E, Amaj7/G#) lands on
   // the plain in-key chord underneath it instead. Extensions outside the key are the information deliberately given up.
   const keyChords = key && S.fitKey
-    ? diatonic.map(d => ({ pc: d.pc, q: d.q })).concat(diatonicSevenths(SCALES[key.minor ? 'minor' : 'major'][1], key.root))
+    ? diatonic.map(d => ({ pc: d.pc, q: d.q })).concat(diatonicSevenths(scaleArrOf(key), key.root))
     : null;   // triads first, sevenths after: on a tie the simpler name wins, which is what turns Fmaj7/E back into F/E
   const allowed = allowedChords && allowedChords.length
     ? (Array.isArray(allowedChords[0] && allowedChords[0].chords) ? flatChords(allowedChords) : allowedChords)
@@ -1962,11 +1992,22 @@ function updateChords() {
   // A song that changes key carries that in its own chord list: each chord belongs to a section, and the section
   // knows its key. So when the chord that's playing belongs to a different one of the song's keys, move the app's key
   // with it — the scale colouring, the degree numbers and the spelling all follow the modulation on their own.
-  if (a && S.followKeys && lastPickKey && (lastPickKey.root !== S.root || (!!lastPickKey.minor) !== (S.scaleType === 'minor'))) {
-    S.root = lastPickKey.root; S.scaleType = lastPickKey.minor ? 'minor' : 'major';
-    $('root').value = S.root; $('scaleType').value = S.scaleType; save(); refreshSwatches();
-    syncSelBtn('root', 'rootBtn'); syncSelBtn('scaleType', 'scaleTypeBtn');
-    lastChords = '';   // force the labels to redraw under the new spelling
+  if (a && S.followKeys && lastPickKey) {
+    const differs = lastPickKey.root !== S.root || scaleTypeOf(lastPickKey) !== S.scaleType;
+    // A chord can sit in more than one of a song's keys — C belongs to C major and to F major alike — so one chord is
+    // not enough to call a modulation. Wait until the same new key is indicated twice running before moving; a single
+    // ambiguous chord passing through can't drag the whole display into another key and straight back.
+    if (!differs) keyVotes = 0;
+    else if (keyPending && keyPending.root === lastPickKey.root && !!keyPending.minor === !!lastPickKey.minor) keyVotes++;
+    else { keyPending = lastPickKey; keyVotes = 1; }
+    if (differs && keyVotes >= (lastPickAmbiguous ? 2 : 1)) {   // an unambiguous chord moves the key immediately; a shared one waits for a second opinion
+      S.root = lastPickKey.root; S.scaleType = scaleTypeOf(lastPickKey);
+      $('root').value = S.root; $('scaleType').value = S.scaleType; save(); refreshSwatches();
+      syncSelBtn('root', 'rootBtn'); syncSelBtn('scaleType', 'scaleTypeBtn');
+      log('Scale follows the song:', (lastPickKey.sp || noteNameKey(S.root)) + ' ' + SCALES[S.scaleType][0]);
+      keyVotes = 0; keyPending = null;
+      lastChords = '';   // force the labels to redraw under the new spelling
+    }
   }
   const bShown = (nextName && nextName !== lastNow) ? nextName : '';
   const key = lastNow + '|' + bShown; if (key === lastChords) return; lastChords = key;
@@ -3034,9 +3075,14 @@ function loadSongChords(id) { try { return JSON.parse(localStorage.getItem('pk-c
 function saveSongChords(id, chords) { try { localStorage.setItem('pk-chords-' + id, JSON.stringify(chords || [])); } catch (e) {} cloudSaveMeta(id, { customChords: chords || [] }); }
 function loadSongKey(id) { try { const v = localStorage.getItem('pk-ckey-' + id); return v ? JSON.parse(v) : null; } catch (e) { return null; } }   // per-song key override — leave unset and the app's own key detection is used, same as always
 function saveSongKey(id, key) { try { if (key) localStorage.setItem('pk-ckey-' + id, JSON.stringify(key)); else localStorage.removeItem('pk-ckey-' + id); } catch (e) {} cloudSaveMeta(id, { customKey: key || null }); }
+function firstSectionKey(id) {   // the first key you actually wrote down for this song
+  try { const secs = scSections(id); const k = secs.map(x => x.key).filter(Boolean); return k.length ? k[0] : null; } catch (e) { return null; }
+}
 function applySongChordSettings() {   // re-derive the key + chord reading for the currently loaded song from its (possibly just-edited) custom key/chords, and refresh everything that shows it
   if (!song) return;
-  const key = song.customKey || song.keySig || (song.notes.length ? detectKey(song) : null);
+  // A key you wrote into the chord list outranks the app's own detection. Otherwise the detected key — guessed from
+  // the raw notes, and for this song "C minor" — kept being re-applied over the top and fighting the follow.
+  const key = song.customKey || firstSectionKey(currentId) || song.keySig || (song.notes.length ? detectKey(song) : null);
   markChords(song, key, song.customChords); applySongKey(song, key); renderKeys(); drawArr();
 }
 const idb = () => new Promise((res, rej) => { const r = indexedDB.open('partykeys', 1); r.onupgradeneeded = () => r.result.createObjectStore('songs', { keyPath: 'id' }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
@@ -3411,10 +3457,15 @@ function scSaveSections(id, secs) {
 }
 function flatChords(secs) {   // every chord across every section, each remembering the key it was written in
   const out = [];
-  for (const sec of secs) for (const c of (sec.chords || [])) out.push({ pc: c.pc, q: c.q, bass: c.bass ?? null, key: sec.key || null });
+  for (const sec of secs) for (const c of (sec.chords || [])) out.push({ pc: c.pc, q: c.q, bass: c.bass ?? null, sp: c.sp || null, bsp: c.bsp || null, key: sec.key || null });
   return out;
 }
-function keyLabel(k) { return !k ? 'No key' : noteNameIn(k, k.root) + (k.minor ? ' minor' : ' major'); }
+function keyLabel(k) { return !k ? 'No scale' : (k.sp || noteNameIn(k, k.root)) + ' ' + SCALES[scaleTypeOf(k)][0]; }
+function chordLabel(c, key) {   // the chord exactly as it was written — its own spelling wins over anything derived from the scale
+  const r = c.sp || noteNameIn(key, c.pc);
+  const b = c.bass === undefined || c.bass === null ? '' : '/' + (c.bsp || noteNameIn(key, c.bass));
+  return (r + (c.q || '') + b).replace(/([A-G])b/g, '$1♭').replace(/([A-G])#/g, '$1♯');
+}
 let scWorking = null;   // the sections as they are being edited. A half-built section — key chosen, no chords yet, or the other way round — has to survive on screen while you finish it, so the editor works on this copy and only the meaningful parts get written to storage.
 function scRenderChips() {
   const box = $('scSections'); if (!box) return;
@@ -3424,34 +3475,36 @@ function scRenderChips() {
   secs.forEach((sec, si) => {
     const el = document.createElement('div');
     el.className = 'scSec' + (sec.key ? '' : ' scNoKey');
+    const spellOpts = sel => SPELLINGS.map(([nm]) => '<option value="' + nm + '"' + (nm === sel ? ' selected' : '') + '>' + nm.replace('#', '♯').replace('b', '♭') + '</option>').join('');
     el.innerHTML =
-      '<div class="scHead"><select class="secRoot"><option value="">No key</option>' +
-        NOTE_NAMES.map((nm, i) => '<option value="' + i + '">' + noteNameIn(sec.key, i) + '</option>').join('') +
-      '</select><select class="secType"><option value="major">Major</option><option value="minor">Minor</option></select>' +
-      '<button class="secDel" aria-label="Remove this key and its chords" title="Remove this key and its chords">×</button></div>' +
-      '<div class="scAdd"><select class="addRoot"></select><select class="addQ"></select>' +
+      '<div class="scHead"><select class="secRoot"><option value="">No scale</option>' + spellOpts(null) + '</select>' +
+      '<select class="secType">' + Object.entries(SCALES).map(([k, v]) => '<option value="' + k + '">' + v[0] + '</option>').join('') + '</select>' +
+      '<button class="secDel" aria-label="Remove this scale and its chords" title="Remove this scale and its chords">×</button></div>' +
+      '<div class="scAdd"><select class="addRoot">' + spellOpts(null) + '</select><select class="addQ"></select>' +
         '<select class="addBass" title="Bass note (for slash chords like A/G#)"></select><button class="addBtn">+ Add</button></div>' +
       '<div class="scChips"></div>';
     const root = el.querySelector('.secRoot'), type = el.querySelector('.secType');
-    root.value = sec.key ? String(sec.key.root) : '';
-    type.value = sec.key && sec.key.minor ? 'minor' : 'major';
+    root.value = sec.key ? (sec.key.sp || NOTE_NAMES[sec.key.root]) : '';
+    type.value = scaleTypeOf(sec.key);
     type.disabled = !sec.key;
-    el.querySelector('.addRoot').innerHTML = NOTE_NAMES.map((nm, i) => '<option value="' + i + '">' + noteNameIn(sec.key, i) + '</option>').join('');
     el.querySelector('.addQ').innerHTML = CHORDS.map(([suffix]) => '<option value="' + suffix + '">' + QUALITY[suffix] + '</option>').join('');
     el.querySelector('.addBass').innerHTML = '<option value="">/ no bass</option>' +
-      NOTE_NAMES.map((nm, i) => '<option value="' + i + '">/ ' + noteNameIn(sec.key, i) + '</option>').join('');
+      SPELLINGS.map(([nm]) => '<option value="' + nm + '">/ ' + nm.replace('#', '♯').replace('b', '♭') + '</option>').join('');
     const commit = () => { scSaveSections(scEditId, scWorking); scRenderChips(); scApplyIfLoaded(); renderQueue(); };
     root.onchange = type.onchange = () => { const r = root.value;
-      sec.key = r === '' ? null : { root: +r, minor: type.value === 'minor' }; commit(); };
+      sec.key = r === '' ? null : { root: spellPc(r), sp: r, type: type.value }; commit(); };   // the spelling you picked is kept, so an E♭ section stays E♭ rather than being re-derived
     el.querySelector('.secDel').onclick = () => { secs.splice(si, 1); commit(); };
     el.querySelector('.addBtn').onclick = () => {
-      const pc = +el.querySelector('.addRoot').value, q = el.querySelector('.addQ').value;
-      const bv = el.querySelector('.addBass').value, bass = bv === '' ? null : +bv;
-      if (!sec.chords.some(c => c.pc === pc && c.q === q && (c.bass ?? null) === bass)) { sec.chords.push(bass === null ? { pc, q } : { pc, q, bass }); commit(); } };
+      const sp = el.querySelector('.addRoot').value, pc = spellPc(sp), q = el.querySelector('.addQ').value;
+      const bsp = el.querySelector('.addBass').value, bass = bsp === '' ? null : spellPc(bsp);
+      if (pc === null) return;
+      if (!sec.chords.some(c => c.pc === pc && c.q === q && (c.bass ?? null) === bass)) {
+        const entry = { pc, q, sp }; if (bass !== null) { entry.bass = bass; entry.bsp = bsp; }
+        sec.chords.push(entry); commit(); } };
     const chips = el.querySelector('.scChips');
     (sec.chords || []).forEach((c, ci) => { const chip = document.createElement('span'); chip.className = 'scChip';
       chip.innerHTML = '<span></span><button aria-label="Remove chord">×</button>';
-      chip.firstElementChild.textContent = noteNameIn(sec.key, c.pc) + (c.q || '') + (c.bass === undefined || c.bass === null ? '' : '/' + noteNameIn(sec.key, c.bass));
+      chip.firstElementChild.textContent = chordLabel(c, sec.key);
       chip.lastElementChild.onclick = () => { sec.chords.splice(ci, 1); commit(); };
       chips.appendChild(chip); });
     box.appendChild(el);
@@ -3485,7 +3538,7 @@ $('scAddSection').onclick = () => { if (!scEditId) return;
 function loadSong(s, quiet) {
   try { stop(); song = parseMidi(s.data); posBeats = 0; lastNow = '—'; lastChords = ''; markerLoopOn = false; loopMarkers = [];
     song.customKey = loadSongKey(s.id); song.customChords = loadSongChords(s.id);
-    const key = song.customKey || song.keySig || (song.notes.length ? detectKey(song) : null);   // detect the key first so chord naming can use it to break ties — unless this song has its own key set
+    const key = song.customKey || firstSectionKey(s.id) || song.keySig || (song.notes.length ? detectKey(song) : null);   // detect the key first so chord naming can use it to break ties — unless this song has a key of its own, either set outright or written into its chord list
     markChords(song, key, song.customChords); currentId = s.id; S.currentSong = s.id; song.markers = loadMarkers(s.id);
     $('fileName').textContent = s.name.replace(/[_]+/g, ' ');
     setBpm(60 / fileSpbAt(song, 0), true); if (song.sig) { S.sig = Math.min(7, Math.max(2, song.sig)); $('sig').value = S.sig; buildDots(); } save(); applySongKey(song, key);
