@@ -636,6 +636,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
       </div>
       <div class="row between" style="margin-top:12px">
         <button class="primary" id="connectBtn">Connect MIDI</button>
+        <button id="bleBtn" style="flex:none">Bluetooth</button>
         <span class="status"><span class="dot" id="connDot"></span><span id="connText">Plug the keyboard in (USB / USB-C OTG on a phone), tap Connect, then Allow</span></span>
       </div>
       <div class="sub" id="buildTag" style="margin-top:10px;opacity:.65;font-variant-numeric:tabular-nums"></div>
@@ -752,7 +753,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '31 · 2026-09-15 · white-blacks';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '34 · 2026-09-15 · bluetooth';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -776,8 +777,11 @@ const PRESETS = ['#ff3d8a','#ff8a1f','#ffc21a','#3ddc84','#1fd1ff','#2f7cff','#9
 const RED = '#e0202a';   // reserved: chord notes outside the scale
 const CHORD_GREY = '#9aa0a8';   // tapped in-key chord — both its label button and the keys it lights up (grey, not green, so it never fights the rainbow scale colour or the now/next colours)
 const OUT_OF_SCALE = '#000';
-const BLACK_KEY_LIT = '#ffffff';   // a dim scale colour on a black key reads as "off" — so a black key that IS in the scale/chord/exercise lights plain white instead, and only the ones outside the key stay dark
-const isBlackKey = m => [1, 3, 6, 8, 10].includes(((m % 12) + 12) % 12);   // scale on: notes outside the key go black on both keyboards, so the only thing lit is what you can actually play — the scale itself stays one hue in two tones (bright root, dim rest)
+const BLACK_KEY_LIT = '#ffffff';   // HARDWARE only: a dim scale colour on the PartyKeys' black keys reads as "off", so a lit black key burns plain white there
+const FAINT_BLACK = [18, 18, 18];   // HARDWARE only: an unlit black key keeps a faint glow so the PartyKeys' black keys stay findable in the dark. Assigned by reference so the screen can spot it and treat it as "not lit" — otherwise out-of-scale keys would light up on screen too
+const PRESSED_SCREEN = '#ffffff';   // SCREEN only: a key you're holding goes white (the hardware LED goes out instead — the two deliberately disagree)
+const isBlackKey = m => [1, 3, 6, 8, 10].includes(((m % 12) + 12) % 12);
+const blackLift = (m, hex) => isBlackKey(m) ? rgb2hex(hex2rgb(hex).map(v => v + (255 - v) * 0.38)) : hex;   // on screen a black key keeps the scale's own colour, just lifted so it still reads against the dark key   // scale on: notes outside the key go black on both keyboards, so the only thing lit is what you can actually play — the scale itself stays one hue in two tones (bright root, dim rest)
 const EXT_GREY = '#5f6670';   // a darker grey for Ext mode (chord tones + 9/11/13), so it still reads differently from plain All
 const hsl2hex = (h, s, l) => { s /= 100; l /= 100; const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return rgb2hex([255 * f(0), 255 * f(8), 255 * f(4)]); };
 const ROOT_COLORS = Array.from({ length: 12 }, (_, i) => hsl2hex((i * 30 + 15) % 360, 72, 54));   // fixed rainbow, one hue per key, starting near C — offset 15° off pure red so no root colour ever collides with the reserved "wrong note" red — the scale colour is no longer user-configurable
@@ -1080,6 +1084,87 @@ function noteOff(n, src) { const k = voiceKey(n, src); const v = sounding.get(k)
 
 /* ---------- Web MIDI ---------- */
 let access = null, midiIn = null, midiOut = null, midiOutDaw = null, ledModeSent = false, dawClockOffset = null;
+/* ---------- Bluetooth MIDI (BLE-MIDI over Web Bluetooth) ----------
+   Chrome on Android doesn't hand BLE-MIDI devices to the Web MIDI API, so the keyboard is talked to
+   directly over its standard BLE-MIDI GATT service instead. Same characteristic carries both directions. */
+const BLE_MIDI_SERVICE = '03b80e5a-ede8-4b33-a751-6ce34ec4c700';
+const BLE_MIDI_CHAR = '7772e5db-3868-4112-a1a9-f2669d106bf3';
+let bleDevice = null, bleChar = null, bleSysexIn = null, bleWriteQ = Promise.resolve();
+const bleReady = () => !!bleChar;
+const bleTs = () => { const t = Date.now() & 0x1fff; return [0x80 | (t >> 7), 0x80 | (t & 0x7f)]; };
+function bleWrite(arr) {   // serialised: BLE writes must not overlap or packets arrive interleaved
+  if (!bleChar) return Promise.resolve();
+  const buf = new Uint8Array(arr);
+  bleWriteQ = bleWriteQ
+    .then(() => bleChar.writeValueWithoutResponse ? bleChar.writeValueWithoutResponse(buf) : bleChar.writeValue(buf))
+    .catch(e => log('BLE write failed:', e.message));
+  return bleWriteQ;
+}
+function bleSend(bytes) {
+  if (!bleChar) return;
+  const [h, t] = bleTs();
+  if (bytes[0] !== 0xF0) { bleWrite([h, t, ...bytes]); return; }
+  const body = [...bytes].slice(1, -1), CH = 16;   // SysEx has to be split across packets: first carries F0, continuations carry the header only, F7 closes it
+  let i = Math.min(body.length, CH);
+  bleWrite([h, t, 0xF0, ...body.slice(0, i)]);
+  while (i < body.length) { const n = Math.min(body.length - i, CH); bleWrite([h, ...body.slice(i, i + n)]); i += n; }
+  bleWrite([h, t, 0xF7]);
+}
+function bleParse(bytes) {   // one BLE-MIDI packet -> the MIDI messages inside it (SysEx may span several packets)
+  const b = bytes, out = [];
+  if (!b.length) return out;
+  let i = 1, status = 0;   // byte 0 is the packet header
+  const dataLen = st => ((st & 0xF0) === 0xC0 || (st & 0xF0) === 0xD0) ? 1 : 2;
+  while (i < b.length) {
+    if (b[i] & 0x80) {
+      if (bleSysexIn) {
+        if (b[i + 1] === 0xF7) { bleSysexIn.push(0xF7); out.push(bleSysexIn); bleSysexIn = null; i += 2; continue; }
+        if (b[i] === 0xF7) { bleSysexIn.push(0xF7); out.push(bleSysexIn); bleSysexIn = null; i += 1; continue; }
+        i++; continue;   // a timestamp inside a SysEx run
+      }
+      i++;               // consume the timestamp byte
+      if (i >= b.length) break;
+      if (b[i] === 0xF0) { bleSysexIn = [0xF0]; i++; while (i < b.length && !(b[i] & 0x80)) bleSysexIn.push(b[i++]); continue; }
+      if (b[i] & 0x80) status = b[i++];
+    } else if (bleSysexIn) { bleSysexIn.push(b[i++]); continue; }
+    if (!status) { i++; continue; }
+    const msg = [status];
+    for (let k = 0; k < dataLen(status) && i < b.length && !(b[i] & 0x80); k++) msg.push(b[i++]);
+    out.push(msg);
+  }
+  return out;
+}
+function bleOnData(e) {
+  const v = e.target.value, b = new Uint8Array(v.buffer ? v.buffer : v);
+  for (const msg of bleParse(b)) onMidi({ data: Uint8Array.from(msg) });   // reuse the exact same path as USB MIDI
+}
+function bleDisconnected() {
+  bleChar = null; bleSysexIn = null; ledModeSent = false;
+  log('Bluetooth MIDI disconnected');
+  setConn(midiIn || midiOut ? 'on' : 'warn', midiIn || midiOut ? 'USB MIDI still connected' : 'Bluetooth MIDI disconnected — tap Bluetooth to reconnect');
+}
+async function connectBle() {
+  ensureAudio();
+  if (!navigator.bluetooth) { setConn('bad', 'No Web Bluetooth in this browser — on Android use Chrome'); return; }
+  if (location.origin === 'null' || !/^(https?|file):$/.test(location.protocol)) { setConn('bad', 'Bluetooth needs a real https address — same as MIDI'); return; }
+  try {
+    bleDevice = await navigator.bluetooth.requestDevice({ filters: [{ services: [BLE_MIDI_SERVICE] }], optionalServices: [BLE_MIDI_SERVICE] });
+    bleDevice.addEventListener('gattserverdisconnected', bleDisconnected);
+    const server = await bleDevice.gatt.connect();
+    const svc = await server.getPrimaryService(BLE_MIDI_SERVICE);
+    bleChar = await svc.getCharacteristic(BLE_MIDI_CHAR);
+    await bleChar.startNotifications();
+    bleChar.addEventListener('characteristicvaluechanged', bleOnData);
+    bleSysexIn = null; ledModeSent = false; lastSent.fill('');
+    log('Bluetooth MIDI connected: ' + (bleDevice.name || 'unnamed device'));
+    setConn('on', 'Bluetooth: ' + (bleDevice.name || 'connected'));
+    if (dev().lights) { enterLedMode(); pushLeds(true); }
+  } catch (e) {
+    if (e && e.name === 'NotFoundError') { setConn('warn', 'No Bluetooth keyboard picked — make sure the PartyKeys is in pairing mode'); return; }
+    setConn('bad', 'Bluetooth failed: ' + ((e && e.message) || e));
+    log('BLE error', (e && e.name) || '', (e && e.message) || '');
+  }
+}
 let sysexGranted = false;   // SysEx only drives the PartyKeys key lights — without it everything else (playing, learning, MIDI out to a DAW) still works, so a refused SysEx prompt must not take the whole connection down with it
 function dawTimestamp(when) { if (when == null) return undefined; if (dawClockOffset === null) dawClockOffset = performance.now() - ctx.currentTime * 1000; return dawClockOffset + when * 1000; }
 function dawNoteOn(n, vel, when) { if (!S.midiToDawEnabled || !midiOutDaw) return; try { midiOutDaw.send([0x90, n & 0x7f, Math.max(1, Math.min(127, Math.round(vel || 100)))], dawTimestamp(when)); } catch (e) {} }
@@ -1167,10 +1252,16 @@ function onMidi(e) {
   else if (cmd === 0x80 || (cmd === 0x90 && d2 === 0)) { noteOff(n, 'midi'); liveBroadcast({ cmd: 'note', note: { n, on: false } }); dawNoteOff(n); }
 }
 const HDR = [0xF0, 0x05, 0x30, 0x7F, 0x7F, 0x20, 0x00];
-function enterLedMode() { if (!midiOut || !dev().lights || !sysexGranted) return; try { midiOut.send([...HDR, 0x0F, 0x01, 0xF7]); ledModeSent = true; log('LED mode enabled on', midiOut.name); } catch (e) { log('SysEx failed:', e.message); } }
+function outSend(bytes) {   // the LEDs are driven over USB when it's there, otherwise over Bluetooth
+  if (midiOut && sysexGranted) { try { midiOut.send(bytes); return true; } catch (e) { log('send failed:', e.message); return false; } }
+  if (bleReady()) { bleSend(bytes); return true; }
+  return false;
+}
+function enterLedMode() { if (!dev().lights) return; if (!midiOut && !bleReady()) return; if (midiOut && !sysexGranted) return;
+  if (outSend([...HDR, 0x0F, 0x01, 0xF7])) { ledModeSent = true; log('LED mode enabled on', midiOut ? midiOut.name : (bleDevice && bleDevice.name) || 'Bluetooth'); } }
 const lastSent = [];
 function sendColors(colors, force) {   // colors: array[NKEYS] of [r,g,b]
-  if (!midiOut || !dev().lights) return;
+  if ((!midiOut && !bleReady()) || !dev().lights) return;
   if (!ledModeSent) enterLedMode();
   const groups = new Map();
   for (let i = 0; i < NKEYS; i++) {
@@ -1187,7 +1278,7 @@ function sendColors(colors, force) {   // colors: array[NKEYS] of [r,g,b]
     msg.push(g.keys.length, ...g.keys);
   }
   msg.push(0xF7);
-  try { midiOut.send(msg); } catch (e) { log('send failed:', e.message); }
+  outSend(msg);
 }
 
 /* ---------- MIDI file parsing ---------- */
@@ -1439,7 +1530,9 @@ function computeColors() {
     if (pressed.has(m)) colors[i] = note; else if (expected.has(m)) colors[i] = noteLight; else if (soon.has(m)) colors[i] = scale(next, 0.1 + 0.9 * soon.get(m)); else if (showScale && inScale(m)) colors[i] = (m % 12 === S.root) ? rootC : sc; }
   if (scaleNote !== null && scaleNote >= BASE && scaleNote <= END) colors[scaleNote - BASE] = scale(hex2rgb(ROOT_COLORS[S.root]), b);
   if (arpNote !== null && arpNote >= BASE && arpNote <= END) colors[arpNote - BASE] = scale(hex2rgb(scaleChordSel ? ROOT_COLORS[S.root] : noteColorEff), b);
+  const anyLit = colors.some(c => c !== OFF);
   for (let i = 0; i < RANGE; i++) if (isBlackKey(i + BASE) && colors[i] !== OFF) colors[i] = scale([255, 255, 255], b);   // any lit black key burns white on the hardware too
+  if (anyLit) for (let i = 0; i < RANGE; i++) if (isBlackKey(i + BASE) && colors[i] === OFF) colors[i] = FAINT_BLACK;   // the rest of the black keys: a whisper of white rather than fully dark, so you can still place your hand
   for (const n of liveNotes) if (n >= BASE && n <= END) colors[n - BASE] = OFF;   // held keys go dark on the hardware too, matching the screen
   return { colors, expected, pressed, soon, BASE };
 }
@@ -1922,24 +2015,23 @@ function syncKeysVisibility() { $('kb').classList.toggle('kbHiddenFull', keysHid
   drawArr(); }
 $('keysToggleFull').onclick = () => { keysHidden = !keysHidden; syncKeysVisibility(); };
 function keyBgColor(m, colors, BASE, expected, pressed, soon) {
-  if (liveNotes.has(m)) return OUT_OF_SCALE;   // a key you're actually holding goes black instead of lighting up — it wins over every other rule below
+  if (liveNotes.has(m)) return PRESSED_SCREEN;   // on screen, a key you're holding goes white — it wins over every other rule below (the hardware does the opposite and goes dark)
   return keyBgColorLit(m, colors, BASE, expected, pressed, soon);
 }
 function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly what renderKeys paints a given key — factored out so anything that plays "what's on screen" (the scale-row Play button) reads the very same decision
   if (arpNote === m) return scaleChordSel ? ROOT_COLORS[S.root] : noteColorEff;
   if (scaleNote === m) return rgb2hex(scale(hex2rgb(ROOT_COLORS[S.root]), 0.55));
   if (previewKeys.has(m) && previewKeys.get(m) === -2) return ROOT_COLORS[S.root];   // pressed a scale note that isn't in this chord
-  if (previewKeys.has(m) && (previewKeys.get(m) === -3 || previewKeys.get(m) === -4)) return isBlackKey(m) ? BLACK_KEY_LIT : rgb2hex(scale(hex2rgb(CHORD_GREY), previewKeys.get(m) === -4 ? 1 : 0.7));   // rest of the scale while a chord's tapped: plain dark grey, not part of the chord
+  if (previewKeys.has(m) && (previewKeys.get(m) === -3 || previewKeys.get(m) === -4)) return blackLift(m, rgb2hex(scale(hex2rgb(CHORD_GREY), previewKeys.get(m) === -4 ? 1 : 0.7)));   // rest of the scale while a chord's tapped: plain dark grey, not part of the chord
   if (previewKeys.has(m) && previewKeys.get(m) === -5) return OUT_OF_SCALE;   // exercise: already played, light out
   if (previewKeys.has(m) && previewKeys.get(m) < 0) return RED;   // chord note outside the scale
-  if (previewKeys.has(m)) { if (isBlackKey(m)) return BLACK_KEY_LIT;
-    const f = previewKeys.get(m); const col = hex2rgb(scaleChordSel ? ROOT_COLORS[S.root] : ((arrPreview || preview === 'now') ? noteColorEff : nextColorEff));
-    const base = isDark() ? [200,200,200] : [232,232,232]; return rgb2hex(col.map((v, j) => base[j] + (v - base[j]) * f)); }   // same fade for every key — black or white, it's just the colour showing through
+  if (previewKeys.has(m)) { const f = previewKeys.get(m); const col = hex2rgb(scaleChordSel ? ROOT_COLORS[S.root] : ((arrPreview || preview === 'now') ? noteColorEff : nextColorEff));
+    const base = isDark() ? [200,200,200] : [232,232,232]; return blackLift(m, rgb2hex(col.map((v, j) => base[j] + (v - base[j]) * f))); }   // same fade for every key — black or white, it's just the colour showing through
   if (pressed.has(m)) return noteColorEff;   // you're actually holding this key down
   if (expected.has(m)) return rgb2hex(scale(hex2rgb(noteColorEff), 0.4));   // the song wants this next, but you haven't played it yet
   if (soon.has(m)) { const f = soon.get(m); const base = isDark() ? [200,200,200] : [232,232,232]; return rgb2hex(hex2rgb(nextColorEff).map((v, j) => base[j] + (v - base[j]) * (0.15 + 0.55 * f))); }
   const c = colors[m - BASE];
-  if (c !== undefined && c !== OFF) return isBlackKey(m) ? BLACK_KEY_LIT : (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.45 + (isDark() ? 60 : 150) * 0.55));
+  if (c !== undefined && c !== OFF && c !== FAINT_BLACK) return blackLift(m, (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.45 + (isDark() ? 60 : 150) * 0.55)));
   if (S.scaleOn && !inScale(m)) return OUT_OF_SCALE;   // not in the key: black, whether it's a white key or a black one
   return '';
 }
@@ -2519,6 +2611,7 @@ document.addEventListener('pointerdown', e => { if (!$('circleTransposePop').hid
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTransposePop(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('circleOverlay').hidden) closeCircle(); });
 $('connectBtn').onclick = connect;
+$('bleBtn').onclick = connectBle;
 $('midiIn').onchange = bindPorts; $('midiOut').onchange = bindPorts; $('midiOutDaw').onchange = bindPorts;
 function syncMidiToggleBtn() { const on = !!S.midiEnabled; const txt = on ? 'MIDI input on — tap to mute the physical keyboard' : 'MIDI input muted — tap to re-enable the physical keyboard';
   [$('midiToggleBtn'), $('midiToggleBtnFull')].forEach(b => { if (!b) return; b.setAttribute('aria-pressed', String(on)); b.title = txt; b.setAttribute('aria-label', txt); }); }
