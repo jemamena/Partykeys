@@ -421,6 +421,8 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted);letter-spacing:
   /* mobile landscape full screen: the "Scale" pill used to float absolutely centered over the whole bar, so on a narrow landscape width it sat right on top of the icon groups on either side — here it just becomes a normal item in the row instead, between the metronome group and the rest of the icons */
   .fullbar .scalefull{position:static;transform:none;flex:none;max-width:26vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 12px;height:36px}
   .fullbar{flex-wrap:wrap;row-gap:4px}
+  .fullbar > span{flex-wrap:wrap;row-gap:4px;justify-content:flex-end}
+  body.kbfull #bpmFull{display:none}   /* phone full screen: the bpm number is dead weight in a cramped bar — the metronome block at the bottom still shows and sets it */
 }
 /* phones: the scale/chord buttons are the easiest thing to mis-tap, so give them extra room to touch on a narrow screen */
 @media (max-width: 699px){
@@ -439,6 +441,10 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted);letter-spacing:
   .rowToggle{width:30px;height:30px}
   .rowToggle .ico{width:14px;height:14px}
   #clearColorBtn{min-width:44px}
+  .fullbar{flex-wrap:wrap;row-gap:4px}   /* portrait full screen used to overflow and push the circle-of-fifths button clean off screen */
+  .fullbar > span{flex-wrap:wrap;row-gap:4px;justify-content:flex-end}   /* the right-hand icon cluster is a single flex item — without this its tail (settings) still runs off the edge */
+  .fullbar .scalefull{position:static;transform:none;flex:none;max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}   /* once the bar wraps, an absolutely-centred pill lands on top of the icon row and eats its taps */
+  body.kbfull #bpmFull{display:none}
   /* mobile: the play row splits into 2 stacked rows instead of squeezing stop/clear/play/vol/6 markers/loop into one cramped line — transport controls, then the 6 markers plus the loop toggle, each with real touch targets */
   .playrow{flex-direction:column;gap:6px}
   .playrowTransport,.playrowMarkers{display:flex;gap:6px;width:100%}
@@ -504,6 +510,8 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted);letter-spacing:
 .fsPrompt{position:fixed;left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:6px;min-height:0;padding:8px 14px;font:600 12px/1 Inter,system-ui,sans-serif;letter-spacing:.02em;background:var(--accent);color:var(--accent-ink);border:1px solid transparent;border-radius:20px;box-shadow:0 6px 20px rgba(0,0,0,.4)}
 .fsPrompt .ico{width:15px;height:15px}
 .fsPrompt[hidden]{display:none}
+.buildToast{position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;pointer-events:none;padding:8px 15px;border-radius:16px;background:rgba(0,0,0,.85);color:#fff;border:1px solid var(--line);font:600 12px/1 Inter,system-ui,sans-serif;letter-spacing:.02em;white-space:nowrap;opacity:0;transition:opacity .35s}   /* says which build just loaded, then fades — so "did my upload actually land?" never needs a hunt through Settings */
+.buildToast.on{opacity:1}
 /* full-screen "queue" row: a lightweight one-tap song switcher that drops in below the top bar instead of opening the whole playlist sheet — only ever shown in full-screen keyboard mode, and only while its toggle button is lit */
 .miniQueueFull{display:none;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex:none;padding:2px 0}
 .miniQueueFull::-webkit-scrollbar{display:none}
@@ -515,10 +523,11 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 </style>
 
 <div class="app">
+  <div class="buildToast" id="buildToast" aria-hidden="true"></div>
   <button id="fsPrompt" class="fsPrompt" hidden aria-label="Tap for full screen" title="Tap for full screen"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tap for full screen</span></button>
 
   <main class="main">
-    <div class="fullbar" id="fullBar"><div class="metrobit fbGroup"><button class="chip fchip" id="metroChipFull" aria-pressed="false" aria-label="Metronome" title="Metronome"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8l3 18H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 15 18 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/></svg></button><span class="metrobit" id="metroBit" style="padding-left:0"><span class="beats" id="beatDotsFull" aria-hidden="true"></span><button class="fchip" id="bpmDownFull" aria-label="Slower" style="display:none">−</button><span class="mono" id="bpmFull">120</span><button class="fchip" id="bpmUpFull" aria-label="Faster" style="display:none">+</button></span><button class="chip fchip" id="metroPlayChipFull" aria-pressed="false" aria-label="Hear the metronome" title="Hear the metronome click on its own"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8l3 18H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10.2 11.8 15.6 15 10.2 18.2Z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg></button></div><button id="lgScaleFull" class="scalefull" aria-pressed="false">Scale</button><span style="display:flex;align-items:center;gap:8px"><span class="fbGroup"><button id="keysToggleFull" class="cog" aria-pressed="true" aria-label="Show/hide the keyboard" title="Show/hide the keyboard"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 4v10M13 4v10M16 4v10" stroke="currentColor" stroke-width="1.6"/></svg></button><button id="chordsRowToggleFull" class="cog" aria-pressed="true" aria-label="Show/hide the now &amp; next chord row" title="Show/hide the now &amp; next chord row"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="8" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="7" width="8" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/></svg></button><button id="arrRowToggleFull" class="cog" aria-pressed="true" aria-label="Show/hide the arrangement view" title="Show/hide the arrangement view"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="4.5" rx="1.4" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="14.5" width="18" height="4.5" rx="1.4" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/></svg></button><button id="playRowToggleFull" class="cog" aria-pressed="true" aria-label="Show/hide the play controls" title="Show/hide the play controls"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg></button></span><button id="circleBtnFull" class="cog" aria-label="Circle of fifths" title="Circle of fifths"<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="3.6" r="1.6" fill="currentColor"/><circle cx="18.4" cy="7.8" r="1.6" fill="currentColor" opacity=".8"/><circle cx="18.4" cy="16.2" r="1.6" fill="currentColor" opacity=".6"/><circle cx="12" cy="20.4" r="1.6" fill="currentColor" opacity=".4"/><circle cx="5.6" cy="16.2" r="1.6" fill="currentColor" opacity=".6"/><circle cx="5.6" cy="7.8" r="1.6" fill="currentColor" opacity=".8"/></svg></button><span class="fbGroup"><button id="midiToggleBtnFull" class="cog" aria-pressed="true" aria-label="Enable/disable MIDI input" title="Enable/disable MIDI input"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="13" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="7.3" cy="10.2" r=".9" fill="currentColor"/><circle cx="16.7" cy="10.2" r=".9" fill="currentColor"/><path d="M9 4v3M15 4v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button id="midiDawToggleBtnFull" class="cog" aria-pressed="false" aria-label="Enable/disable MIDI out to Ableton/DAW" title="Enable/disable MIDI out to Ableton/DAW"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 4 11 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="syncToggleBtnFull" class="cog" aria-pressed="false" aria-label="Enable/disable live sync across devices" title="Enable/disable live sync across devices"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.3-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17.3 3v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 12a8 8 0 0 1-13.3 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6.7 21v-5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span><button id="settingsBtnFull" class="cog" aria-label="Settings" title="Settings"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.5-2.4 1a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.6 7.6 0 0 0 7 6.5l-2.4-1-2 3.5 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 2.6-1.5l2.4 1 2-3.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button></span></div>
+    <div class="fullbar" id="fullBar"><div class="metrobit fbGroup"><button class="chip fchip" id="metroChipFull" aria-pressed="false" aria-label="Metronome" title="Metronome"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8l3 18H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 15 18 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/></svg></button><span class="metrobit" id="metroBit" style="padding-left:0"><span class="beats" id="beatDotsFull" aria-hidden="true"></span><button class="fchip" id="bpmDownFull" aria-label="Slower" style="display:none">−</button><span class="mono" id="bpmFull">120</span><button class="fchip" id="bpmUpFull" aria-label="Faster" style="display:none">+</button></span><button class="chip fchip" id="metroPlayChipFull" aria-pressed="false" aria-label="Hear the metronome" title="Hear the metronome click on its own"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8l3 18H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10.2 11.8 15.6 15 10.2 18.2Z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg></button></div><button id="lgScaleFull" class="scalefull" aria-pressed="false">Scale</button><span style="display:flex;align-items:center;gap:8px"><span class="fbGroup"><button id="keysToggleFull" class="cog" aria-pressed="true" aria-label="Show/hide the keyboard" title="Show/hide the keyboard"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 4v10M13 4v10M16 4v10" stroke="currentColor" stroke-width="1.6"/></svg></button><button id="chordsRowToggleFull" class="cog" aria-pressed="true" aria-label="Show/hide the now &amp; next chord row" title="Show/hide the now &amp; next chord row"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="8" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="7" width="8" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/></svg></button><button id="arrRowToggleFull" class="cog" aria-pressed="true" aria-label="Show/hide the arrangement view" title="Show/hide the arrangement view"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="4.5" rx="1.4" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="14.5" width="18" height="4.5" rx="1.4" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/></svg></button><button id="playRowToggleFull" class="cog" aria-pressed="true" aria-label="Show/hide the play controls" title="Show/hide the play controls"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg></button></span><button id="circleBtnFull" class="cog" aria-label="Circle of fifths" title="Circle of fifths"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="3.6" r="1.6" fill="currentColor"/><circle cx="18.4" cy="7.8" r="1.6" fill="currentColor" opacity=".8"/><circle cx="18.4" cy="16.2" r="1.6" fill="currentColor" opacity=".6"/><circle cx="12" cy="20.4" r="1.6" fill="currentColor" opacity=".4"/><circle cx="5.6" cy="16.2" r="1.6" fill="currentColor" opacity=".6"/><circle cx="5.6" cy="7.8" r="1.6" fill="currentColor" opacity=".8"/></svg></button><span class="fbGroup"><button id="midiToggleBtnFull" class="cog" aria-pressed="true" aria-label="Enable/disable MIDI input" title="Enable/disable MIDI input"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="13" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="7.3" cy="10.2" r=".9" fill="currentColor"/><circle cx="16.7" cy="10.2" r=".9" fill="currentColor"/><path d="M9 4v3M15 4v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button id="midiDawToggleBtnFull" class="cog" aria-pressed="false" aria-label="Enable/disable MIDI out to Ableton/DAW" title="Enable/disable MIDI out to Ableton/DAW"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 4 11 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="syncToggleBtnFull" class="cog" aria-pressed="false" aria-label="Enable/disable live sync across devices" title="Enable/disable live sync across devices"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.3-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17.3 3v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 12a8 8 0 0 1-13.3 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6.7 21v-5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span><button id="settingsBtnFull" class="cog" aria-label="Settings" title="Settings"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.5-2.4 1a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.6 7.6 0 0 0 7 6.5l-2.4-1-2 3.5 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 2.6-1.5l2.4 1 2-3.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button></span></div>
     <div class="miniQueueFull" id="miniQueueFull" hidden></div>
     <div class="legend">
         <button id="lgScale" class="scalefull" aria-pressed="false">Scale</button>
@@ -743,7 +752,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '25 · 2026-09-15 · midi-activity';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '31 · 2026-09-15 · white-blacks';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -766,6 +775,9 @@ const scale = (c, f) => c.map(v => v * f);
 const PRESETS = ['#ff3d8a','#ff8a1f','#ffc21a','#3ddc84','#1fd1ff','#2f7cff','#9b5cff','#ffffff'];
 const RED = '#e0202a';   // reserved: chord notes outside the scale
 const CHORD_GREY = '#9aa0a8';   // tapped in-key chord — both its label button and the keys it lights up (grey, not green, so it never fights the rainbow scale colour or the now/next colours)
+const OUT_OF_SCALE = '#000';
+const BLACK_KEY_LIT = '#ffffff';   // a dim scale colour on a black key reads as "off" — so a black key that IS in the scale/chord/exercise lights plain white instead, and only the ones outside the key stay dark
+const isBlackKey = m => [1, 3, 6, 8, 10].includes(((m % 12) + 12) % 12);   // scale on: notes outside the key go black on both keyboards, so the only thing lit is what you can actually play — the scale itself stays one hue in two tones (bright root, dim rest)
 const EXT_GREY = '#5f6670';   // a darker grey for Ext mode (chord tones + 9/11/13), so it still reads differently from plain All
 const hsl2hex = (h, s, l) => { s /= 100; l /= 100; const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return rgb2hex([255 * f(0), 255 * f(8), 255 * f(4)]); };
 const ROOT_COLORS = Array.from({ length: 12 }, (_, i) => hsl2hex((i * 30 + 15) % 360, 72, 54));   // fixed rainbow, one hue per key, starting near C — offset 15° off pure red so no root colour ever collides with the reserved "wrong note" red — the scale colour is no longer user-configurable
@@ -1042,7 +1054,7 @@ function noteOn(n, vel, src) {
   if (!wasHeld) {   // a genuinely new press — see if it's the chord the progression is waiting for, or completes the scale-chord practice's current chord
     const arpActive = scaleProgArpMode() && scaleChordSel && !chordsBlocked();   // the arpeggio modes judge every note themselves (right pitch class, right turn) — let scaleProgAdvance below decide the sound for those, not the generic out-of-scale check
     const progLockActive = S.progLock && !!scaleProgMode;   // a progression's picked and locked: only its chords/the scale count as right, checked regardless of whether a song is playing — the song's own note-tracking above is untouched, this is just an extra ear-training buzz
-    if (!arpActive && S.badNoteSound && (progLockActive || S.scaleOn) && (progLockActive || !chordsBlocked()) && !inScale(n)) playMistakeBuzz();
+    if (!arpActive && S.badNoteSound && (progLockActive || S.scaleOn) && (progLockActive || !chordsBlocked()) && !inScale(n) && !scaleProgChordHasPc(n)) playMistakeBuzz();
     circleTrackProgress(n); scaleProgAdvance(n);
   }
   updateCirclePlaying();
@@ -1404,8 +1416,8 @@ function computeColors() {
   if (!chordsBlocked() && S.scaleOn) { for (const k of liveNotes) { if (k < LOW || k > HIGH || inScale(k)) continue;   // paused practice with the scale on: flag any pressed note outside the key as a mistake
     colors[k - BASE] = scale(hex2rgb(RED), b); previewKeys.set(k, -1); } }
   if (scaleChordSel && !chordsBlocked()) {   // tapped a chord label above the scale: light up its notes (or extensions), once or repeated on every octave depending on the All/Ext toggles — its tones get the scale's own colour, the rest of the scale stays a plain dark grey
-    const scInfo = activeChordInfo(); const tpl = scInfo ? scInfo.tpl : [0, 4, 7]; const rawTpl = scInfo ? scInfo.rawTpl : tpl;
-    const octEx = scaleProgOctMode();   // a full-octave exercise pins the chord to one specific register — light up only that one, not every octave, so it's clear exactly where to play
+    const scInfo = activeChordInfo(); const tpl = scaleProgDom7Mode() ? invertTpl(DOM7_TPL, userInv) : scInfo ? scInfo.tpl : [0, 4, 7]; const rawTpl = scInfo ? scInfo.rawTpl : tpl;
+    const octEx = scaleProgFixedVoicing();   // a full-octave (or inversion) exercise pins the chord to one specific register — light up only that one, not every octave, so it's clear exactly where to play
     const noteMap = octEx ? null : showExtensions ? extNoteMap(scaleChordSel.root, tpl, showAllNotes, DLOW, BASE, END, rawTpl)
                    : showAllNotes ? toneNoteMap(scaleChordSel.root, tpl, true, DLOW, BASE, END, rawTpl) : null;
     const baseColor = hex2rgb(ROOT_COLORS[S.root]);
@@ -1415,6 +1427,7 @@ function computeColors() {
     const chordKeySet = new Set(keys);
     for (const m of keys) { const pc = m % 12;
       const got = liveNotes.has(m);
+      if (scaleProgMode && got) { colors[m - BASE] = OFF; previewKeys.set(m, -5); continue; }   // in an exercise, playing a lit note puts it out — what stays lit is what's left to play
       const degF = noteMap ? extFade(noteMap.get(m)) : (pc === scaleChordSel.root ? 1 : 0.3);
       const f = got ? 1 : degF * 0.85;
       colors[m - BASE] = scale(baseColor, b * f); previewKeys.set(m, f); }
@@ -1426,6 +1439,8 @@ function computeColors() {
     if (pressed.has(m)) colors[i] = note; else if (expected.has(m)) colors[i] = noteLight; else if (soon.has(m)) colors[i] = scale(next, 0.1 + 0.9 * soon.get(m)); else if (showScale && inScale(m)) colors[i] = (m % 12 === S.root) ? rootC : sc; }
   if (scaleNote !== null && scaleNote >= BASE && scaleNote <= END) colors[scaleNote - BASE] = scale(hex2rgb(ROOT_COLORS[S.root]), b);
   if (arpNote !== null && arpNote >= BASE && arpNote <= END) colors[arpNote - BASE] = scale(hex2rgb(scaleChordSel ? ROOT_COLORS[S.root] : noteColorEff), b);
+  for (let i = 0; i < RANGE; i++) if (isBlackKey(i + BASE) && colors[i] !== OFF) colors[i] = scale([255, 255, 255], b);   // any lit black key burns white on the hardware too
+  for (const n of liveNotes) if (n >= BASE && n <= END) colors[n - BASE] = OFF;   // held keys go dark on the hardware too, matching the screen
   return { colors, expected, pressed, soon, BASE };
 }
 const CHORDS = [
@@ -1685,6 +1700,17 @@ let scaleProgMode = null;   // null | 'fwd' | 'back' | 'bounce' | 'fwdOct' | 'ba
 let scaleProgDir = 1;   // 'bounce'/'bounceOct' mode's current direction (1 = climbing, -1 = descending) — flips at either end instead of wrapping
 let scaleProgOct = 0;   // the *Oct exercises only: how many octaves above the lit chord's lowest on-screen occurrence it's currently shown/expected at
 let scaleProgArpIdx = 0;   // 'arp'/'arpUpDown' only: how far into the current chord's note-by-note sequence you've correctly played so far
+let scaleProgInv = 0;   // 'inv' only: which inversion of the current chord is due (0 root position, 1 first, 2 second) — the chord only moves on once all three have been played
+const DOM7_TPL = [0, 4, 7, 10];   // 'dom7': a dominant 7th built on every degree, so the b7 deliberately falls outside the key on most of them
+function scaleProgInvMode() { return scaleProgMode === 'inv'; }
+function scaleProgDom7Mode() { return scaleProgMode === 'dom7'; }
+function scaleProgFixedVoicing() { return scaleProgOctMode() || scaleProgInvMode(); }   // exercises where the exact register matters, so only one octave lights up
+function scaleProgTplFor(q) { return scaleProgDom7Mode() ? DOM7_TPL : (CHORDS.find(x => x[0] === q) || ['', [0, 4, 7]])[1]; }
+function scaleProgChordHasPc(n) {   // is this note part of the exercise chord that's lit? the dominant-7th drill puts a b7 outside the key on purpose — that's the exercise, not a wrong note
+  if (!scaleProgMode || !scaleChordSel) return false;
+  const tpl = scaleProgTplFor(scaleChordSel.q), pc = ((n % 12) + 12) % 12;
+  return tpl.some(iv => (scaleChordSel.root + iv) % 12 === pc);
+}
 function scaleProgOctMode() { return scaleProgMode === 'fwdOct' || scaleProgMode === 'backOct' || scaleProgMode === 'bounceOct'; }
 function scaleProgArpMode() { return scaleProgMode === 'arp' || scaleProgMode === 'arpUpDown'; }
 function scaleProgArpSeq(tpl) { return scaleProgMode === 'arpUpDown' ? tpl.concat(tpl.slice(0, -1).reverse()) : tpl; }   // root→3rd→5th, or root→3rd→5th→3rd→root
@@ -1702,8 +1728,9 @@ function scaleProgStep(deg, oct, dir) {   // one scale-degree step in either dir
 function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note just pressed): if a practice mode is on, react to it per the active mode — the arpeggio modes care about that one specific note; the others just check what's now held
   if (!scaleProgMode || !scaleChordSel || chordsBlocked()) return;
   const dt = diatonicTriads(SCALES[S.scaleType][1], S.root); if (dt.length !== 7) return;
-  const cur = dt.find(d => d.pc === scaleChordSel.root && d.q === scaleChordSel.q); if (!cur) return;
-  const tpl = (CHORDS.find(x => x[0] === cur.q) || ['', [0, 4, 7]])[1];
+  const cur = scaleProgDom7Mode() ? dt.find(d => d.pc === scaleChordSel.root)
+            : dt.find(d => d.pc === scaleChordSel.root && d.q === scaleChordSel.q); if (!cur) return;
+  const tpl = scaleProgDom7Mode() ? DOM7_TPL : (CHORDS.find(x => x[0] === cur.q) || ['', [0, 4, 7]])[1];
   if (scaleProgArpMode()) {   // note-by-note, in order — any other note (right pitch class, wrong turn) restarts this chord's sequence instead of failing it outright
     const seq = scaleProgArpSeq(tpl);
     const wantPc = (cur.pc + seq[scaleProgArpIdx]) % 12, gotPc = ((n % 12) + 12) % 12;
@@ -1711,6 +1738,9 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
     scaleProgArpIdx++;
     if (scaleProgArpIdx < seq.length) return;   // more notes still due before this chord counts as done
     scaleProgArpIdx = 0;
+  } else if (scaleProgInvMode()) {   // inversions share their pitch classes, so only the exact voicing counts — root position and its inversions are otherwise indistinguishable
+    let rootMidi = DLOW; while (rootMidi % 12 !== cur.pc) rootMidi++;
+    if (!invertTpl(tpl, scaleProgInv).every(iv => liveNotes.has(rootMidi + iv))) return;
   } else if (scaleProgOctMode()) {   // full-octave exercises: the exact register matters, so require the chord played in the octave it's actually lit at, not just anywhere
     let rootMidi = DLOW; while (rootMidi % 12 !== cur.pc) rootMidi++; rootMidi += scaleProgOct * 12;
     if (!tpl.every(iv => liveNotes.has(rootMidi + iv))) return;
@@ -1720,8 +1750,10 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
     if (!need.every(pc => held.has(pc))) return;   // not all the chord's notes are down yet
   }
   if (S.goodChordSound) playSuccessChime();
+  if (scaleProgInvMode() && scaleProgInv < 2) { scaleProgInv++; userInv = scaleProgInv; return; }   // same chord again, one inversion higher
   let nextDeg;
-  if (scaleProgMode === 'fwd' || scaleProgArpMode()) nextDeg = (cur.deg + 1) % 7;   // both arpeggio modes just walk forward, degree by degree
+  if (scaleProgInvMode()) { scaleProgInv = 0; userInv = 0; nextDeg = (cur.deg + 1) % 7; }
+  else if (scaleProgMode === 'fwd' || scaleProgArpMode() || scaleProgDom7Mode()) nextDeg = (cur.deg + 1) % 7;   // both arpeggio modes just walk forward, degree by degree
   else if (scaleProgMode === 'back') nextDeg = (cur.deg + 6) % 7;
   else if (scaleProgMode === 'bounce') { nextDeg = cur.deg + scaleProgDir;   // reverse direction at either end instead of wrapping around
     if (nextDeg > 6) { scaleProgDir = -1; nextDeg = cur.deg - 1; } else if (nextDeg < 0) { scaleProgDir = 1; nextDeg = cur.deg + 1; } }
@@ -1735,7 +1767,7 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
     if (o < 0 || !scaleProgChordFits(d, o, dt)) { scaleProgDir *= -1; [d, o] = scaleProgStep(cur.deg, scaleProgOct, scaleProgDir); }
     nextDeg = d; scaleProgOct = o; }
   const next = dt.find(d => d.deg === nextDeg) || dt[0];
-  scaleChordSel = { root: next.pc, q: next.q };
+  scaleChordSel = { root: next.pc, q: scaleProgDom7Mode() ? '7' : next.q };
 }
 function showScaleChordPreview() {   // tapped a scale-degree chord label: show it in the "now" field/explanation row, in green, like a normal now-chord preview
   const { root: pc, q } = scaleChordSel;
@@ -1746,7 +1778,7 @@ function showScaleChordPreview() {   // tapped a scale-degree chord label: show 
   lastNow = name; nowNotes = notes; lastChords = '';
   const [gr, gg, gb] = hex2rgb(CHORD_GREY);
   $('chordNow').style.background = `rgba(${gr},${gg},${gb},0.65)`;
-  $('chordNow').querySelector('b').textContent = simpleName(transposeName(name, S.transpose));
+  $('chordNow').querySelector('b').textContent = scaleProgDom7Mode() ? transposeName(name, S.transpose) : simpleName(transposeName(name, S.transpose));   // the 7 is the whole point of the jazz drill, so don't let the label simplify it away
   $('chordText').textContent = chordTextFor(name, notes);
   $('chordInfo').hidden = false;
   syncHands();
@@ -1889,19 +1921,26 @@ function syncKeysVisibility() { $('kb').classList.toggle('kbHiddenFull', keysHid
   if (keysHidden && manualHideArr) { manualHideArr = false; syncArrVisibility(); }   // the keys just vanished — make sure the arrangement view is actually showing to take that space
   drawArr(); }
 $('keysToggleFull').onclick = () => { keysHidden = !keysHidden; syncKeysVisibility(); };
-function keyBgColor(m, colors, BASE, expected, pressed, soon) {   // exactly what renderKeys paints a given key — factored out so anything that plays "what's on screen" (the scale-row Play button) reads the very same decision
+function keyBgColor(m, colors, BASE, expected, pressed, soon) {
+  if (liveNotes.has(m)) return OUT_OF_SCALE;   // a key you're actually holding goes black instead of lighting up — it wins over every other rule below
+  return keyBgColorLit(m, colors, BASE, expected, pressed, soon);
+}
+function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly what renderKeys paints a given key — factored out so anything that plays "what's on screen" (the scale-row Play button) reads the very same decision
   if (arpNote === m) return scaleChordSel ? ROOT_COLORS[S.root] : noteColorEff;
   if (scaleNote === m) return rgb2hex(scale(hex2rgb(ROOT_COLORS[S.root]), 0.55));
   if (previewKeys.has(m) && previewKeys.get(m) === -2) return ROOT_COLORS[S.root];   // pressed a scale note that isn't in this chord
-  if (previewKeys.has(m) && (previewKeys.get(m) === -3 || previewKeys.get(m) === -4)) return rgb2hex(scale(hex2rgb(CHORD_GREY), previewKeys.get(m) === -4 ? 1 : 0.7));   // rest of the scale while a chord's tapped: plain dark grey, not part of the chord
+  if (previewKeys.has(m) && (previewKeys.get(m) === -3 || previewKeys.get(m) === -4)) return isBlackKey(m) ? BLACK_KEY_LIT : rgb2hex(scale(hex2rgb(CHORD_GREY), previewKeys.get(m) === -4 ? 1 : 0.7));   // rest of the scale while a chord's tapped: plain dark grey, not part of the chord
+  if (previewKeys.has(m) && previewKeys.get(m) === -5) return OUT_OF_SCALE;   // exercise: already played, light out
   if (previewKeys.has(m) && previewKeys.get(m) < 0) return RED;   // chord note outside the scale
-  if (previewKeys.has(m)) { const f = previewKeys.get(m); const col = hex2rgb(scaleChordSel ? ROOT_COLORS[S.root] : ((arrPreview || preview === 'now') ? noteColorEff : nextColorEff));
+  if (previewKeys.has(m)) { if (isBlackKey(m)) return BLACK_KEY_LIT;
+    const f = previewKeys.get(m); const col = hex2rgb(scaleChordSel ? ROOT_COLORS[S.root] : ((arrPreview || preview === 'now') ? noteColorEff : nextColorEff));
     const base = isDark() ? [200,200,200] : [232,232,232]; return rgb2hex(col.map((v, j) => base[j] + (v - base[j]) * f)); }   // same fade for every key — black or white, it's just the colour showing through
   if (pressed.has(m)) return noteColorEff;   // you're actually holding this key down
   if (expected.has(m)) return rgb2hex(scale(hex2rgb(noteColorEff), 0.4));   // the song wants this next, but you haven't played it yet
   if (soon.has(m)) { const f = soon.get(m); const base = isDark() ? [200,200,200] : [232,232,232]; return rgb2hex(hex2rgb(nextColorEff).map((v, j) => base[j] + (v - base[j]) * (0.15 + 0.55 * f))); }
   const c = colors[m - BASE];
-  if (c !== undefined && c !== OFF) return (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.45 + (isDark() ? 60 : 150) * 0.55));
+  if (c !== undefined && c !== OFF) return isBlackKey(m) ? BLACK_KEY_LIT : (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.45 + (isDark() ? 60 : 150) * 0.55));
+  if (S.scaleOn && !inScale(m)) return OUT_OF_SCALE;   // not in the key: black, whether it's a white key or a black one
   return '';
 }
 function litNotesInView() {   // every key currently visible on screen (left to right) that's actually lit up, in the exact same terms renderKeys paints them
@@ -2290,25 +2329,22 @@ function rebuildCircleWheel() {   // used when a labelling toggle (sharps/flats)
 }
 const CMK_WHITE_PC = [0, 2, 4, 5, 7, 9, 11];   // one octave, C..B, the 7 white keys in order
 const CMK_BLACK = [{ pc: 1, after: 0 }, { pc: 3, after: 1 }, { pc: 6, after: 3 }, { pc: 8, after: 4 }, { pc: 10, after: 5 }];   // after: index of the white key each black sits past
-const MINIKB_GREEN = '#2ecc40';   // bright green: this is a black key (regardless of scale)
-const MINIKB_RED = '#ff4136';   // bright red: this pitch isn't in the current scale, whether it lands on a white or black key
 function buildCircleMiniKb() {
   const wrap = $('circleMiniKb'); if (!wrap) return;
   let html = CMK_WHITE_PC.map(pc => `<div class="cmkWhite" data-pc="${pc}"></div>`).join('');
   html += CMK_BLACK.map(b => `<div class="cmkBlack" data-pc="${b.pc}" style="left:calc(${(b.after + 1) / 7 * 100}% - 4.25%)"></div>`).join('');
   wrap.innerHTML = html;
 }
-function updateCircleMiniKb() {   // a quick-reference octave strip: black keys always read bright green, and any pitch (black or white) outside the current scale reads bright red
+function updateCircleMiniKb() {   // a quick-reference octave strip, coloured by the same rule as the big keyboard: the scale in one hue (bright root, dimmer rest), everything outside the key black
   const wrap = $('circleMiniKb'); if (!wrap || wrap.hidden) return;
   if (!wrap.children.length) buildCircleMiniKb();
   const set = SCALES[S.scaleType][1];
-  wrap.querySelectorAll('.cmkWhite').forEach(el => {
+  const rootRgb = hex2rgb(ROOT_COLORS[S.root]);
+  wrap.querySelectorAll('.cmkWhite, .cmkBlack').forEach(el => {
     const pc = +el.dataset.pc, rel = ((pc - S.root) % 12 + 12) % 12;
-    el.style.background = set.includes(rel) ? '' : MINIKB_RED;
-  });
-  wrap.querySelectorAll('.cmkBlack').forEach(el => {
-    const pc = +el.dataset.pc, rel = ((pc - S.root) % 12 + 12) % 12;
-    el.style.background = set.includes(rel) ? MINIKB_GREEN : MINIKB_RED;
+    el.style.background = !set.includes(rel) ? OUT_OF_SCALE
+      : rel === 0 ? ROOT_COLORS[S.root]
+      : rgb2hex(scale(rootRgb, 0.5));
   });
 }
 function updateRomanLabels() {
@@ -2807,8 +2843,8 @@ const syncHands = () => { $('handL').setAttribute('aria-pressed', hand === 'L');
 function currentChordNotes() {   // every note actually lit on the keys right now — mirrors computeColors' own chord-highlighting branch for branch, so Play always sounds exactly what's coloured, nothing more and nothing less
   const top = topKey();
   if (scaleChordSel && !chordsBlocked()) {
-    const scInfo = activeChordInfo(); const tpl = scInfo ? scInfo.tpl : [0, 4, 7]; const rawTpl = scInfo ? scInfo.rawTpl : tpl;
-    const octEx = scaleProgOctMode();   // a full-octave exercise pins the chord to one specific register, not spread across every octave — match exactly what's lit
+    const scInfo = activeChordInfo(); const tpl = scaleProgDom7Mode() ? invertTpl(DOM7_TPL, userInv) : scInfo ? scInfo.tpl : [0, 4, 7]; const rawTpl = scInfo ? scInfo.rawTpl : tpl;
+    const octEx = scaleProgFixedVoicing();   // a full-octave (or inversion) exercise pins the chord to one specific register, not spread across every octave — match exactly what's lit
     const noteMap = octEx ? null : showExtensions ? extNoteMap(scaleChordSel.root, tpl, showAllNotes, DLOW, DLOW, top, rawTpl)
                    : showAllNotes ? toneNoteMap(scaleChordSel.root, tpl, true, DLOW, DLOW, top, rawTpl) : null;
     if (noteMap) return [...noteMap.keys()];
@@ -2905,17 +2941,25 @@ const SCALE_PROG_EXERCISES = [   // the practice-drill options offered from scal
   { mode: 'bounceOct', label: 'Up and down, full octave' },
   { mode: 'arp', label: 'Arpeggio (root, 3rd, 5th)' },
   { mode: 'arpUpDown', label: 'Arpeggio, up and down' },
+  { mode: 'inv', label: 'Inversions (root, 1st, 2nd)' },
+  { mode: 'dom7', label: 'Jazz dominant 7ths' },
 ];
 function syncProgLockBtn() { const btn = $('progLockBtn'); if (!btn) return; btn.disabled = !scaleProgMode; btn.setAttribute('aria-pressed', String(S.progLock)); }
 function setScaleProgMode(mode) {   // mode: null (off) or one of SCALE_PROG_EXERCISES' — mutually exclusive by construction, since only one can be picked from the dropdown at a time
-  scaleProgMode = mode; scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0;
+  scaleProgMode = mode; scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0;
   $('scaleProgBtn').setAttribute('aria-pressed', String(!!scaleProgMode));
   if (scaleProgMode) {
     if (!showScaleChords) { showScaleChords = true; $('scaleChordsBtn').setAttribute('aria-pressed', 'true'); }
     if (!scaleChordSel && !chordsBlocked()) {
       const dt = diatonicTriads(SCALES[S.scaleType][1], S.root); const first = dt.find(d => d.deg === 0);
-      if (first) { savedLastNow = lastNow; savedNowNotes = nowNotes.slice(); if (!showAllNotes && !showExtensions) showAllNotes = true; scaleChordSel = { root: first.pc, q: first.q }; }
+      if (first) { savedLastNow = lastNow; savedNowNotes = nowNotes.slice(); if (!showAllNotes && !showExtensions) showAllNotes = true; scaleChordSel = { root: first.pc, q: scaleProgDom7Mode() ? '7' : first.q }; }
     }
+  }
+  if (scaleChordSel) {   // keep the lit chord's quality in step with the drill in BOTH directions: a dominant 7th for the jazz drill, the key's own triad for every other mode (and when the drill is switched off)
+    const dt = diatonicTriads(SCALES[S.scaleType][1], S.root);
+    const d = dt.find(x => x.pc === scaleChordSel.root);
+    const q = scaleProgDom7Mode() ? '7' : (d ? d.q : scaleChordSel.q);
+    if (q !== scaleChordSel.q) scaleChordSel = { root: scaleChordSel.root, q };
   }
   syncProgLockBtn();
   renderKeys();
@@ -2966,7 +3010,9 @@ $('lag').value = S.lag; $('lag').oninput = e => { S.lag = +e.target.value; save(
 setBeats(S.lookBeats, true);
 applyRange();
 syncKeysReset();
-{ const bt = $('buildTag'); if (bt) bt.textContent = 'build ' + BUILD; log('PartyKeys build ' + BUILD); }
+{ const bt = $('buildTag'); if (bt) bt.textContent = 'build ' + BUILD; log('PartyKeys build ' + BUILD);
+  const tst = $('buildToast');
+  if (tst) { tst.textContent = 'build ' + BUILD; requestAnimationFrame(() => tst.classList.add('on')); setTimeout(() => tst.classList.remove('on'), 3200); } }
 if (!navigator.requestMIDIAccess) setConn('bad', 'This browser has no Web MIDI — on Android use Chrome');
 else if (!window.isSecureContext) setConn('warn', 'Opened from a local file — MIDI needs an https page; open the hosted link instead');
 window.addEventListener('beforeunload', () => { if (midiOut && dev().lights) sendColors(new Array(NKEYS).fill(OFF), true); dawPanic(); });
