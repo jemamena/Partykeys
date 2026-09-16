@@ -322,6 +322,12 @@ body.kbfull #playRow.cuesOpen .playrowMarkers #markerLoopBtnFull .ico{width:18px
 .scalefull.off{opacity:.35;background:var(--surface2)!important;color:var(--muted)!important;border-color:var(--line)}
 .fullbar .beats{gap:5px}
 .fullbar #bpmFull{white-space:nowrap}
+#bpmFull::after{content:' bpm'}
+body.kbfull #bpmFull::after{content:none}
+/* Full screen is for playing. The three buttons that take you AWAY from playing — send-to-DAW, live sync and
+   settings — are not wanted up here: they are one mis-tap from interrupting you, and all three are a rotation away
+   in the normal view. The MIDI-in button stays, because that one is about the keyboard you are playing on. */
+body.kbfull #midiDawToggleBtnFull, body.kbfull #syncToggleBtnFull, body.kbfull #settingsBtnFull{display:none}
 .fullbar .beats i{width:11px;height:11px}
 .fullbar .beats i.acc{width:14px;height:14px}
 body.kbfull .fullbar{display:flex}
@@ -869,7 +875,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '93 · 2026-09-16 · score';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '95 · 2026-09-16 · tighter-bar';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1708,7 +1714,7 @@ function showBpm() {
   // shows is simply whose tempo is in force: yours, or the one written into the file.
   const fileTempo = !ownTempo();
   $('bpmVal').textContent = fileTempo ? Math.round(60 / fileSpbAt(song, posBeats)) : S.bpm;
-  $('bpmFull').textContent = $('bpmVal').textContent + ' bpm';
+  $('bpmFull').textContent = $('bpmVal').textContent;   // the " bpm" after it is CSS, and full screen drops it for the room
   $('bpmVal').style.color = fileTempo ? 'var(--muted)' : '';
   ['bpmDown', 'bpmUp', 'tapBtn', 'tapBigBtn', 'bpmDownFull', 'bpmUpFull'].forEach(id => { const e = $(id); if (e) e.disabled = false; });
   $('bpmReset').disabled = !song || fileTempo;   // nothing to go back to unless you have taken the tempo over
@@ -1738,6 +1744,10 @@ async function play() {
   if (!song && !S.metro) return; markLocalCmd(); ensureAudio(); if (preview) setPreview(preview); hand = null; $('chordInfo').hidden = true; showFingers(new Map());
   if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) {} }
   if (song && posBeats >= song.durBeats) posBeats = 0;
+  // Pressing play at the top means playing THIS song, so the scale pill goes back to the song's own scale — whatever
+  // you were poking at in the meantime, and wherever a modulation had carried it last time round. Picking up from
+  // the middle leaves it alone: the key it has reached there is the right one.
+  if (song && posBeats <= 0.01) { keyVotes = 0; keyPending = null; resetToSongKey(); }
   if (S.metro && song) posBeats = Math.round(posBeats);
   const t0 = ctx.currentTime + 0.06;
   $('playBtn').textContent = '❚❚ Pause'; $('playBtn').classList.add('playing'); $('stopBtn').disabled = false; $('stopBtnFull').disabled = false; requestWake(); syncMetroPlay(); syncArrReset();
@@ -1761,7 +1771,7 @@ function pause() {
 function isRunning() { return playing || metroOn || counting || stepMode; }
 function songRunning() { return playing || counting || stepMode; }   // what the Play button asks. isRunning() also counts the metronome clicking on its own, and using that here made Play act as Pause while the click ran: the first press only silenced the click, and you had to press again to actually start. A standalone click is not the song playing.
 function chordsBlocked() { return playing || stepMode || counting; }   // hearing the metronome click on its own shouldn't stop you from exploring scale/chord info — only actual song playback (or note-practice, or the count-in click) should
-function stop() { pause(); posBeats = 0; renderKeys(); if (song) updateTime(); syncArrReset(); }   // the green/red marks deliberately survive stopping: that is when you look at them
+function stop() { pause(); posBeats = 0; if (song) { keyVotes = 0; keyPending = null; resetToSongKey(); } renderKeys(); if (song) updateTime(); syncArrReset(); }   // the green/red marks deliberately survive stopping: that is when you look at them
 function killFileVoices() { for (const v of fileVoices.values()) v.stop(0); fileVoices.clear(); }
 function tick() {
   if (!playing) return;
@@ -3338,11 +3348,20 @@ function saveSongKey(id, key) { try { if (key) localStorage.setItem('pk-ckey-' +
 function firstSectionKey(id) {   // the first key you actually wrote down for this song
   try { const secs = scSections(id); const k = secs.map(x => x.key).filter(Boolean); return k.length ? k[0] : null; } catch (e) { return null; }
 }
+// The key this song should be showing: one you wrote into its chord list first, then one written into the file,
+// and only failing both, the app's own guess from the notes.
+function songOwnKey() {
+  if (!song) return null;
+  return firstSectionKey(currentId) || song.customKey || song.keySig || (song.notes.length ? detectKey(song) : null);
+}
+function resetToSongKey() {   // back to the song's own scale — used whenever the song goes back to its beginning
+  const k = songOwnKey(); if (k) applySongKey(song, k);
+}
 function applySongChordSettings() {   // re-derive the key + chord reading for the currently loaded song from its (possibly just-edited) custom key/chords, and refresh everything that shows it
   if (!song) return;
   // A key you wrote into the chord list outranks the app's own detection. Otherwise the detected key — guessed from
   // the raw notes, and for this song "C minor" — kept being re-applied over the top and fighting the follow.
-  const key = firstSectionKey(currentId) || song.customKey || song.keySig || (song.notes.length ? detectKey(song) : null);
+  const key = songOwnKey();
   markChords(song, key, song.customChords); applySongKey(song, key); renderKeys(); drawArr();
 }
 const idb = () => new Promise((res, rej) => { const r = indexedDB.open('partykeys', 1); r.onupgradeneeded = () => r.result.createObjectStore('songs', { keyPath: 'id' }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
