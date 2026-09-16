@@ -844,7 +844,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '84 · 2026-09-15 · info-buttons';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '85 · 2026-09-15 · steady-beat';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1588,7 +1588,7 @@ function metroStart(at, beat) {   // clicks run from `at`; `beat` is the song be
 }
 function metroStop() {
   metroOn = false; clearInterval(metroTimer); metroTimer = null;
-  ['beatDots', 'beatDotsFull'].forEach(id => [...$(id).children].forEach(d => d.classList.remove('hit')));
+  if (!counting) clearDots();
   syncMetroPlay(); showBpm();
 }
 function syncMetroPlay() {   // the standalone "just click the metronome" toggle — separate from the song's own metro-on-while-playing state
@@ -1596,18 +1596,40 @@ function syncMetroPlay() {   // the standalone "just click the metronome" toggle
   ['metroPlayChip', 'metroPlayChipFull'].forEach(id => { const el = $(id); if (!el) return; el.disabled = busy; el.setAttribute('aria-pressed', (metroOn && !busy) ? 'true' : 'false'); });
   const bit = $('metroBit'); if (bit) bit.classList.toggle('off', !S.metro && !metroOn);   // hearing the click on its own should light up the bpm/dots too, not just "Metro" being on
 }
+const METRO_LOOK = 0.25;   // how far ahead clicks are scheduled. The audio clock keeps them exact; this only has to outlast a slow frame.
 function metroTick() {
   if (!metroOn) return;
-  const n = accentN();
-  while (metroNext < ctx.currentTime + 0.12) {
+  const n = accentN(), spb = metroSpb();
+  // Rendering the keys, the arrangement and the LED frame can starve a 25 ms timer for longer than the look-ahead.
+  // When that happens the beats already gone by were never scheduled, and queueing them now fires them all at once —
+  // which is exactly what the stumble was. Drop the ones that are in the past and carry on from the next real beat.
+  if (metroNext < ctx.currentTime) { const missed = Math.ceil((ctx.currentTime - metroNext) / spb);
+    metroNext += missed * spb; metroBeat += missed; }
+  while (metroNext < ctx.currentTime + METRO_LOOK) {
     const bi = ((metroBeat % barLen()) + barLen()) % barLen();
     click(metroNext, n > 0 && bi === 0);
     flashDot(metroNext, bi);
     metroNext += metroSpb(); metroBeat++;
   }
 }
-function flashDot(when, idx) { setTimeout(() => { if (!metroOn && !counting) return; ['beatDots', 'beatDotsFull'].forEach(id => [...$(id).children].forEach((d, i) => d.classList.toggle('hit', i === idx))); }, Math.max(0, (when - ctx.currentTime) * 1000)); }
-function buildDots() { const n = barLen(); for (const id of ['beatDots', 'beatDotsFull']) { $(id).innerHTML = ''; for (let i = 0; i < n; i++) { const d = document.createElement('i'); if (S.accentOn && i === 0) d.classList.add('acc'); $(id).appendChild(d); } } }
+// The dots used to be lit by a setTimeout per beat. Under load those land late, out of order, and two can arrive in
+// the same frame — the click stayed in time but the dots hopped about. Now each beat is queued with its audio-clock
+// time and a single animation frame lights whichever beat has actually arrived, so the dots can only ever move forward.
+let dotQueue = [], dotRaf = 0, dotShown = -1;
+function paintDot(idx) { if (idx === dotShown) return; dotShown = idx;
+  ['beatDots', 'beatDotsFull'].forEach(id => [...$(id).children].forEach((d, i) => d.classList.toggle('hit', i === idx))); }
+function dotPump() {
+  dotRaf = 0; if (!ctx) return;
+  const t = ctx.currentTime; let idx = null;
+  while (dotQueue.length && dotQueue[0].when <= t) idx = dotQueue.shift().idx;   // several at once: only the latest matters
+  if (idx !== null) paintDot(idx);
+  if (dotQueue.length) dotRaf = requestAnimationFrame(dotPump);
+}
+function flashDot(when, idx) { if (!metroOn && !counting) return;
+  dotQueue.push({ when, idx }); if (!dotRaf) dotRaf = requestAnimationFrame(dotPump); }
+function clearDots() { dotQueue = []; if (dotRaf) cancelAnimationFrame(dotRaf); dotRaf = 0; dotShown = -1;
+  ['beatDots', 'beatDotsFull'].forEach(id => [...$(id).children].forEach(d => d.classList.remove('hit'))); }
+function buildDots() { const n = barLen(); dotShown = -1; for (const id of ['beatDots', 'beatDotsFull']) { $(id).innerHTML = ''; for (let i = 0; i < n; i++) { const d = document.createElement('i'); if (S.accentOn && i === 0) d.classList.add('acc'); $(id).appendChild(d); } } }
 function setBpm(v, quiet) { const was = S.bpm; S.bpm = Math.min(240, Math.max(40, Math.round(v))); $('bpm').value = S.bpm; if (!quiet) save(); showBpm(); if (song) updateTime(); if (S.bpm !== was) liveBroadcastSoon(); }
 function showBpm() { const fileTempo = !S.metro && !metroOn && song;   /* hearing the standalone click doesn't lock you to the file's tempo — bpm/tap should stay live */ $('bpmVal').textContent = fileTempo ? Math.round(60 / fileSpbAt(song, posBeats)) : S.bpm; $('bpmFull').textContent = $('bpmVal').textContent + ' bpm'; $('bpmVal').style.color = fileTempo ? 'var(--muted)' : ''; ['bpmDown', 'bpmUp', 'tapBtn', 'tapBigBtn', 'bpmReset', 'bpmDownFull', 'bpmUpFull'].forEach(id => $(id).disabled = !!fileTempo); $('bpmReset').disabled = $('bpmReset').disabled || !song; $('bpmDrag').title = fileTempo ? 'File tempo (turn Metro on to set your own)' : 'Drag left/right'; $('tempoGroup').classList.toggle('dim', !S.metro && !metroOn); }
 
@@ -1619,7 +1641,7 @@ function countIn(spb, at, done) {   // one bar of clicks starting at `at`, big c
     countTimers.push(setTimeout(() => { $('cdNum').textContent = len - i; }, Math.max(0, (t - ctx.currentTime) * 1000))); }
   countTimers.push(setTimeout(() => { counting = false; $('countdown').hidden = true; done(); }, Math.max(0, (at + len * spb - ctx.currentTime) * 1000 - 30)));
 }
-function cancelCount() { countTimers.forEach(clearTimeout); countTimers = []; counting = false; $('countdown').hidden = true; if (!metroOn) ['beatDots', 'beatDotsFull'].forEach(id => [...$(id).children].forEach(d => d.classList.remove('hit'))); }
+function cancelCount() { countTimers.forEach(clearTimeout); countTimers = []; counting = false; $('countdown').hidden = true; if (!metroOn) clearDots(); }
 
 /* ---------- player (beat domain) ---------- */
 let song = null, playing = false, posBeats = 0, lastCtx = 0, nextIdx = 0, tickTimer = null;
@@ -1881,6 +1903,9 @@ function markChords(song, key, allowedChords) {
     ? (Array.isArray(allowedChords[0] && allowedChords[0].chords) ? flatChords(allowedChords) : allowedChords)
     : keyChords;   // sectioned ("key => chords") or the older flat list — both end up as one candidate set
   let i = 0; const ns = song.notes; song.groups = []; let prev = null;
+  // What the whole song is read under. Per-group facts (the bass, whether the reading needed a look-ahead) are
+  // passed per call and deliberately kept OUT of this, because it is reused for the chords you play live.
+  song.chordCtx = { scale, diatonic, allowed, fromKey: allowed === keyChords };
   const EPS = 0.06, ROLL = 1;   // ROLL: how long a chord is allowed to take to arrive, in beats
   while (i < ns.length) { let j = i; while (j < ns.length && ns[j].b0 <= ns[i].b0 + EPS) j++;
     const grp = ns.slice(i, j), t = ns[i].b0;
@@ -1905,7 +1930,7 @@ function markChords(song, key, allowedChords) {
     // tell chordName so it can trust it for the root rather than merely nudging towards it.
     const sorted = [...new Set(fingerprint.map(n => n.n))].sort((a, b) => a - b);
     const clearBass = sorted.length > 1 && sorted[1] - sorted[0] >= 5;
-    let name = chordName(fingerprint.map(n => n.n), song.chordCtx = { scale, diatonic, prev, allowed, clearBass, rolled, fromKey: allowed === keyChords });
+    let name = chordName(fingerprint.map(n => n.n), { ...song.chordCtx, prev, clearBass, rolled });
     if (!name && prev && pcsOf(fingerprint) < 3) name = prev;   // one or two notes on their own never rename the chord
     if (name) prev = name;
     for (const n of grp) { n.chord = !!name; n.gname = name; } song.groups.push({ b0: t, name, notes: grp.map(n => n.n), _ns: grp }); i = j; }
@@ -2057,7 +2082,9 @@ function updateChords() {
   // Name it with the same context the song was analysed under — its key, its own chord list and their spelling.
   // Without this the box quietly re-guessed from the notes alone, so a song that read Eb everywhere else showed D# here.
   lastPickKey = null;
-  const a = chordName(now, song && song.chordCtx ? { ...song.chordCtx, prev: lastNow } : undefined);   // null on silence or when it isn't a chord: keep what's shown
+  const liveSorted = [...new Set(now)].sort((x, y) => x - y);
+  const liveClearBass = liveSorted.length > 1 && liveSorted[1] - liveSorted[0] >= 5;   // left hand well below the right: that note is the root
+  const a = chordName(now, song && song.chordCtx ? { ...song.chordCtx, prev: lastNow, clearBass: liveClearBass } : { prev: lastNow, clearBass: liveClearBass });   // null on silence or when it isn't a chord: keep what's shown
   if (a) lastNow = a;
   // A song that changes key carries that in its own chord list: each chord belongs to a section, and the section
   // knows its key. So when the chord that's playing belongs to a different one of the song's keys, move the app's key
