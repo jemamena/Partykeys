@@ -955,7 +955,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '121 · 2026-09-16 · hint-modes';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '123 · 2026-09-16 · blank-board';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -2031,7 +2031,7 @@ function computeColors() {
       colors[k - BASE] = scale(hex2rgb(ROOT_COLORS[S.root]), b); previewKeys.set(k, -2); } } }
   if (!chordsBlocked() && S.scaleOn) { for (const k of liveNotes) { if (k < LOW || k > HIGH || inScale(k)) continue;   // paused practice with the scale on: flag any pressed note outside the key as a mistake
     colors[k - BASE] = scale(hex2rgb(RED), b); previewKeys.set(k, -1); } }
-  if (scaleChordSel && !chordsBlocked()) {   // tapped a chord label above the scale: light up its notes (or extensions), once or repeated on every octave depending on the All/Ext toggles — its tones get the scale's own colour, the rest of the scale stays a plain dark grey
+  if (scaleChordSel && !chordsBlocked() && !progBlankBoard()) {   // tapped a chord label above the scale: light up its notes (or extensions), once or repeated on every octave depending on the All/Ext toggles — its tones get the scale's own colour, the rest of the scale stays a plain dark grey
     const scInfo = activeChordInfo(); const tpl = scaleProgDom7Mode() ? invertTpl(DOM7_TPL, userInv) : scInfo ? scInfo.tpl : [0, 4, 7]; const rawTpl = scInfo ? scInfo.rawTpl : tpl;
     const octEx = scaleProgFixedVoicing();   // a full-octave (or inversion) exercise pins the chord to one specific register — light up only that one, not every octave, so it's clear exactly where to play
     const noteMap = octEx ? null : showExtensions ? extNoteMap(scaleChordSel.root, tpl, showAllNotes, DLOW, BASE, END, rawTpl)
@@ -2046,6 +2046,7 @@ function computeColors() {
       if (S.progHint === 'root') keys = keys.filter(m => ((m % 12) + 12) % 12 === scaleChordSel.root);
       else if (S.progHint === 'mistake' && !progRevealed) keys = [];   // nothing to read: find the chord yourself. Play a note that isn't in it and the whole thing lights up.
       else if (S.progHint === 'mistakeRoot' && !progRevealed) keys = keys.filter(m => ((m % 12) + 12) % 12 === scaleChordSel.root);
+
     }
     const chordKeySet = new Set(keys);
     for (const m of keys) { const pc = m % 12;
@@ -2583,6 +2584,10 @@ let scaleProgDir = 1;   // 'bounce'/'bounceOct' mode's current direction (1 = cl
 let scaleProgOct = 0;   // the *Oct exercises only: how many octaves above the lit chord's lowest on-screen occurrence it's currently shown/expected at
 let scaleProgArpIdx = 0;   // 'arp'/'arpUpDown' only: how far into the current chord's note-by-note sequence you've correctly played so far
 let progRevealed = false;   // 'after a mistake' hint modes: has this chord been given away yet? Cleared every time the drill moves on.
+// "Light every key" means a blank keyboard, not a lit-up one: no chord, no scale colouring, and no blacked-out
+// keys either — exactly what the board looks like with nothing selected, so there is nothing at all to read off it.
+// The first wrong note drops it back to the normal picture: out-of-key keys out, the chord in colour.
+function progBlankBoard() { return !!scaleProgMode && S.progHint === 'allLit' && !progRevealed; }
 let progPlayOct = null;   // which octave you actually played the current drill chord in — the next chord follows your hands instead of staying where the app first put it
 let scaleProgInv = 0;   // 'inv' only: which inversion of the current chord is due (0 root position, 1 first, 2 second) — the chord only moves on once all three have been played
 const DOM7_TPL = [0, 4, 7, 10];   // 'dom7': a dominant 7th built on every degree, so the b7 deliberately falls outside the key on most of them
@@ -2876,7 +2881,7 @@ function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly 
   if (inPerf()) return (S.scaleOn && inScale(m)) ? SCALE_GHOST : OUT_OF_SCALE;   // in the key but not part of the music right now: a thin white glow on the board, so the notes you're allowed to play are still findable without competing with the chord
   const c = colors[m - BASE];
   if (c !== undefined && c !== OFF) return blackLift(m, (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.72 + (isDark() ? 55 : 120) * 0.28)));   // the rest of the scale: the root's own hue, dimmer than the root but still plainly that colour — now that the keys around it are white, it has to carry the scale on its own
-  if (S.scaleOn && !inScale(m)) return OUT_OF_SCALE;   // not in the key: black, whether it's a white key or a black one
+  if (S.scaleOn && !inScale(m) && !progBlankBoard()) return OUT_OF_SCALE;   // not in the key: black, whether it's a white key or a black one — unless the drill is deliberately showing a blank board
   return '';
 }
 // ---- the PartyKeys' own LEDs, derived from the screen ----
@@ -4793,6 +4798,7 @@ const PROG_HINTS = [   // how much of the drill chord the keyboard gives away
   { id: 'root',        label: 'Light the root only' },
   { id: 'mistakeRoot', label: 'Root only, whole chord after a mistake' },
   { id: 'mistake',     label: 'Light nothing until you make a mistake' },
+  { id: 'allLit',      label: 'Blank keyboard until you make a mistake' },
 ];
 function syncProgRootBtn() { const btn = $('progHintBtn'); if (!btn) return;
   btn.disabled = !scaleProgMode; btn.setAttribute('aria-pressed', String(S.progHint !== 'full'));
