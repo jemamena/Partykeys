@@ -844,7 +844,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '86 · 2026-09-16 · sync-pause-fix';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '87 · 2026-09-16 · clearer-keys';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -2424,17 +2424,21 @@ function syncKeysVisibility() { $('kb').classList.toggle('kbHiddenFull', keysHid
 $('keysToggleFull').onclick = () => { keysHidden = !keysHidden; syncKeysVisibility(); };
 function keyBgColor(m, colors, BASE, expected, pressed, soon) {
   if (liveNotes.has(m)) return PRESSED_SCREEN;   // on screen, a key you're holding goes white — it wins over every other rule below (the hardware does the opposite and goes dark)
-  return keyBgColorLit(m, colors, BASE, expected, pressed, soon);
+  const c = keyBgColorLit(m, colors, BASE, expected, pressed, soon);
+  // On SCREEN a note outside the scale is simply left alone — a white key stays white, a black key stays black. Painting
+  // them black made a row of dead keys the eye had to read past; leaving them plain means the only thing with colour on
+  // it is the scale, which is what you are actually looking for. The board still puts those LEDs out (see hwColorFor).
+  return c === OUT_OF_SCALE ? '' : c;
 }
 function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly what renderKeys paints a given key — factored out so anything that plays "what's on screen" (the scale-row Play button) reads the very same decision
   if (arpNote === m) return scaleChordSel ? ROOT_COLORS[S.root] : noteColorEff;
-  if (scaleNote === m) return rgb2hex(scale(hex2rgb(ROOT_COLORS[S.root]), 0.55));
+  if (scaleNote === m) return rgb2hex(scale(hex2rgb(ROOT_COLORS[S.root]), 0.72));
   if (previewKeys.has(m) && previewKeys.get(m) === -2) return ROOT_COLORS[S.root];   // pressed a scale note that isn't in this chord
-  if (previewKeys.has(m) && (previewKeys.get(m) === -3 || previewKeys.get(m) === -4)) return blackLift(m, rgb2hex(scale(hex2rgb(CHORD_GREY), previewKeys.get(m) === -4 ? 1 : 0.7)));   // rest of the scale while a chord's tapped: plain dark grey, not part of the chord
+  if (previewKeys.has(m) && (previewKeys.get(m) === -3 || previewKeys.get(m) === -4)) return blackLift(m, rgb2hex(scale(hex2rgb(CHORD_GREY), previewKeys.get(m) === -4 ? 1 : 0.82)));   // rest of the scale while a chord's tapped: plain dark grey, not part of the chord
   if (previewKeys.has(m) && previewKeys.get(m) === -5) return OUT_OF_SCALE;   // exercise: already played, light out
   if (previewKeys.has(m) && previewKeys.get(m) < 0) return RED;   // chord note outside the scale
   if (previewKeys.has(m)) { const f = previewKeys.get(m); const col = hex2rgb(scaleChordSel ? ROOT_COLORS[S.root] : ((arrPreview || preview === 'now') ? noteColorEff : nextColorEff));
-    const base = isDark() ? [200,200,200] : [232,232,232]; return blackLift(m, rgb2hex(col.map((v, j) => base[j] + (v - base[j]) * f))); }   // same fade for every key — black or white, it's just the colour showing through
+    const base = isDark() ? [170,170,170] : [214,214,214]; return blackLift(m, rgb2hex(col.map((v, j) => base[j] + (v - base[j]) * (0.34 + 0.66 * f)))); }   // same fade for every key — black or white, it's just the colour showing through. The fade starts a third of the way in rather than at nothing, so even the faintest step still reads as colour against a white key.
   // A dark colour on a black key is nearly invisible against the key itself, so the song's own note colours get the
   // same lift the scale colours already had: black keys read a shade lighter, white keys are left exactly as they were.
   // A note that's in the chord NOW and in the chord COMING keeps its current colour, which used to hide the fact that
@@ -2444,10 +2448,10 @@ function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly 
     const from = hex2rgb(hex), to = hex2rgb(nextColorEff);
     return rgb2hex(from.map((v, j) => v + (to[j] - v) * a)); };
   if (pressed.has(m)) return blackLift(m, toNext(noteColorEff));   // you're actually holding this key down
-  if (expected.has(m)) return blackLift(m, toNext(rgb2hex(scale(hex2rgb(noteColorEff), 0.4))));   // the song wants this next, but you haven't played it yet
-  if (soon.has(m)) { const f = soon.get(m); const base = isDark() ? [200,200,200] : [232,232,232]; return blackLift(m, rgb2hex(hex2rgb(nextColorEff).map((v, j) => base[j] + (v - base[j]) * (0.15 + 0.55 * f)))); }
+  if (expected.has(m)) return blackLift(m, toNext(rgb2hex(scale(hex2rgb(noteColorEff), 0.58))));   // the song wants this next, but you haven't played it yet
+  if (soon.has(m)) { const f = soon.get(m); const base = isDark() ? [170,170,170] : [214,214,214]; return blackLift(m, rgb2hex(hex2rgb(nextColorEff).map((v, j) => base[j] + (v - base[j]) * (0.36 + 0.5 * f)))); }   // same floor: a note only just coming up is still visibly its colour, not a hint of one
   const c = colors[m - BASE];
-  if (c !== undefined && c !== OFF) return blackLift(m, (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.45 + (isDark() ? 60 : 150) * 0.55)));
+  if (c !== undefined && c !== OFF) return blackLift(m, (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.72 + (isDark() ? 55 : 120) * 0.28)));   // the rest of the scale: the root's own hue, dimmer than the root but still plainly that colour — now that the keys around it are white, it has to carry the scale on its own
   if (S.scaleOn && !inScale(m)) return OUT_OF_SCALE;   // not in the key: black, whether it's a white key or a black one
   return '';
 }
@@ -2459,8 +2463,9 @@ function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly 
 function hwColorFor(m, colors, BASE, expected, pressed, soon, b) {
   if (liveNotes.has(m)) return OFF;   // holding it → light out (the screen does the opposite and goes white)
   const css = keyBgColorLit(m, colors, BASE, expected, pressed, soon);
-  if (!css || css === OUT_OF_SCALE)   // screen shows a plain / blacked-out key: the board shows a plain key too
-    return isBlackKey(m) ? scale(FAINT_BLACK, b) : (css === OUT_OF_SCALE ? OFF : scale([255, 255, 255], b));
+  if (css === OUT_OF_SCALE) return OFF;   // not in the scale: the LED goes out, black key or white — nothing you can't play is lit
+  if (!css)   // screen shows a plain key: the board shows a plain key too
+    return isBlackKey(m) ? scale(FAINT_BLACK, b) : scale([255, 255, 255], b);
   return isBlackKey(m) ? scale(hex2rgb(BLACK_KEY_LIT), b) : scale(hex2rgb(css), b);
 }
 function hwFrame(colors, BASE, expected, pressed, soon) {   // the LOW..HIGH window the hardware actually owns, regardless of where the screen is scrolled
