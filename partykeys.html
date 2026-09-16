@@ -232,7 +232,20 @@ body.keysGoneFull .arr.arrHidden{display:flex!important}
 .cdticks i.on{background:var(--accent);box-shadow:none}
 .cdticks i.now{transform:scale(1.3)}
 body.kbfull .cdticks i{width:7px;height:7px}
+.arrStage{position:relative;flex:none;display:flex}
 .arr{width:100%;height:110px;flex:none;display:block;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);touch-action:none}
+.arrReset{position:absolute;top:6px;right:8px;z-index:6;min-height:28px;padding:0 9px;display:flex;align-items:center;gap:5px;font-size:12px;border-radius:5px;background:var(--accent);color:var(--accent-ink);border:1px solid transparent;box-shadow:0 1px 5px rgba(0,0,0,.35)}
+.arrReset[hidden]{display:none}
+.arrReset .ico{width:14px;height:14px}
+.arrScore{position:absolute;left:8px;bottom:7px;z-index:6;display:flex;align-items:center;gap:7px;padding:3px 9px;border-radius:5px;font-size:12px;font-variant-numeric:tabular-nums;background:var(--surface);border:1px solid var(--line);color:var(--muted);box-shadow:0 1px 5px rgba(0,0,0,.25);pointer-events:none;white-space:nowrap;max-width:calc(100% - 16px);overflow:hidden}
+.arrScore[hidden]{display:none}
+.arrScore b{color:var(--text);font-weight:600}
+.arrScore .scGood{color:#2ea84f;font-weight:600}
+.arrScore .scBad{color:var(--bad);font-weight:600}
+.arrScore .scSep{opacity:.45}
+body.kbfull .arrScore{font-size:11px;padding:2px 7px;gap:5px;bottom:4px}
+body.kbfull .arrReset span{display:none}
+body.kbfull .arrReset{padding:0 7px;min-height:24px}
 .arr.arrHidden{display:none}
 .arrResize{flex:none;height:12px;margin:-3px 0;cursor:row-resize;position:relative;touch-action:none;z-index:2}
 .arrResize::after{content:'';position:absolute;left:50%;top:50%;width:34px;height:4px;transform:translate(-50%,-50%);border-radius:3px;background:var(--line)}
@@ -614,7 +627,9 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
     </div>
     <div class="kbwrap">
       <div class="chords" id="chordsRow"><span class="chord" id="chordNow"><b>—</b><button class="xtog" id="xNow" aria-label="Show now notes on the keys" aria-pressed="true">×</button></span><span class="chord" id="chordNext"><b></b><button class="xtog" id="xNext" aria-label="Show next notes on the keys" aria-pressed="true">×</button><span class="cdticks" id="cdTicks" aria-hidden="true"></span></span></div>
-      <canvas class="arr" id="arr" height="110" aria-label="Arrangement"></canvas>
+      <div class="arrStage"><canvas class="arr" id="arr" height="110" aria-label="Arrangement"></canvas>
+        <div id="arrScore" class="arrScore" hidden aria-live="polite"></div>
+        <button id="arrReset" class="arrReset" hidden aria-label="Clear how you played" title="Clear the green/red marks and leave the song as it was"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0 0 13.9 3M18.5 9a8 8 0 0 0-13.9-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg><span>Reset</span></button></div>
       <div class="arrResize" id="arrResize" role="separator" aria-orientation="horizontal" aria-label="Resize the arrangement view" tabindex="0"></div>
       <div class="kbstage"><div class="kb" id="kb"></div><button id="keysResetBtn" class="kbReset" hidden aria-pressed="true" title="Back to the default number of keys"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0 0 13.9 3M18.5 9a8 8 0 0 0-13.9-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button><div class="kbOverlay" id="kbOverlay"><div class="chordinfo keyinfo" id="keyInfo" hidden><button id="keyInfoClearBtn" class="rowToggle rowToggleLead" aria-label="Clear all scale toggles" title="Clear all scale toggles"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0 0 13.9 3M18.5 9a8 8 0 0 0-13.9-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button><select id="root" aria-label="Root" style="display:none"></select><select id="scaleType" aria-label="Scale" style="display:none"></select><span class="keyGroup"><button id="rootBtn" class="selBtn" aria-haspopup="listbox" aria-expanded="false" title="Root"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.6" fill="currentColor"/><circle cx="17.5" cy="16" r="2.6" fill="currentColor"/></svg><span class="selVal"></span></button><button id="scaleTypeBtn" class="selBtn" aria-haspopup="listbox" aria-expanded="false" title="Scale"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V14M9 20V10M14 20V6M19 20V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="selVal"></span></button><button id="keyFromSong" class="detectBtn" title="Detect from song"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2"/><line x1="14.3" y1="14.3" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Detect</span></button><button id="relScaleBtn" class="smBtn" title="Switch to the relative major/minor" aria-label="Switch to the relative major/minor"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v14M7 3L3 7M7 3l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M17 21V7M17 21l-4-4M17 21l4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button></span><div class="selPop" id="rootPop" hidden role="listbox" aria-label="Root"></div><div class="selPop" id="scaleTypePop" hidden role="listbox" aria-label="Scale"></div><span class="chGroup"><button id="scaleChordsBtn" class="spk" aria-pressed="true" aria-label="Show the chord built on each scale note" title="Show the chord built on each scale note"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="5" cy="15" r="2" fill="currentColor"/><circle cx="12" cy="10" r="2" fill="currentColor"/><circle cx="19" cy="13" r="2" fill="currentColor"/></svg></button><button id="scaleDegBtn" aria-pressed="false" class="smBtn" title="Show/hide the scale's degree numbers (1-7) on the keys">#</button><button id="romanBtn" aria-pressed="false" class="smBtn" title="Show/hide roman numerals for each scale-degree chord">Ⅰ</button></span><span class="chGroup"><button id="fingerLBtn" aria-pressed="false" class="smBtn" title="Show left-hand finger numbers">L</button><button id="fingerRBtn" aria-pressed="false" class="smBtn" title="Show right-hand finger numbers">R</button></span><span class="chGroup"><button id="scalePlay" class="spk playToggle" aria-pressed="false" aria-label="Play the scale" title="Play the scale — press again to stop"><svg class="ico icoPlay" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><svg class="ico icoStop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg></button><button id="scaleProgBtn" class="spk" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-label="Practice exercises: play a lit chord's notes to jump to the next one" title="Practice exercises: play a lit chord's notes to jump to the next one"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5l7 7-7 7M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button><div class="playPop" id="scaleProgPop" hidden></div><button id="progLockBtn" aria-pressed="false" class="smBtn" disabled title="Once a progression practice mode is picked: only allow its chords/scale notes, and buzz on anything else — even while a song is playing" aria-label="Restrict to this progression's chords and scale">🔒</button><button id="progKbBtn" aria-pressed="false" class="smBtn" disabled title="Once a chord progression is picked in the circle of fifths: number its chord roots on the keyboard, in order" aria-label="Show the chord progression's root note order on the keyboard">①</button></span><span class="chGroup"><button id="goodChordSoundBtn" aria-pressed="true" class="smBtn" title="Play a sound when you complete a chord correctly" aria-label="Play a sound when you complete a chord correctly">✓</button><button id="badNoteSoundBtn" aria-pressed="true" class="smBtn" title="Play a sound when you play a note outside the chord/scale" aria-label="Play a sound when you play a note outside the chord/scale">✗</button><button id="speakChordBtn" aria-pressed="false" class="smBtn" title="Say the chord name out loud as it changes" aria-label="Say the chord name out loud as it changes">🗣</button></span><button id="keyInfoToggle" class="rowToggle rowToggleSq" aria-pressed="false" aria-label="Show/hide the scale bar" title="Show/hide the scale bar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V14M9 20V10M14 20V6M19 20V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><div class="chordinfo" id="chordInfo" hidden><button id="chordInfoClearBtn" class="rowToggle rowToggleLead" aria-label="Clear all chord toggles" title="Clear all chord toggles"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0 0 13.9 3M18.5 9a8 8 0 0 0-13.9-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button><span class="chGroup chGroup-info"><button id="chordInfoBtn" type="button" aria-pressed="false" title="Chord info"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="11" x2="12" y2="16.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.3" r="1.2" fill="currentColor"/></svg></button><button id="allNotesBtn" aria-pressed="false" title="Show every octave of this chord's notes on the keyboard">All</button><button id="extBtn" aria-pressed="false" title="Show the chord's extensions (9/11/13), numbered from the tonic">Ext</button><button id="degNumBtn" aria-pressed="true" class="chW32" title="Show/hide the chord's degree numbers on the keys">#</button><button id="chordInvBtn" aria-pressed="false" aria-haspopup="true" aria-expanded="false" class="chW40" title="Choose the chord's inversion">Inv</button><div class="playPop" id="chordInvPop" hidden></div></span><span id="chordText"></span><span class="chGroup chGroup-hands"><button id="handL" aria-pressed="false">L</button><button id="handR" aria-pressed="false">R</button></span><span class="chGroup chGroup-play"><button id="chordPlay" class="playToggle" aria-pressed="false" aria-label="Play the chord" aria-haspopup="true" aria-expanded="false" title="Play the chord — press again to stop. Hold for together / one by one."><svg class="ico icoPlay" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><svg class="ico icoStop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg></button><div class="playPop" id="chordPlayPop" hidden><button type="button" class="playOpt" id="chordPlayTogether"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v16M12 4v16M18 4v16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg><span>Together</span></button><button type="button" class="playOpt" id="chordPlayArp"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19v-4M11 19v-9M17 19v-14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg><span>One by one</span></button></div></span><button id="chordInfoToggle" class="rowToggle rowToggleSq" aria-pressed="false" aria-label="Show/hide the chord bar" title="Show/hide the chord bar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="5" cy="15" r="2" fill="currentColor"/><circle cx="12" cy="10" r="2" fill="currentColor"/><circle cx="19" cy="13" r="2" fill="currentColor"/></svg></button></div><div class="scaleChordRow" id="scaleChordsB" hidden></div><div class="scaleChordRow" id="scaleChords" hidden></div><div class="chordDeg" id="chordDegB"></div><div class="chordDeg" id="chordDeg"></div><div class="chordDeg" id="romanRowB"></div><div class="chordDeg" id="romanRow"></div><div class="chordDeg progKbRow" id="progKbRowB"></div><div class="chordDeg progKbRow" id="progKbRow"></div></div><div class="countdown" id="countdown" hidden><span id="cdNum">4</span><small id="cdLbl">count-in</small></div></div>
     </div>
@@ -854,7 +869,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '91 · 2026-09-16 · steady-chord-row';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '93 · 2026-09-16 · score';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -863,7 +878,7 @@ const logEl = $('log');
 const log = (...a) => { logEl.textContent = (a.join(' ') + '\n' + logEl.textContent).slice(0, 4000); };
 
 /* ---------- settings ---------- */
-const defaults = { sound:'grand', lookBeats:0.125, noteColor:'#ff3d8a', nextColor:'#ffc21a', scaleColor:'#2f7cff', scaleOn:false, showPlaying:true, showNext:true, root:0, scaleType:'major', bright:100, lag:0, fold:true, loop:false, bpm:120, sig:4, accentOn:true, startOct:3, countIn:false, metro:false, keysShown: matchMedia('(max-width: 699px)').matches ? 25 : 36, arrZoom:8, device:'partykeys', pianoVol:100, songVol:100, metroVol:80, pianoMuted:false, songMuted:false, metroMuted:false, transpose:0, currentSong:'', midiIn:'', midiOut:'', arrHeight:0, playRowH:0, showFingersL:false, showFingersR:false, goodChordSound:true, badNoteSound:true, progLock:false, speakChords:false, speakDuck:45, fitKey:true, followKeys:true, syncMode:false, midiEnabled:true, midiOutDaw:'', midiToDawEnabled:false };
+const defaults = { sound:'grand', lookBeats:0.125, noteColor:'#ff3d8a', nextColor:'#ffc21a', scaleColor:'#2f7cff', scaleOn:false, showPlaying:true, showNext:true, root:0, scaleType:'major', bright:100, lag:0, fold:true, loop:false, bpm:120, sig:4, accentOn:true, startOct:3, countIn:false, metro:false, keysShown: matchMedia('(max-width: 699px)').matches ? 25 : 36, arrZoom:8, device:'partykeys', pianoVol:100, songVol:100, metroVol:80, pianoMuted:false, songMuted:false, metroMuted:false, transpose:0, currentSong:'', midiIn:'', midiOut:'', arrHeight:0, playRowH:0, showFingersL:false, showFingersR:false, goodChordSound:true, badNoteSound:true, progLock:false, speakChords:false, speakDuck:45, fitKey:true, followKeys:true, ownTempo:false, syncMode:false, midiEnabled:true, midiOutDaw:'', midiToDawEnabled:false };
 let S = { ...defaults };
 let noteColorEff = defaults.noteColor, nextColorEff = defaults.nextColor;   // the actual on-screen "now"/"next" colour — falls back to grey whenever it collides with the current (fixed, rainbow) scale colour, as a "pick another one" flag
 try { Object.assign(S, JSON.parse(localStorage.getItem('pk-settings') || '{}')); } catch(e) {}
@@ -1202,16 +1217,61 @@ const liveNotes = new Set();   // notes currently held by the player (for displa
 const hit = new Set();          // song notes the player has already pressed while they were "now"
 const wrong = new Set();        // song notes that were "now" when a note NOT matching them was pressed — painted red once passed, unless later hit correctly
 let extraPlays = [];            // notes pressed with no song note active at all: {b: beat, n: key, inKey: bool} — painted as a small yellow (in-key) or red (out-of-key) tick
+// Marking a note red means "you missed that", which is only a fair thing to say once you have actually started
+// playing. Until the first note of a run is pressed, the song is just being listened to and nothing is graded —
+// otherwise putting a song on to learn it would paint the whole arrangement red behind the playhead.
+let graded = false;
+let goodPresses = 0, wrongPresses = 0;   // every press while the song runs is one or the other: it matched a note that was due, or it didn't
+const GOOD = '#2ea84f';   // played it
+function hasPerfMarks() { return !!(extraPlays.length || (song && song.notes.some(n => n.grade !== undefined))); }
+// The verdict is written onto the note itself as it goes past the line, and stays there. Colouring by "is the note
+// behind the playhead" looked right until you pressed Stop, which rewinds to the start — and every mark disappeared
+// exactly when you wanted to look at it.
+function gradePassed(pos) {
+  if (!graded || !song) return;
+  for (const n of song.notes) { if (n.b0 > pos) break; if (n.grade === undefined && n.b1 <= pos) n.grade = hit.has(n) ? 1 : 0; }
+}
 let stepMode = false;           // Metro off: the song waits for you and moves on when you play the current notes
 let stepTimer = null;           // keeps the arrangement/chords live (fades, playhead) while stepMode just sits waiting for you
-function clearPerfHistory() { hit.clear(); wrong.clear(); extraPlays = []; renderKeys(); drawArr(); }   // "clear coloring" button: wipes the hit/wrong/extra-note review marks without touching playback position
+function clearPerfHistory() { hit.clear(); wrong.clear(); extraPlays = []; graded = false; goodPresses = 0; wrongPresses = 0;
+  if (song) for (const n of song.notes) { delete n.missed; delete n.grade; }
+  renderKeys(); drawArr(); syncArrReset(); }   // wipes the green/red review marks and leaves the song exactly as it was, without touching the playback position
+function syncArrReset() { const b = $('arrReset'); if (b) b.hidden = !(hasPerfMarks() && !songRunning()); renderScore(); }   // it appears once you stop, and only when there is something to clear
+/* ---------- how it went, in numbers ----------
+   Chords and single notes are counted apart on purpose: missing one note of a four-note chord is a very different
+   thing from missing a melody note, and one figure covering both hides which of the two you are actually losing.
+   The third figure is about your hands rather than the song — of everything you pressed, how much of it was wanted. */
+function perfScore() {
+  if (!song) return null;
+  let cT = 0, cH = 0, mT = 0, mH = 0;
+  for (const n of song.notes) { if (n.grade === undefined) continue;
+    if (n.poly) { cT++; if (n.grade) cH++; } else { mT++; if (n.grade) mH++; } }
+  const presses = goodPresses + wrongPresses;
+  if (!cT && !mT && !presses) return null;
+  const pc = (a, b) => b ? Math.round(100 * a / b) : null;
+  return { chordPc: pc(cH, cT), chordOf: cT, notePc: pc(mH, mT), noteOf: mT,
+           good: goodPresses, bad: wrongPresses, rightPc: pc(goodPresses, presses) };
+}
+function renderScore() {
+  const el = $('arrScore'); if (!el) return;
+  const sc = perfScore();
+  if (!sc || !hasPerfMarks()) { el.hidden = true; el.innerHTML = ''; return; }
+  const bits = [];
+  if (sc.chordPc !== null) bits.push('Chords <b>' + sc.chordPc + '%</b>');
+  if (sc.notePc !== null) bits.push('Other notes <b>' + sc.notePc + '%</b>');
+  if (sc.rightPc !== null) bits.push('<span class="scGood">' + sc.good + '</span> right / <span class="scBad">' + sc.bad + '</span> wrong <b>' + sc.rightPc + '%</b>');
+  el.innerHTML = bits.join(' <span class="scSep">·</span> ');
+  el.hidden = false;
+}
 function noteOn(n, vel, src) {
   const k = voiceKey(n, src); if (sounding.has(k)) sounding.get(k).stop(0);
   const wasHeld = liveNotes.has(n);
   sounding.set(k, playVoice(n, vel, 0, src)); liveNotes.add(n);
   if (song && (playing || stepMode)) { const pos = position(); let any = false; const activeNow = [];
+    graded = true;   // you've started playing: from here on, what goes past the line is marked
     for (const sn of song.notes) { if (sn.b0 > pos + 1e-6) break; if (sn.b1 <= pos) continue; activeNow.push(sn); if (foldNote(sn.n) === n) { hit.add(sn); any = true; } }
-    if (!any) { if (activeNow.length) activeNow.forEach(sn => wrong.add(sn)); else extraPlays.push({ b: pos, n, inKey: inScale(n) }); }
+    if (any) goodPresses++; else { wrongPresses++;
+      if (activeNow.length) activeNow.forEach(sn => wrong.add(sn)); else extraPlays.push({ b: pos, n, inKey: inScale(n) }); }
     if (stepMode) { attempted = true; if (any) stepAdvanceIfDone(false); } }
   if (!wasHeld) {   // a genuinely new press — see if it's the chord the progression is waiting for, or completes the scale-chord practice's current chord
     const arpActive = scaleProgArpMode() && scaleChordSel && !chordsBlocked();   // the arpeggio modes judge every note themselves (right pitch class, right turn) — let scaleProgAdvance below decide the sound for those, not the generic out-of-scale check
@@ -1226,7 +1286,7 @@ let attempted = false;   // step mode: something was pressed for the current gro
 function stepAdvanceIfDone(force) {
   const pos = posBeats; const cur = song.notes.filter(sn => sn.b0 <= pos + 1e-6 && sn.b1 > pos);
   if (!cur.length) return; if (!force && !cur.every(sn => hit.has(sn))) return;
-  for (const sn of cur) sn.missed = !hit.has(sn);   // remember what was missed so it stays visible in the arrangement
+  for (const sn of cur) { sn.missed = !hit.has(sn); if (graded) sn.grade = hit.has(sn) ? 1 : 0; }   // remember how each one went, so it stays visible in the arrangement
   attempted = false;
   const nx = song.notes.find(sn => sn.b0 > pos + 1e-6);
   hit.clear();
@@ -1640,8 +1700,21 @@ function flashDot(when, idx) { if (!metroOn && !counting) return;
 function clearDots() { dotQueue = []; if (dotRaf) cancelAnimationFrame(dotRaf); dotRaf = 0; dotShown = -1;
   ['beatDots', 'beatDotsFull'].forEach(id => [...$(id).children].forEach(d => d.classList.remove('hit'))); }
 function buildDots() { const n = barLen(); dotShown = -1; for (const id of ['beatDots', 'beatDotsFull']) { $(id).innerHTML = ''; for (let i = 0; i < n; i++) { const d = document.createElement('i'); if (S.accentOn && i === 0) d.classList.add('acc'); $(id).appendChild(d); } } }
-function setBpm(v, quiet) { const was = S.bpm; S.bpm = Math.min(240, Math.max(40, Math.round(v))); $('bpm').value = S.bpm; if (!quiet) save(); showBpm(); if (song) updateTime(); if (S.bpm !== was) liveBroadcastSoon(); }
-function showBpm() { const fileTempo = !S.metro && !metroOn && song;   /* hearing the standalone click doesn't lock you to the file's tempo — bpm/tap should stay live */ $('bpmVal').textContent = fileTempo ? Math.round(60 / fileSpbAt(song, posBeats)) : S.bpm; $('bpmFull').textContent = $('bpmVal').textContent + ' bpm'; $('bpmVal').style.color = fileTempo ? 'var(--muted)' : ''; ['bpmDown', 'bpmUp', 'tapBtn', 'tapBigBtn', 'bpmReset', 'bpmDownFull', 'bpmUpFull'].forEach(id => $(id).disabled = !!fileTempo); $('bpmReset').disabled = $('bpmReset').disabled || !song; $('bpmDrag').title = fileTempo ? 'File tempo (turn Metro on to set your own)' : 'Drag left/right'; $('tempoGroup').classList.toggle('dim', !S.metro && !metroOn); }
+// keepSource: applying a tempo that came from the file or another device, rather than you setting one — only the
+// latter means "my tempo from now on".
+function setBpm(v, quiet, keepSource) { const was = S.bpm; if (!keepSource && !applyingRemote) S.ownTempo = true; S.bpm = Math.min(240, Math.max(40, Math.round(v))); $('bpm').value = S.bpm; if (!quiet) save(); showBpm(); if (song) updateTime(); if (S.bpm !== was) liveBroadcastSoon(); }
+function showBpm() {
+  // The tempo can be changed at any time now — with the metronome on or off, mid-song, whenever. What the number
+  // shows is simply whose tempo is in force: yours, or the one written into the file.
+  const fileTempo = !ownTempo();
+  $('bpmVal').textContent = fileTempo ? Math.round(60 / fileSpbAt(song, posBeats)) : S.bpm;
+  $('bpmFull').textContent = $('bpmVal').textContent + ' bpm';
+  $('bpmVal').style.color = fileTempo ? 'var(--muted)' : '';
+  ['bpmDown', 'bpmUp', 'tapBtn', 'tapBigBtn', 'bpmDownFull', 'bpmUpFull'].forEach(id => { const e = $(id); if (e) e.disabled = false; });
+  $('bpmReset').disabled = !song || fileTempo;   // nothing to go back to unless you have taken the tempo over
+  $('bpmDrag').title = fileTempo ? "The song's own tempo — drag to take it over" : 'Drag left/right';
+  $('tempoGroup').classList.remove('dim');
+}
 
 /* ---------- count-in ---------- */
 let countTimers = [], counting = false;
@@ -1657,7 +1730,8 @@ function cancelCount() { countTimers.forEach(clearTimeout); countTimers = []; co
 let song = null, playing = false, posBeats = 0, lastCtx = 0, nextIdx = 0, tickTimer = null;
 const fileVoices = new Map();
 function foldNote(n) { if (!S.fold) return (n >= LOW && n <= HIGH) ? n : null; while (n < LOW) n += 12; while (n > HIGH) n -= 12; return n; }
-function spbAt(beat) { return metroOn ? metroSpb() : (song ? fileSpbAt(song, beat) : metroSpb()); }
+const ownTempo = () => metroOn || !!S.ownTempo || !song;   // your bpm rather than the file's — set one and it stays yours until you press the reset beside it
+function spbAt(beat) { return ownTempo() ? metroSpb() : fileSpbAt(song, beat); }
 function advance() { if (!playing) return; const t = ctx.currentTime; if (t < lastCtx) return; posBeats += (t - lastCtx) / spbAt(posBeats); lastCtx = t; }
 function position() { advance(); return posBeats; }
 async function play() {
@@ -1666,7 +1740,7 @@ async function play() {
   if (song && posBeats >= song.durBeats) posBeats = 0;
   if (S.metro && song) posBeats = Math.round(posBeats);
   const t0 = ctx.currentTime + 0.06;
-  $('playBtn').textContent = '❚❚ Pause'; $('playBtn').classList.add('playing'); $('stopBtn').disabled = false; $('stopBtnFull').disabled = false; requestWake(); syncMetroPlay();
+  $('playBtn').textContent = '❚❚ Pause'; $('playBtn').classList.add('playing'); $('stopBtn').disabled = false; $('stopBtnFull').disabled = false; requestWake(); syncMetroPlay(); syncArrReset();
   if (S.metro) metroStart(t0, Math.round(song ? posBeats : 0) - (S.countIn ? barLen() : 0));   // clicks line up with the song's own beats, even when starting mid-bar
   const go = at => (S.metro || !song) ? startSong(at) : startStep();   // no metronome: the song follows you
   if (S.countIn) { const spb = S.metro ? metroSpb() : (song ? fileSpbAt(song, posBeats) : metroSpb());
@@ -1682,12 +1756,12 @@ function startSong(at) {
 function pause() {
   markLocalCmd(); cancelCount(); metroStop(); stepMode = false; hit.clear(); clearInterval(stepTimer); stepTimer = null;
   if (playing) { advance(); playing = false; killFileVoices(); clearInterval(tickTimer); tickTimer = null; dawPanic(); }
-  $('playBtn').textContent = '▶ Play'; $('playBtn').classList.remove('playing'); renderKeys(); if (song) updateTime(); releaseWake();
+  $('playBtn').textContent = '▶ Play'; $('playBtn').classList.remove('playing'); renderKeys(); if (song) updateTime(); releaseWake(); syncArrReset();
 }
 function isRunning() { return playing || metroOn || counting || stepMode; }
 function songRunning() { return playing || counting || stepMode; }   // what the Play button asks. isRunning() also counts the metronome clicking on its own, and using that here made Play act as Pause while the click ran: the first press only silenced the click, and you had to press again to actually start. A standalone click is not the song playing.
 function chordsBlocked() { return playing || stepMode || counting; }   // hearing the metronome click on its own shouldn't stop you from exploring scale/chord info — only actual song playback (or note-practice, or the count-in click) should
-function stop() { pause(); posBeats = 0; if (song) for (const n of song.notes) n.missed = false; renderKeys(); if (song) updateTime(); }
+function stop() { pause(); posBeats = 0; renderKeys(); if (song) updateTime(); syncArrReset(); }   // the green/red marks deliberately survive stopping: that is when you look at them
 function killFileVoices() { for (const v of fileVoices.values()) v.stop(0); fileVoices.clear(); }
 function tick() {
   if (!playing) return;
@@ -1702,10 +1776,10 @@ function tick() {
   if (markerLoopOn && song.markers && loopMarkers.length === 2) { const [a, b] = [song.markers[loopMarkers[0]], song.markers[loopMarkers[1]]].sort((x, y) => x - y);
     if (pos >= b) { posBeats = a; nextIdx = song.notes.findIndex(n => n.b1 > posBeats); if (nextIdx < 0) nextIdx = song.notes.length; } }
   else if (pos >= song.durBeats + 0.3 / spb) { if (S.loop) { posBeats = 0; nextIdx = 0; } else { const nx = nextInQueue(); stop(); if (nx && loadSong(nx)) play(); return; } }
-  renderKeys(); updateTime(); drawArr();   // keep the arrangement view's own playhead moving during playback, not just the light-up keys — it used to sit frozen until the next explicit redraw
+  gradePassed(pos); renderKeys(); updateTime(); drawArr(); syncArrReset();   // keep the arrangement view's own playhead moving during playback, not just the light-up keys — it used to sit frozen until the next explicit redraw
 }
 function updateTime() { if (!song) return; const pos = position(); const spb = spbAt(pos);
-  const secs = metroOn ? pos * spb : beat2sec(song, pos), total = metroOn ? song.durBeats * spb : beat2sec(song, song.durBeats);
+  const own = ownTempo(); const secs = own ? pos * spb : beat2sec(song, pos), total = own ? song.durBeats * spb : beat2sec(song, song.durBeats);
   $('tCur').textContent = fmt(secs); $('tEnd').textContent = fmt(total); if (!posDragging) $('pos').value = Math.round(pos / song.durBeats * 1000);
   if (!S.metro) $('bpmVal').textContent = Math.round(60 / spb); $('knobMs').textContent = Math.round(S.lookBeats * spb * 1000) + ' ms'; }
 const fmt = s => { s = Math.max(0, s); const m = Math.floor(s / 60); return m + ':' + (s - m * 60).toFixed(1).padStart(4, '0'); };
@@ -1965,7 +2039,14 @@ function markChords(song, key, allowedChords) {
    absorbed into the one before it. Inside a span there is by definition nothing to change — which is what makes the
    row hold still instead of twitching its way through an arpeggio. */
 const MIN_SPAN = 1;   // beats — a reading shorter than this was something passing through, not a chord of its own
+function markPoly(song) {
+  const ns = song.notes;
+  for (const n of ns) n.poly = false;
+  for (let i = 0; i < ns.length; i++)
+    for (let j = i + 1; j < ns.length && ns[j].b0 < ns[i].b1 - 1e-6; j++) { ns[i].poly = true; ns[j].poly = true; }
+}
 function buildSpans(song) {
+  markPoly(song);
   const end = song.durBeats || (song.notes.length ? Math.max(...song.notes.map(n => n.b1)) : 0);
   const collapse = list => { const out = [];
     for (const g of list) { if (!g.name) continue;
@@ -2641,7 +2722,8 @@ function drawArr() {
       if (active && S.showPlaying && n.b0 <= pos && n.b1 > pos) c = hit.has(n) ? noteColorEff : rgb2hex(scale(hex2rgb(noteColorEff), 0.4));   // lighter: the song wants this now; brighter: you've actually played it
       else if (!active && arrPreview && n.b0 <= pos && n.b1 > pos) c = noteColorEff;   // paused, arrangement tapped: light the notes sitting right on the start line, matching what's lit on the keys
       else if (active && S.showNext && n.chord && nextName && n.gname === nextName && n.b0 > pos && n.b0 <= pos + look * 2) { const f = 1 - (n.b0 - pos) / (look * 2); const base = hex2rgb(c); c = rgb2hex(hex2rgb(nextColorEff).map((v, j) => base[j] + (v - base[j]) * (0.2 + 0.55 * f))); }
-      else if (n.b1 <= pos) { const isHit = hit.has(n) || n.missed === false; c = isHit ? noteColorEff : (wrong.has(n) ? RED : (dark ? '#4c4c4c' : '#9a9a9a')); }   // once passed: hit stays coloured, a wrong note played instead turns red, a genuine miss stays the plain grey
+      else if (n.grade !== undefined) c = n.grade ? GOOD : RED;   // it has been past the line: green if you played it at any point while it sounded, red if you never did
+      else if (n.b1 <= pos) c = dark ? '#4c4c4c' : '#9a9a9a';   // passed before you started playing — nothing to say about it
       // chord notes read bolder than single melody notes: they fill the full lane and get a crisp outline instead of a thin inset bar
       if (n.chord) { g.fillStyle = c; g.fillRect(x, y, w, Math.max(2, lane)); g.strokeStyle = dark ? 'rgba(0,0,0,.5)' : 'rgba(255,255,255,.6)'; g.lineWidth = 1; g.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, lane - 1)); }
       else { g.fillStyle = c; g.fillRect(x, y + 1, w, Math.max(1, lane - 1)); } }
@@ -3577,7 +3659,7 @@ function applyAudioDoc(v) {
    delay, its own name — deliberately stays local, because making a phone match a laptop on those would be wrong. */
 const SHARED_KEYS = ['sound', 'lookBeats', 'scaleOn', 'showPlaying', 'showNext', 'root', 'scaleType', 'fold', 'loop',
   'bpm', 'sig', 'accentOn', 'countIn', 'metro', 'transpose', 'showFingersL', 'showFingersR', 'goodChordSound',
-  'badNoteSound', 'speakChords', 'speakDuck', 'fitKey', 'followKeys', 'progLock'];
+  'badNoteSound', 'speakChords', 'speakDuck', 'fitKey', 'followKeys', 'progLock', 'ownTempo'];
 let sharedSnap = null, shareT = null, settingsApplied = false;
 const sharedNow = () => JSON.stringify(SHARED_KEYS.map(k => S[k]));
 function shareSettingsSoon() {
@@ -3996,6 +4078,7 @@ $('playBtn').onclick = async () => { if (songRunning()) { pause(); liveBroadcast
 $('stopBtn').onclick = $('stopBtnFull').onclick = () => { stop(); liveBroadcast({ cmd: 'seek' }); };
 const clearColorHere = () => { clearPerfHistory(); liveBroadcast({ cmd: 'clearColor' }); };
 $('clearColorBtn').onclick = clearColorHere; $('clearColorBtnFull').onclick = clearColorHere;
+$('arrReset').onclick = clearColorHere;
 for (let mi = 0; mi < MARKER_BTNS; mi++) $('markerBtn' + mi + 'Full').onclick = () => markerBtnClick(mi);
 $('stopBtnFull').addEventListener('pointerdown', () => { const b = $('stopBtnFull'); b.classList.add('primary'); setTimeout(() => b.classList.remove('primary'), 160); });
 $('stopBtn').addEventListener('pointerdown', () => { const b = $('stopBtn'); b.classList.add('primary'); setTimeout(() => b.classList.remove('primary'), 160); });
@@ -4021,7 +4104,7 @@ function editBpm(target) {   // tap the number: type a tempo
   el.addEventListener('pointerdown', e => { if (!S.metro && song) return; el.setPointerCapture(e.pointerId); y0 = e.clientX; b0 = S.bpm; moved = false; });
   el.addEventListener('pointermove', e => { if (y0 === null) return; if (Math.abs(e.clientX - y0) > 4) moved = true; if (moved) setBpm(b0 + (e.clientX - y0) / 3, true); });
   const end = () => { if (y0 !== null) { y0 = null; if (moved) save(); else editBpm(el); } }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); })();
-$('bpmReset').onclick = () => { if (!song) return; setBpm(60 / fileSpbAt(song, 0)); if (song.sig) { S.sig = Math.min(7, Math.max(2, song.sig)); $('sig').value = S.sig; save(); buildDots(); drawArr(); } };
+$('bpmReset').onclick = () => { if (!song) return; S.ownTempo = false; setBpm(60 / fileSpbAt(song, 0), false, true); showBpm(); if (song.sig) { S.sig = Math.min(7, Math.max(2, song.sig)); $('sig').value = S.sig; save(); buildDots(); drawArr(); } };
 $('bpmDownFull').onclick = () => { if (S.metro) setBpm(S.bpm - 1); }; $('bpmUpFull').onclick = () => { if (S.metro) setBpm(S.bpm + 1); };
 function syncMuteBtn(id, muted) { const el = $(id); if (el) el.setAttribute('aria-pressed', muted); }
 function initVolMute(volId, valId, muteId, key) {   // shared wiring for a volume row: the slider un-mutes on drag, the mute button remembers the level and silences it without losing it
