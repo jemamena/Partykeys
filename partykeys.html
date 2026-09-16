@@ -854,7 +854,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '90 · 2026-09-16 · fullscreen-bpm';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '91 · 2026-09-16 · steady-chord-row';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1943,7 +1943,7 @@ function markChords(song, key, allowedChords) {
     let name = chordName(fingerprint.map(n => n.n), { ...song.chordCtx, prev, clearBass, rolled });
     if (!name && prev && pcsOf(fingerprint) < 3) name = prev;   // one or two notes on their own never rename the chord
     if (name) prev = name;
-    for (const n of grp) { n.chord = !!name; n.gname = name; } song.groups.push({ b0: t, name, notes: grp.map(n => n.n), _ns: grp }); i = j; }
+    for (const n of grp) { n.chord = !!name; n.gname = name; } song.groups.push({ b0: t, name, key: lastPickKey || null, amb: !!lastPickAmbiguous, notes: grp.map(n => n.n), _ns: grp }); i = j; }
   // Last pass: smooth the flickers. Two things pass through a chord without changing it — a reading that appears
   // briefly between two identical neighbours (a suspension resolving, a note held over), and a short-lived inversion
   // of the chord already playing (a walking bass, a rolled left hand). Neither is the harmony moving, so neither
@@ -1953,8 +1953,39 @@ function markChords(song, key, allowedChords) {
     if (!g.name || !a.name || g.name === a.name) continue;
     const span = (b ? b.b0 : song.durBeats || g.b0 + 1) - g.b0;
     const sandwiched = b && a.name === b.name && span < 1.5, passingInversion = baseOf(g.name) === baseOf(a.name) && span <= 1;
-    if (sandwiched || passingInversion) { g.name = a.name; for (const n of g._ns) { n.chord = true; n.gname = a.name; } } }
+    if (sandwiched || passingInversion) { g.name = a.name; g.key = a.key || null; g.amb = !!a.amb;
+      for (const n of g._ns) { n.chord = true; n.gname = a.name; } } }
   for (const g of song.groups) delete g._ns;
+  buildSpans(song);
+}
+/* ---------- the chord timeline ----------
+   song.groups has one entry per note ONSET — dozens of them inside a single chord. The now/next boxes must not be
+   driven by that: what they show is the chord, and a chord is one thing however many times its notes are struck. So
+   the groups are collapsed into spans, one per chord, and anything too short to be a chord in its own right is
+   absorbed into the one before it. Inside a span there is by definition nothing to change — which is what makes the
+   row hold still instead of twitching its way through an arpeggio. */
+const MIN_SPAN = 1;   // beats — a reading shorter than this was something passing through, not a chord of its own
+function buildSpans(song) {
+  const end = song.durBeats || (song.notes.length ? Math.max(...song.notes.map(n => n.b1)) : 0);
+  const collapse = list => { const out = [];
+    for (const g of list) { if (!g.name) continue;
+      const last = out[out.length - 1];
+      if (last && last.name === g.name) continue;
+      out.push({ b0: g.b0, name: g.name, key: g.key || null, amb: !!g.amb, notes: g.notes }); }
+    return out; };
+  let spans = collapse(song.groups || []);
+  for (let pass = 0; pass < 4; pass++) {
+    let changed = false;
+    for (let i = 1; i < spans.length; i++) {
+      const stop = i + 1 < spans.length ? spans[i + 1].b0 : end;
+      if (stop - spans[i].b0 >= MIN_SPAN) continue;
+      spans[i] = { ...spans[i - 1], b0: spans[i].b0 }; changed = true;
+    }
+    spans = collapse(spans);
+    if (!changed) break;
+  }
+  for (let i = 0; i < spans.length; i++) spans[i].b1 = i + 1 < spans.length ? spans[i + 1].b0 : end;
+  song.spans = spans;
 }
 const SIMPLE = { '':'', '5':'', '7':'', 'maj7':'', '6':'', 'add9':'', '9':'', 'maj9':'', 'm':'m', 'm7':'m', 'mMaj7':'m', 'm6':'m', 'madd9':'m', 'm9':'m', 'dim':'dim', 'dim7':'dim', 'm7b5':'dim', 'aug':'aug', 'sus2':'sus2', 'sus4':'sus4', '7sus4':'sus4' };
 const QUALITY = { '':'major', '5':'power chord', '7':'dominant 7th', 'maj7':'major 7th', '6':'major 6th', 'add9':'add 9', '9':'dominant 9th', 'maj9':'major 9th', 'm':'minor', 'm7':'minor 7th', 'mMaj7':'minor-major 7th', 'm6':'minor 6th', 'madd9':'minor add 9', 'm9':'minor 9th', 'dim':'diminished', 'dim7':'diminished 7th', 'm7b5':'half-diminished', 'aug':'augmented', 'sus2':'suspended 2nd', 'sus4':'suspended 4th', '7sus4':'7 suspended 4th' };
@@ -2072,29 +2103,46 @@ function clearScaleChordSel() { if (!scaleChordSel) return; scaleChordSel = null
 function updateChords() {
   if (scaleChordSel) { if (chordsBlocked()) clearScaleChordSel(); else { showScaleChordPreview(); return; } }
   let now = [], start = Infinity, end = 0; nextName = '';
+  let grpNow = null;
+  if (song && !song.spans) buildSpans(song);
   if (song) { const pos = position();
     for (const n of song.notes) { if (n.b0 <= pos && n.b1 > pos) { now.push(n.n); start = Math.min(start, n.b0); end = Math.max(end, n.b1); } }
-    // next = the first upcoming chord that differs from the one showing now
-    const cur = chordName(now) || lastNow;
-    const grp = (song.groups || []).find(x => x.b0 > pos + 1e-6 && x.name && x.name !== cur);
+    // The song was read through once already — with its key, its own chord list and the smoothing that drops passing
+    // readings — and collapsed into one entry per chord. THAT is what these two boxes show. They used to re-guess the
+    // chord from whatever notes happened to be sounding on this very frame, with none of that context, so a rolled
+    // chord or a passing bass note renamed the box several times inside one chord. Now it is a lookup, not a decision.
+    const sp = song.spans || [];
+    let at = -1; for (let i = sp.length - 1; i >= 0; i--) if (sp[i].b0 <= pos + 1e-6) { at = i; break; }
+    grpNow = at >= 0 ? sp[at] : null;
+    const grp = at >= 0 ? sp[at + 1] || null : sp[0] || null;   // the next chord is simply the next one along
     nextName = grp ? grp.name : ''; nextGroup = grp || null;
-    if (now.length && chordName(now)) nowNotes = now.slice(); else { const cg = [...(song.groups || [])].reverse().find(x => x.b0 <= pos + 1e-6 && x.name === cur); if (cg) nowNotes = cg.notes; }
-    const frac = now.length ? Math.max(0, Math.min(1, (pos - start) / (end - start))) : 1;
+    if (grpNow) nowNotes = grpNow.notes;
+    // One gentle flash per CHORD, fading across it — not one per note. With an arpeggio or a rolled left hand the old
+    // per-note flash was visible flicker even when the name itself was holding still.
+    const span = grpNow ? grpNow.b1 - grpNow.b0 : 0;
+    const frac = grpNow && span > 0 ? Math.max(0, Math.min(1, (pos - grpNow.b0) / span)) : 1;
     const [r, g, bl] = hex2rgb(noteColorEff);
-    $('chordNow').style.background = now.length ? `rgba(${r},${g},${bl},${(0.45 * (1 - frac)).toFixed(3)})` : '';   // flash on the onset, fading over the note length
+    $('chordNow').style.background = grpNow ? `rgba(${r},${g},${bl},${(0.45 * (1 - frac)).toFixed(3)})` : '';
   } else $('chordNow').style.background = '';
   if (!chordsBlocked()) { const [r, g, bl] = hex2rgb(noteColorEff), [r2, g2, b2] = hex2rgb(nextColorEff);
     const gotIt = notes => notes && notes.length && notes.every(n => { const k = foldNote(n); return k !== null && liveNotes.has(k); });   // you actually played every note of the shown chord
     $('chordNow').style.background = `rgba(${r},${g},${bl},${gotIt(nowNotes) ? 0.8 : 0.4})`; $('chordNext').style.background = `rgba(${r2},${g2},${b2},${gotIt(nextGroup && nextGroup.notes) ? 0.8 : 0.4})`; }
-  else { let f = 0; if (song && nextGroup) { const pos = position(); const from = isFinite(start) ? start : pos; const span = nextGroup.b0 - from; f = span > 0 ? Math.max(0, Math.min(1, (pos - from) / span)) : 1; }
+  else { let f = 0; if (song && nextGroup) { const pos = position(); const from = grpNow ? grpNow.b0 : (isFinite(start) ? start : pos); const span = nextGroup.b0 - from; f = span > 0 ? Math.max(0, Math.min(1, (pos - from) / span)) : 1; }
     const [r2, g2, b2] = hex2rgb(nextColorEff); $('chordNext').style.background = f > 0 ? `rgba(${r2},${g2},${b2},${(0.4 * f).toFixed(3)})` : ''; }   // fades up until the next chord lands
   if (!now.length && liveNotes.size) now = [...liveNotes];
   // Name it with the same context the song was analysed under — its key, its own chord list and their spelling.
   // Without this the box quietly re-guessed from the notes alone, so a song that read Eb everywhere else showed D# here.
-  lastPickKey = null;
-  const liveSorted = [...new Set(now)].sort((x, y) => x - y);
-  const liveClearBass = liveSorted.length > 1 && liveSorted[1] - liveSorted[0] >= 5;   // left hand well below the right: that note is the root
-  const a = chordName(now, song && song.chordCtx ? { ...song.chordCtx, prev: lastNow, clearBass: liveClearBass } : { prev: lastNow, clearBass: liveClearBass });   // null on silence or when it isn't a chord: keep what's shown
+  lastPickKey = null; lastPickAmbiguous = false;
+  // While the song is the thing making the sound, the box shows the song's own settled reading. The key that reading
+  // was made under travels with it, so following a modulation still works without naming the chord a second time.
+  const followSong = grpNow && (songRunning() || now.length);
+  let a;
+  if (followSong) { a = grpNow.name; lastPickKey = grpNow.key || null; lastPickAmbiguous = !!grpNow.amb; }
+  else {
+    const liveSorted = [...new Set(now)].sort((x, y) => x - y);
+    const liveClearBass = liveSorted.length > 1 && liveSorted[1] - liveSorted[0] >= 5;   // left hand well below the right: that note is the root
+    a = chordName(now, song && song.chordCtx ? { ...song.chordCtx, prev: lastNow, clearBass: liveClearBass } : { prev: lastNow, clearBass: liveClearBass });   // null on silence or when it isn't a chord: keep what's shown
+  }
   if (a) lastNow = a;
   // A song that changes key carries that in its own chord list: each chord belongs to a section, and the section
   // knows its key. So when the chord that's playing belongs to a different one of the song's keys, move the app's key
@@ -3657,9 +3705,16 @@ async function applyLiveState(data) {   // a state doc that just arrived from an
     if (typeof data.loop === 'boolean' && data.loop !== S.loop) { S.loop = data.loop; save(); $('loop').checked = S.loop; drawArr(); }
     if (typeof data.transpose === 'number' && data.transpose !== S.transpose) setTranspose(data.transpose);
     if (data.cmd === 'clearColor') clearPerfHistory();
-    // Don't let a device that is still running drag the playhead of one that has just been paused (or the reverse):
-    // follow the position only from a device in the same transport state, or from an explicit seek.
-    if (song && typeof data.posBeats === 'number' && (data.cmd === 'seek' || !isBeat || !!data.playing === !!playing)) { const drift = Math.abs(posBeats - data.posBeats);
+    // The playhead is NOT chased from the position heartbeat. Every message takes a couple of hundred milliseconds to
+    // arrive, so the position inside it is always that much in the past — and correcting to it, several times a second,
+    // walked the song backwards over and over instead of letting it play. Two devices started together keep time on
+    // their own audio clocks, which is far steadier than the round trip. So the position only moves for a real event:
+    // someone dragged the playhead, someone pressed play, or this device is hearing from another for the first time
+    // and has to catch up to where the song already is.
+    // ...and a device that is ALREADY playing is not moved by anyone's catch-up either: the first message from a
+    // device that has just woken up carries a position from before the round trip, and applying it to a song already
+    // in flight is a jump backwards. Catching up is for the device that is standing still.
+    if (song && typeof data.posBeats === 'number' && (data.cmd === 'seek' || (!isBeat && !songRunning()))) { const drift = Math.abs(posBeats - data.posBeats);
       if (data.cmd === 'seek' || drift > 0.2) { posBeats = Math.max(0, Math.min(song.durBeats, data.posBeats)); lastCtx = ctx.currentTime;
         nextIdx = song.notes.findIndex(n => n.b1 > posBeats); if (nextIdx < 0) nextIdx = song.notes.length; hit.clear(); updateTime(); renderKeys(); } }
     if (Array.isArray(data.loopMarkers)) loopMarkers = data.loopMarkers.filter(i => Number.isInteger(i));
