@@ -951,7 +951,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '119 · 2026-09-16 · stay-awake';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '120 · 2026-09-16 · follow-my-octave';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -2574,6 +2574,7 @@ let scaleProgMode = null;   // null | 'fwd' | 'back' | 'bounce' | 'fwdOct' | 'ba
 let scaleProgDir = 1;   // 'bounce'/'bounceOct' mode's current direction (1 = climbing, -1 = descending) — flips at either end instead of wrapping
 let scaleProgOct = 0;   // the *Oct exercises only: how many octaves above the lit chord's lowest on-screen occurrence it's currently shown/expected at
 let scaleProgArpIdx = 0;   // 'arp'/'arpUpDown' only: how far into the current chord's note-by-note sequence you've correctly played so far
+let progPlayOct = null;   // which octave you actually played the current drill chord in — the next chord follows your hands instead of staying where the app first put it
 let scaleProgInv = 0;   // 'inv' only: which inversion of the current chord is due (0 root position, 1 first, 2 second) — the chord only moves on once all three have been played
 const DOM7_TPL = [0, 4, 7, 10];   // 'dom7': a dominant 7th built on every degree, so the b7 deliberately falls outside the key on most of them
 function scaleProgInvMode() { return scaleProgMode === 'inv'; }
@@ -2605,6 +2606,12 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
   const cur = scaleProgDom7Mode() ? dt.find(d => d.pc === scaleChordSel.root)
             : dt.find(d => d.pc === scaleChordSel.root && d.q === scaleChordSel.q); if (!cur) return;
   const tpl = scaleProgDom7Mode() ? DOM7_TPL : (CHORDS.find(x => x[0] === cur.q) || ['', [0, 4, 7]])[1];
+  // Play the chord an octave up (or down) and the drill goes with you: note which octave the root was struck in and
+  // light the NEXT chord there. The octave exercises are exempt — pinning the register is the whole point of those.
+  if (!scaleProgFixedVoicing() && ((n % 12) + 12) % 12 === cur.pc) {
+    let base = DLOW; while (base % 12 !== cur.pc) base++;
+    const o = Math.round((n - base) / 12); if (o >= 0) progPlayOct = o;
+  }
   if (scaleProgArpMode()) {   // note-by-note, in order — any other note (right pitch class, wrong turn) restarts this chord's sequence instead of failing it outright
     const seq = scaleProgArpSeq(tpl);
     const wantPc = (cur.pc + seq[scaleProgArpIdx]) % 12, gotPc = ((n % 12) + 12) % 12;
@@ -2640,6 +2647,10 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
   else { let [d, o] = scaleProgStep(cur.deg, scaleProgOct, scaleProgDir);   // bounceOct: climb the full keyboard, then reverse and descend it, indefinitely
     if (o < 0 || !scaleProgChordFits(d, o, dt)) { scaleProgDir *= -1; [d, o] = scaleProgStep(cur.deg, scaleProgOct, scaleProgDir); }
     nextDeg = d; scaleProgOct = o; }
+  if (!scaleProgFixedVoicing() && progPlayOct !== null) {   // ...but never so high that the chord runs off the end of the keyboard
+    let o = progPlayOct; while (o > 0 && !scaleProgChordFits(nextDeg, o, dt)) o--;
+    chordOct = o; }
+  progPlayOct = null;
   const next = dt.find(d => d.deg === nextDeg) || dt[0];
   scaleChordSel = { root: next.pc, q: scaleProgDom7Mode() ? '7' : next.q };
 }
@@ -4774,7 +4785,7 @@ function syncProgRootBtn() { const btn = $('progRootOnly'); if (!btn) return; bt
 function syncProgResetBtn() { const btn = $('progResetBtn'); if (btn) btn.disabled = !(scaleProgMode || circleProg); }
 function restartScaleProg() {
   if (!scaleProgMode && !circleProg) return;
-  scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0;
+  scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayOct = null;
   if (typeof resetChordOct === 'function') resetChordOct();
   if (typeof syncInvGroup === 'function') syncInvGroup();
   if (scaleProgMode) {
@@ -4786,7 +4797,7 @@ function restartScaleProg() {
   renderKeys();
 }
 function setScaleProgMode(mode) {   // mode: null (off) or one of SCALE_PROG_EXERCISES' — mutually exclusive by construction, since only one can be picked from the dropdown at a time
-  scaleProgMode = mode; scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0;
+  scaleProgMode = mode; scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayOct = null;
   $('scaleProgBtn').setAttribute('aria-pressed', String(!!scaleProgMode));
   if (scaleProgMode) {
     if (!showScaleChords) { showScaleChords = true; $('scaleChordsBtn').setAttribute('aria-pressed', 'true'); }
