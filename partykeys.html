@@ -951,7 +951,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '111 · 2026-09-16 · true-colours';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '112 · 2026-09-16 · own-the-leds';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1944,6 +1944,8 @@ const fmt = s => { s = Math.max(0, s); const m = Math.floor(s / 60); return m + 
 
 /* ---------- LED / display state ---------- */
 const OFF = [0, 0, 0];
+let hitNow = new Set();   // HARDWARE: song notes already hit this pass — kept so a key you're holding can still be shown as correct
+const HELD_NONE = new Set();   // HARDWARE only: an empty stand-in for "pressed" so a held key is coloured by what's underneath it, not by the fact that it's held
 const previewKeys = new Map();
 let scaleNote = null;   // note currently sounding while the scale plays
 let lastFrame = 0;
@@ -1974,6 +1976,7 @@ function computeColors() {
     for (const [k, f] of (soonRoot.size ? soonRoot : soonAll)) soon.set(k, f);
   }
   for (const k of hitKeys) expected.delete(k);
+  hitNow = hitKeys;   // notes the song is sounding that you've already got right: no colour of their own on screen, but the board still lights them (see hwColorFor)
   for (const n of liveNotes) if (n >= LOW && n <= HIGH) pressed.add(n);   // "pressed" is always about the real, physical keys — unaffected by where the screen is scrolled to
   if (arrPreview && !chordsBlocked()) { expected.clear(); pressed.clear(); soon.clear();   // raw notes tapped in the arrangement — no chord logic, no extensions, just what's actually there
     const keys = [...new Set(arrNotes.map(foldNote).filter(k => k !== null))];
@@ -2830,13 +2833,20 @@ function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly 
 }
 // ---- the PartyKeys' own LEDs, derived from the screen ----
 // One rule: whatever a key looks like on screen is what the LED shows. The only deliberate differences are the
-// four we agreed: a key you're holding goes dark on the board (white on screen); a lit black key burns white on
+// differences we agreed: a lit black key burns white on
 // the board (the scale colour is invisible on black plastic); an unlit black key keeps a faint glow so it's still
 // findable; and a white key that's out of the key goes fully out. Nothing else may reach the board.
 function hwColorFor(m, colors, BASE, expected, pressed, soon, b) {
-  if (liveNotes.has(m)) return OFF;   // holding it → light out (the screen does the opposite and goes white)
-  const css = keyBgColorLit(m, colors, BASE, expected, pressed, soon);
-  if (css === OUT_OF_SCALE) return OFF;   // not in the scale: the LED goes out, black key or white — nothing you can't play is lit
+  // A key you're holding used to be sent OFF. That left a dark LED for the keyboard's own firmware to fill in with
+  // whatever its press-reaction mode does — which is exactly the stray colours that showed up under the fingers.
+  // Now the app paints every one of the 36 LEDs itself, so the firmware mode stops mattering: a held key shows the
+  // colour it would show if the finger weren't there, and if that colour is "nothing" it lights anyway (white when
+  // the note belongs here, red when it doesn't) rather than going dark.
+  const held = liveNotes.has(m);
+  if (held && (expected.has(m) || hitNow.has(m))) return scale(hex2rgb(noteColorEff), b);   // holding a note the song is actually sounding: full chord colour, so a correct finger stays lit rather than going dark
+  const css = keyBgColorLit(m, colors, BASE, expected, held ? HELD_NONE : pressed, soon);   // ignore the "pressed" rule for the held key itself, or every wrong note would come back as the chord colour
+  if (css === OUT_OF_SCALE) return held ? scale(hex2rgb(RED), b) : OFF;   // not in the scale: the LED goes out — unless you're holding it, and then it's red, because that's a note you shouldn't be playing
+  if (held && !css) return scale([255, 255, 255], b);   // held, plain key: full white, never dark
   if (!css)   // screen shows a plain key: the board shows a plain key too
     return isBlackKey(m) ? scale(FAINT_BLACK, b) : scale([255, 255, 255], b);
   return scale(hex2rgb(css), b);   // black key or white, the LED shows the colour that key is showing
