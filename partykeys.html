@@ -951,7 +951,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '109 · 2026-09-16 · degrees-and-inversions';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '110 · 2026-09-16 · chord-octave';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1357,6 +1357,7 @@ function noteOn(n, vel, src) {
     if (any) goodPresses++; else { wrongPresses++;
       if (activeNow.length) activeNow.forEach(sn => wrong.add(sn)); else extraPlays.push({ b: pos, n, inKey: inScale(n) }); }
     if (stepMode) { attempted = true; if (any) stepAdvanceIfDone(false); } }
+  maybeMoveChordOctave(n);   // pressing one of the shown chord's own notes elsewhere on the keyboard moves it there
   if (!wasHeld) {   // a genuinely new press — see if it's the chord the progression is waiting for, or completes the scale-chord practice's current chord
     const arpActive = scaleProgArpMode() && scaleChordSel && !chordsBlocked();   // the arpeggio modes judge every note themselves (right pitch class, right turn) — let scaleProgAdvance below decide the sound for those, not the generic out-of-scale check
     const progLockActive = S.progLock && !!scaleProgMode;   // a progression's picked and locked: only its chords/the scale count as right, checked regardless of whether a song is playing — the song's own note-tracking above is untouched, this is just an extra ear-training buzz
@@ -1984,9 +1985,10 @@ function computeColors() {
     const root = NOTE_NAMES.indexOf((name.match(/^[A-G]#?/) || [''])[0]); const col = hex2rgb(preview === 'now' ? noteColorEff : nextColorEff);
     const chordKeys = new Set();
     const info = activeChordInfo();
-    const noteMap = info && showExtensions ? extNoteMap(info.rootPc, info.tpl, showAllNotes, DLOW, BASE, END, info.rawTpl)
-                   : info && showAllNotes ? toneNoteMap(info.rootPc, info.tpl, true, DLOW, BASE, END, info.rawTpl)
-                   : info ? toneNoteMap(info.rootPc, info.tpl, false, DLOW, BASE, END, info.rawTpl) : null;   // even with All/Ext off, once we know the chord, show just its own tones — never the raw (possibly note-heavier) arrangement group
+    const anc = chordAnchor();
+    const noteMap = info && showExtensions ? extNoteMap(info.rootPc, info.tpl, showAllNotes, anc, BASE, END, info.rawTpl)
+                   : info && showAllNotes ? toneNoteMap(info.rootPc, info.tpl, true, anc, BASE, END, info.rawTpl)
+                   : info ? toneNoteMap(info.rootPc, info.tpl, false, anc, BASE, END, info.rawTpl) : null;   // even with All/Ext off, once we know the chord, show just its own tones — never the raw (possibly note-heavier) arrangement group
     const keys = noteMap ? [...noteMap.keys()] : notes.map(foldNote).filter(k => k !== null);
     for (const k of keys) { chordKeys.add(k); const out = S.scaleOn && !inScale(k);
       const got = liveNotes.has(k);   // you're actually pressing this chord tone right now — light up full brightness instead of the dim preview
@@ -2005,7 +2007,7 @@ function computeColors() {
     const baseColor = hex2rgb(ROOT_COLORS[S.root]);
     let keys;
     if (noteMap) keys = [...noteMap.keys()];
-    else { let rootMidi = DLOW; while (rootMidi % 12 !== scaleChordSel.root) rootMidi++; if (octEx) rootMidi += scaleProgOct * 12; keys = tpl.map(iv => rootMidi + iv).filter(n => n >= BASE && n <= END); }
+    else { let rootMidi = DLOW; while (rootMidi % 12 !== scaleChordSel.root) rootMidi++; rootMidi += (octEx ? scaleProgOct : chordOct) * 12; keys = tpl.map(iv => rootMidi + iv).filter(n => n >= BASE && n <= END); }
     const chordKeySet = new Set(keys);
     for (const m of keys) { const pc = m % 12;
       const got = liveNotes.has(m);
@@ -2364,7 +2366,7 @@ function updateCountdown() {
   if (rem === cdRem) return; cdRem = rem;
   [...el.children].forEach((d, i) => { d.classList.toggle('on', i < rem); d.classList.toggle('now', i === rem - 1); });
 }
-function clearScaleChordSel() { if (!scaleChordSel) return; scaleChordSel = null; lastNow = savedLastNow; nowNotes = savedNowNotes.slice(); lastChords = ''; $('chordInfo').hidden = true; userInv = 0; syncInvGroup(); }
+function clearScaleChordSel() { if (!scaleChordSel) return; resetChordOct(); scaleChordSel = null; lastNow = savedLastNow; nowNotes = savedNowNotes.slice(); lastChords = ''; $('chordInfo').hidden = true; userInv = 0; syncInvGroup(); }
 function updateChords() {
   if (scaleChordSel) { if (chordsBlocked()) clearScaleChordSel(); else { showScaleChordPreview(); return; } }
   let now = [], start = Infinity, end = 0; nextName = '';
@@ -2502,6 +2504,25 @@ function rawChordInfo() {   // {rootPc, tpl} for whichever chord is currently on
     return { rootPc: NOTE_NAMES.indexOf(c.root), tpl: (CHORDS.find(x => x[0] === c.q) || ['', [0,4,7]])[1] }; }
   return null;
 }
+/* ---------- which octave the shown chord sits in ----------
+   With "All" off a chord is drawn once, at its lowest root on screen. Press one of its own notes an octave up (or
+   down) and the whole chord moves there — you point at where you want it rather than hunting for a control. The
+   degree numbers deliberately stay at the root octave: they label the scale, not this particular placement. */
+let chordOct = 0;
+function chordAnchor() { return DLOW + (scaleProgOctMode() ? scaleProgOct : chordOct) * 12; }
+function resetChordOct() { chordOct = 0; }
+function maybeMoveChordOctave(n) {
+  if (showAllNotes || showExtensions || scaleProgFixedVoicing() || chordsBlocked()) return;   // All/Ext already show every octave; an exercise pins the register itself
+  const info = rawChordInfo(); if (!info || info.rootPc < 0) return;
+  const pcs = info.tpl.map(iv => (info.rootPc + iv) % 12);
+  if (!pcs.includes(((n % 12) + 12) % 12)) return;   // not one of this chord's own notes: leave it alone
+  let base = DLOW; while (base % 12 !== info.rootPc) base++;
+  const oct = Math.floor(n / 12) - Math.floor(base / 12);
+  const top = topKey();
+  if (base + oct * 12 < DLOW || Math.max(...info.tpl.map(iv => base + oct * 12 + iv)) > top) return;   // it would not fit on screen
+  if (oct === chordOct) return;
+  chordOct = oct; renderKeys();
+}
 let userInv = 0;   // the inversion the "Inv" button picked for whichever chord is active: 0 = root position, 1/2/3 = 1st/2nd/3rd. Reset to 0 whenever the active chord changes.
 function invertTpl(tpl, inv) {   // rotates the interval list so the (inv)th tone lands lowest, octave-shifting the tones that wrap around — every pitch class is preserved (just moved up an octave), so the tonic keeps its usual pc/label/brightness wherever it ends up
   const n = Math.max(0, Math.min(inv, tpl.length - 1));
@@ -2594,7 +2615,7 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
 function showScaleChordPreview() {   // tapped a scale-degree chord label: show it in the "now" field/explanation row, in green, like a normal now-chord preview
   const { root: pc, q } = scaleChordSel;
   const name = NOTE_NAMES[pc] + q;   // internal name stays sharp — spellName() re-spells it wherever it is shown
-  let rootMidi = DLOW; while (rootMidi % 12 !== pc) rootMidi++; if (scaleProgOctMode()) rootMidi += scaleProgOct * 12;
+  let rootMidi = DLOW; while (rootMidi % 12 !== pc) rootMidi++; rootMidi += (scaleProgOctMode() ? scaleProgOct : chordOct) * 12;
   const tpl = invertTpl((CHORDS.find(x => x[0] === q) || ['', [0,4,7]])[1], userInv);
   const notes = tpl.map(iv => rootMidi + iv).filter(n => n <= DLOW + NKEYS - 1);
   lastNow = name; nowNotes = notes; lastChords = '';
@@ -2624,7 +2645,7 @@ function selectScaleChord(pc, q, keepShift) {   // shared "tap this chord" behav
   // moved goes back to nothing first. Otherwise the chord you pressed would come up shifted by however far you
   // happened to be from where you started, which is never what pressing a named chord means.
   if (turningOn && !keepShift && (S.scaleShift | 0)) resetScaleShift();
-  if (turningOn) { userInv = 0; syncInvGroup(); scaleProgOct = 0; scaleProgArpIdx = 0;   // tapping a chord label by hand always starts back at its lowest on-screen octave/arpeggio step
+  if (turningOn) { userInv = 0; syncInvGroup(); scaleProgOct = 0; scaleProgArpIdx = 0; resetChordOct();   // tapping a chord label by hand always starts back at its lowest on-screen octave/arpeggio step
     if (!scaleChordSel) { savedLastNow = lastNow; savedNowNotes = nowNotes.slice(); }   // remember what the "now" field showed before, so we can bring it back
     showAllNotes = false; showExtensions = false; syncChordModeButtons();   // tapping a chord shows it plainly: the chord itself, once, no extra octaves and no 9/11/13. Both buttons are right there to add them back.
     openChordInfoRow();
@@ -2679,13 +2700,16 @@ function updateFingers() {
     if (preview || scaleChordSel) {
       const info = activeChordInfo();
       const octEx = scaleChordSel && scaleProgOctMode();   // a full-octave exercise pins the chord to one specific register — degree numbers (and fingering) follow it there instead of spreading across every octave
-      const anchor = octEx ? DLOW + scaleProgOct * 12 : DLOW, allOn = octEx ? false : showAllNotes;
+      const anchor = chordAnchor(), allOn = octEx ? false : showAllNotes;   // where the chord is drawn
+      const degAnchor = DLOW;   // ...but its degree numbers always sit at the root octave, because they label the scale, not the placement
       let nm = null;
       if (info) { const top = topKey();
         nm = showExtensions ? extNoteMap(info.rootPc, info.tpl, allOn, anchor, DLOW, top, info.rawTpl)
            : allOn ? toneNoteMap(info.rootPc, info.tpl, true, anchor, DLOW, top, info.rawTpl)
            : toneNoteMap(info.rootPc, info.tpl, false, anchor, DLOW, top, info.rawTpl); }   // plain root-position voicing still gets its degree numbers, not just All/Ext
-      if (showDegNums && nm) for (const [n, labels] of nm) degMap.set(n, labels.join('/'));
+      if (showDegNums && info) { const dm = showExtensions ? extNoteMap(info.rootPc, info.tpl, allOn, degAnchor, DLOW, topKey(), info.rawTpl)
+          : toneNoteMap(info.rootPc, info.tpl, allOn, degAnchor, DLOW, topKey(), info.rawTpl);
+        if (dm) for (const [n, labels] of dm) degMap.set(n, labels.join('/')); }
       if (hand) {   // same note set the keys are actually lit with — every note All/Ext show in view, not just the single folded chord — so the fingering covers the whole spread
         const notes = nm && nm.size ? [...nm.keys()].sort((a, b) => a - b)
           : (scaleChordSel ? nowNotes : preview === 'now' ? nowNotes : nextGroup ? nextGroup.notes : []).map(foldNote).filter(k => k !== null).sort((a, b) => a - b);
@@ -4465,7 +4489,7 @@ $('device').value = S.device; $('device').onchange = e => { S.device = e.target.
 $('loop').checked = S.loop; $('loop').onchange = e => { S.loop = e.target.checked; save(); drawArr(); liveBroadcast(); };
 $('fold').checked = S.fold; $('fold').onchange = e => { S.fold = e.target.checked; save(); renderKeys(); };
 const setPreview = (p, force) => { if (p && preview !== p && (S.scaleShift | 0)) resetScaleShift();   // the now/next chords are the song's own — showing one puts the transpose back to 0
-  preview = force ? p : (preview === p) ? null : p; userInv = 0; syncInvGroup(); if (preview) { clearScaleChordSel(); arrPreview = false; } $('chordNow').classList.toggle('sel', preview === 'now'); $('chordNext').classList.toggle('sel', preview === 'next');
+  preview = force ? p : (preview === p) ? null : p; userInv = 0; resetChordOct(); syncInvGroup(); if (preview) { clearScaleChordSel(); arrPreview = false; } $('chordNow').classList.toggle('sel', preview === 'now'); $('chordNext').classList.toggle('sel', preview === 'next');
   const name = preview === 'now' ? lastNow : preview === 'next' ? nextName : ''; const notes = preview === 'now' ? nowNotes : preview === 'next' && nextGroup ? nextGroup.notes : [];
   $('chordText').textContent = chordTextFor(name, notes); $('chordInfo').hidden = !name; syncHands(); renderKeys(); };
 // One pair of L/R buttons now, in the practice bar, and they mean the same thing wherever you are: show me the
