@@ -880,7 +880,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '96 · 2026-09-16 · drag-the-tempo';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '97 · 2026-09-16 · next-root-only';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1749,10 +1749,10 @@ async function play() {
   if (!song && !S.metro) return; markLocalCmd(); ensureAudio(); if (preview) setPreview(preview); hand = null; $('chordInfo').hidden = true; showFingers(new Map());
   if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) {} }
   if (song && posBeats >= song.durBeats) posBeats = 0;
-  // Pressing play at the top means playing THIS song, so the scale pill goes back to the song's own scale — whatever
-  // you were poking at in the meantime, and wherever a modulation had carried it last time round. Picking up from
-  // the middle leaves it alone: the key it has reached there is the right one.
-  if (song && posBeats <= 0.01) { keyVotes = 0; keyPending = null; resetToSongKey(); }
+  // Pressing play means playing THIS song, so the scale becomes the song's — whatever you had picked by hand in the
+  // meantime. From the top that is the song's first scale; from the middle it is whichever of its scales is in force
+  // at that point, so starting at bar 30 of a song that has modulated lands in the right one.
+  if (song) { keyVotes = 0; keyPending = null; resetToSongKey(posBeats); }
   if (S.metro && song) posBeats = Math.round(posBeats);
   const t0 = ctx.currentTime + 0.06;
   $('playBtn').textContent = '❚❚ Pause'; $('playBtn').classList.add('playing'); $('stopBtn').disabled = false; $('stopBtnFull').disabled = false; requestWake(); syncMetroPlay(); syncArrReset();
@@ -1816,9 +1816,19 @@ function computeColors() {
   if (song && (playing || stepMode)) {
     const p0 = position(); const pos = p0 + (stepMode ? 0 : S.lag / 1000 / spbAt(p0)); const look = S.lookBeats;
     const sounding = song.notes.filter(n => n.b0 <= pos && n.b1 > pos); const cur = chordName(sounding.map(n => n.n)) || lastNow;
+    // The chord that's COMING is shown as its root note alone. Lighting all three or four of its notes while the
+    // current chord is still lit put eight keys on the keyboard at once and left you working out which was which;
+    // one key says "the next chord is built on that" and the rest follows from the name in the box.
+    const rm = (nextName || '').match(/^([A-G][b#]?)/); const rootPc = rm ? spellPc(rm[1]) : null;
+    const soonAll = new Map(), soonRoot = new Map();
     for (const n of song.notes) { if (n.b0 > pos + look * 2) break; if (n.b1 <= pos) continue;
       const k = foldNote(n.n); if (k === null) continue;
-      if (n.b0 <= pos) { if (hit.has(n)) hitKeys.add(k); else expected.add(k); } else if (n.gname && nextName && n.gname === nextName) { const f = Math.ceil((1 - (n.b0 - pos) / (look * 2)) * 8) / 8; soon.set(k, Math.max(soon.get(k) || 0, f)); } }   // fade starts two lookaheads out   // skip a repeat of the same chord; quantised fade-in
+      if (n.b0 <= pos) { if (hit.has(n)) hitKeys.add(k); else expected.add(k); }
+      else if (n.gname && nextName && n.gname === nextName) { const f = Math.ceil((1 - (n.b0 - pos) / (look * 2)) * 8) / 8;   // fade starts two lookaheads out; quantised fade-in
+        soonAll.set(k, Math.max(soonAll.get(k) || 0, f));
+        if (rootPc !== null && ((n.n % 12) + 12) % 12 === rootPc) soonRoot.set(k, Math.max(soonRoot.get(k) || 0, f)); } }
+    // A rootless voicing has no root to point at — rather than showing nothing, fall back to the whole chord.
+    for (const [k, f] of (soonRoot.size ? soonRoot : soonAll)) soon.set(k, f);
   }
   for (const k of hitKeys) expected.delete(k);
   for (const n of liveNotes) if (n >= LOW && n <= HIGH) pressed.add(n);   // "pressed" is always about the real, physical keys — unaffected by where the screen is scrolled to
@@ -2243,7 +2253,10 @@ function updateChords() {
   // A song that changes key carries that in its own chord list: each chord belongs to a section, and the section
   // knows its key. So when the chord that's playing belongs to a different one of the song's keys, move the app's key
   // with it — the scale colouring, the degree numbers and the spelling all follow the modulation on their own.
-  if (a && S.followKeys && lastPickKey) {
+  // ...but only while the song is RUNNING. Parked on a chord with the song stopped, this used to snap the scale
+  // straight back to the song's own every time the keys redrew, so a scale you picked by hand could not be held for
+  // more than a frame. Stopped, the scale is yours; playing, it is the song's.
+  if (a && S.followKeys && lastPickKey && songRunning()) {
     const differs = lastPickKey.root !== S.root || scaleTypeOf(lastPickKey) !== S.scaleType;
     // A chord can sit in more than one of a song's keys — C belongs to C major and to F major alike — so one chord is
     // not enough to call a modulation. Wait until the same new key is indicated twice running before moving; a single
@@ -3359,8 +3372,14 @@ function songOwnKey() {
   if (!song) return null;
   return firstSectionKey(currentId) || song.customKey || song.keySig || (song.notes.length ? detectKey(song) : null);
 }
-function resetToSongKey() {   // back to the song's own scale — used whenever the song goes back to its beginning
-  const k = songOwnKey(); if (k) applySongKey(song, k);
+function songKeyAt(pos) {   // the scale this song is in at a given point — the section in force there, or its own
+  if (!song) return null;
+  const sp = song.spans || [];
+  for (let i = sp.length - 1; i >= 0; i--) if (sp[i].b0 <= pos + 1e-6 && sp[i].key) return sp[i].key;
+  return songOwnKey();
+}
+function resetToSongKey(pos) {   // the song's scale, as of wherever it is about to play from
+  const k = songKeyAt(pos === undefined ? 0 : pos) || songOwnKey(); if (k) applySongKey(song, k);
 }
 function applySongChordSettings() {   // re-derive the key + chord reading for the currently loaded song from its (possibly just-edited) custom key/chords, and refresh everything that shows it
   if (!song) return;
