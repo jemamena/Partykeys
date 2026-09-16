@@ -498,7 +498,7 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted);letter-spacing:
   .fullbar .scalefull{position:static;transform:none;flex:none;max-width:26vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 12px;height:36px}
   .fullbar{flex-wrap:wrap;row-gap:4px}
   .fullbar > span{flex-wrap:wrap;row-gap:4px;justify-content:flex-end}
-  body.kbfull #bpmFull{display:none}   /* phone full screen: the bpm number is dead weight in a cramped bar — the metronome block at the bottom still shows and sets it */
+  body.kbfull #bpmFull{display:inline;font-size:13px}   /* phone full screen: the tempo is worth seeing — but only as a reading. The +/- sit in the metronome block at the bottom, where there is room to aim at them. */
 }
 /* phones: the scale/chord buttons are the easiest thing to mis-tap, so give them extra room to touch on a narrow screen */
 @media (max-width: 699px){
@@ -522,7 +522,8 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted);letter-spacing:
   .fullbar{flex-wrap:wrap;row-gap:4px}   /* portrait full screen used to overflow and push the circle-of-fifths button clean off screen */
   .fullbar > span{flex-wrap:wrap;row-gap:4px;justify-content:flex-end}   /* the right-hand icon cluster is a single flex item — without this its tail (settings) still runs off the edge */
   .fullbar .scalefull{position:static;transform:none;flex:none;max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}   /* once the bar wraps, an absolutely-centred pill lands on top of the icon row and eats its taps */
-  body.kbfull #bpmFull{display:none}
+  body.kbfull #bpmFull{display:inline;font-size:13px}
+  body.kbfull #bpmDownFull, body.kbfull #bpmUpFull{display:none!important}   /* read-only up here: nothing to mis-tap while you are playing */
   /* mobile: the play row splits into 2 stacked rows instead of squeezing stop/clear/play/vol/6 markers/loop into one cramped line — transport controls, then the 6 markers plus the loop toggle, each with real touch targets */
   .playrow{flex-direction:column;gap:6px}
   .playrowTransport,.playrowMarkers{display:flex;gap:6px;width:100%}
@@ -710,8 +711,9 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
       <div class="row" style="gap:8px;align-items:center;margin:0 0 4px"><span class="sub" style="flex:none">This device is</span>
         <b id="deviceNameShown" style="flex:none;white-space:nowrap">Unnamed</b>
         <input id="deviceName" type="text" placeholder="Name it — Phone, Laptop…" style="flex:1;min-width:0;background:var(--surface2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px"></div>
-      <label class="row" style="gap:8px;align-items:center;margin:0 0 4px"><span class="sub" style="flex:none">Sound comes from</span>
-        <select id="audioOwner" style="flex:1"><option value="">Every device</option></select></label>
+      <div class="row" style="gap:8px;align-items:center;margin:0 0 4px"><span class="sub" style="flex:none">Sound comes from</span>
+        <select id="audioOwner" style="flex:1"></select>
+        <button id="devRefresh" style="flex:none" title="Check for devices that have been named since">Update</button></div>
       <div class="sub" id="audioStatus" style="margin:2px 0 4px">Every device makes its own sound</div>
       <div class="sub" id="deviceList" style="margin:0 0 10px"></div>
       
@@ -852,7 +854,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '88 · 2026-09-16 · devices-and-playlist';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '90 · 2026-09-16 · fullscreen-bpm';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -3432,7 +3434,13 @@ const deviceKey = (() => { try { let k = localStorage.getItem('pk-device-key');
   return k; } catch (e) { return deviceId; } })();
 const deviceName = () => { try { return localStorage.getItem('pk-device-name') || ''; } catch (e) { return ''; } };
 const myLabel = () => deviceName() || 'This device';
-let knownDevices = new Map();           // key -> { name, at } — everyone who has said hello
+// The list is kept on this device, not rebuilt from whoever happens to be awake: a device you have named stays in
+// the list whether or not it is switched on right now, so the sound can be handed to it before you pick it up.
+const DEV_KEY = 'pk-devices';
+function loadSavedDevices() { try { const raw = JSON.parse(localStorage.getItem(DEV_KEY) || '{}'); const m = new Map();
+  for (const [k, v] of Object.entries(raw)) if (v && v.name) m.set(k, { name: v.name, at: v.at || 0 }); return m; } catch (e) { return new Map(); } }
+function saveDevices() { try { const o = {}; for (const [k, v] of knownDevices) if (v.name) o[k] = v; localStorage.setItem(DEV_KEY, JSON.stringify(o)); } catch (e) {} }
+let knownDevices = loadSavedDevices();   // key -> { name, at } — only devices that have actually been given a name
 let audioOwner = null, audioOwnerName = '', audioUnsub = null, deviceBeat = null;
 const DEVICE_ONLINE = 3 * 60 * 1000;    // a device that has said nothing for this long is listed, but greyed as away
 // A claim is only honoured while the device that made it is still around, so a device that claimed the sound and then
@@ -3450,21 +3458,42 @@ async function registerDevice() {
 }
 function startDeviceBeat() { if (deviceBeat) clearInterval(deviceBeat); deviceBeat = setInterval(registerDevice, 60 * 1000); registerDevice(); }
 
+function namedKeys() {   // every device that has actually been given a name — an unnamed one is nothing you could point at
+  const out = [...knownDevices.keys()].filter(k => k !== deviceKey && (knownDevices.get(k) || {}).name);
+  out.sort((a, b) => deviceLabel(a).localeCompare(deviceLabel(b)));
+  if (deviceName()) out.unshift(deviceKey);
+  return out;
+}
 function renderDeviceList() {
   const sel = $('audioOwner');
   if (sel) {
-    const keys = [deviceKey, ...[...knownDevices.keys()].filter(k => k !== deviceKey).sort((a, b) => deviceLabel(a).localeCompare(deviceLabel(b)))];
-    const want = audioOwner || '';
+    const keys = namedKeys(), want = audioOwner || '';
     sel.innerHTML = '';
-    const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); };
-    add('', 'Every device');
+    const add = (v, t, dis) => { const o = document.createElement('option'); o.value = v; o.textContent = t; if (dis) o.disabled = true; sel.appendChild(o); };
+    // No "every device" any more: the whole point is that one device makes the sound. Until one has been picked,
+    // the box says so rather than offering an everybody option you didn't want.
+    if (!want || !keys.includes(want)) add('', keys.length ? '— pick a device —' : 'Name a device first', true);
     for (const k of keys) add(k, deviceLabel(k) + (k === deviceKey ? ' (this one)' : deviceOnline(k) ? '' : ' — away'));
-    sel.value = [...sel.options].some(o => o.value === want) ? want : '';
+    sel.value = keys.includes(want) ? want : '';
   }
   const list = $('deviceList');
-  if (list) { const others = [...knownDevices.keys()].filter(k => k !== deviceKey);
-    list.textContent = !others.length ? 'No other devices have checked in yet.'
-      : 'Devices: ' + [deviceKey, ...others].map(k => deviceLabel(k) + (deviceOnline(k) ? '' : ' (away)')).join(' · '); }
+  if (list) { const keys = namedKeys();
+    list.textContent = !keys.length ? 'Name this device, then press Update on the others to collect them here.'
+      : 'Devices: ' + keys.map(k => deviceLabel(k) + (deviceOnline(k) ? '' : ' (away)')).join(' · '); }
+}
+// Pick the names up again on demand: says hello for this device, then re-reads the shared list. That is all an
+// "is my other phone on here yet?" needs, and it costs one read rather than a listener running all day.
+async function refreshDevices(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+  try {
+    await registerDevice();
+    if (cloudDb) { const d = await cloudDb.doc('syncLive/devices').get();
+      const v = (d && d.exists && d.data()) || null;
+      if (v) { for (const [k, x] of Object.entries(v)) if (x && typeof x === 'object' && x.name) knownDevices.set(k, { name: x.name, at: x.at || 0 }); } }
+    knownDevices.set(deviceKey, { name: deviceName(), at: Date.now() });
+    saveDevices(); syncAudioOwnerUi();
+  } catch (e) { log('Could not refresh the device list:', (e && e.message) || e); }
+  if (btn) { btn.textContent = 'Updated'; setTimeout(() => { btn.disabled = false; btn.textContent = 'Update'; }, 1200); }
 }
 function syncAudioOwnerUi() {
   renderDeviceList();
@@ -3560,20 +3589,21 @@ function initAudioOwner() {
   audioUnsub = cloudDb.collection('syncLive').onSnapshot(snap => {
     const get = id => { const d = snap.docs.find(x => x.id === id); return d ? (d.data() || null) : null; };
     const devs = get('devices');
-    if (devs) { const m = new Map();
-      for (const [k, v] of Object.entries(devs)) if (v && typeof v === 'object') m.set(k, { name: v.name || '', at: v.at || 0 });
-      m.set(deviceKey, { name: deviceName(), at: Date.now() });   // we are definitely here, whatever the document says
-      knownDevices = m; renderDeviceList(); }
+    if (devs) {
+      for (const [k, v] of Object.entries(devs)) if (v && typeof v === 'object' && v.name) knownDevices.set(k, { name: v.name, at: v.at || 0 });
+      knownDevices.set(deviceKey, { name: deviceName(), at: Date.now() });   // we are definitely here, whatever the document says
+      saveDevices(); renderDeviceList(); }
     const aud = get('audio'); if (aud) applyAudioDoc(aud);
     applySettingsDoc(get('settings'));
   }, () => {});
 }
 (() => {
-  const sel = $('audioOwner'); if (sel) sel.onchange = e => claimAudio(e.target.value);
+  const sel = $('audioOwner'); if (sel) sel.onchange = e => { if (e.target.value) claimAudio(e.target.value); };
+  const ref = $('devRefresh'); if (ref) ref.onclick = () => refreshDevices(ref);
   const nm = $('deviceName'); if (!nm) return;
   nm.value = deviceName();
   const saveName = () => { try { localStorage.setItem('pk-device-name', nm.value.trim()); } catch (e) {}
-    knownDevices.set(deviceKey, { name: deviceName(), at: Date.now() });
+    knownDevices.set(deviceKey, { name: deviceName(), at: Date.now() }); saveDevices();
     syncAudioOwnerUi(); registerDevice();
     if (audioOwner === deviceKey) claimAudio(deviceKey); };   // renaming the device that holds the sound should update what the others show
   nm.oninput = saveName; nm.onchange = saveName;   // the name shows beside the box as you type, and is kept as you go
