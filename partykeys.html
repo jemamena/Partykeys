@@ -183,6 +183,12 @@ body.keysGoneFull .arr.arrHidden{display:flex!important}
 .qitem .qBadge{min-height:0;width:20px;height:20px;padding:0;flex:none;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--accent)}
 .qitem .qBadge .ico{width:15px;height:15px}
 .qitem .qBadge[hidden]{display:none}
+.qitem .qcopy,.qitem .qpaste{min-height:32px;width:32px;padding:0;flex:none;font-size:14px}
+.qitem .qcopy[hidden],.qitem .qpaste[hidden]{display:none}
+.qitem .qcopy.armed{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.qitem .qdel.armed{background:var(--bad);color:#fff;border-color:transparent;width:auto;padding:0 10px}
+.qitem.confirming{border-color:var(--bad)}
+.qAsk{flex:1;min-width:0;font-size:13px;color:var(--bad);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #scChordList{display:flex;flex-wrap:wrap;gap:8px}
 .scChip{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 12px;border-radius:14px;background:var(--surface2);border:1px solid var(--line);font-size:13px}
 .scSec{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;background:var(--surface2)}
@@ -701,11 +707,13 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
       </details>
       <label class="check"><input type="checkbox" id="syncMode"> Sync playback live across devices</label>
       <div class="sub" id="syncStatus" style="margin:2px 0 10px">Off — each device plays independently</div>
+      <div class="row" style="gap:8px;align-items:center;margin:0 0 4px"><span class="sub" style="flex:none">This device is</span>
+        <b id="deviceNameShown" style="flex:none;white-space:nowrap">Unnamed</b>
+        <input id="deviceName" type="text" placeholder="Name it — Phone, Laptop…" style="flex:1;min-width:0;background:var(--surface2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px"></div>
       <label class="row" style="gap:8px;align-items:center;margin:0 0 4px"><span class="sub" style="flex:none">Sound comes from</span>
-        <select id="audioOwner" style="flex:1"><option value="">Every device</option><option value="me">Only this device</option></select></label>
-      <label class="row" style="gap:8px;align-items:center;margin:0 0 4px"><span class="sub" style="flex:none">This device is called</span>
-        <input id="deviceName" type="text" placeholder="Phone, Laptop…" style="flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px"></label>
-      <div class="sub" id="audioStatus" style="margin:2px 0 10px">Every device makes its own sound</div>
+        <select id="audioOwner" style="flex:1"><option value="">Every device</option></select></label>
+      <div class="sub" id="audioStatus" style="margin:2px 0 4px">Every device makes its own sound</div>
+      <div class="sub" id="deviceList" style="margin:0 0 10px"></div>
       
       <h2>Chord naming</h2>
       <div class="explainRow"><label class="check"><input type="checkbox" id="followKeys" checked> Follow the song's own keys as it plays</label><button type="button" class="infoBtn" data-explain="exFollow" aria-expanded="false" aria-label="What this does" title="What this does"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="11" x2="12" y2="16.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.3" r="1.2" fill="currentColor"/></svg></button></div>
@@ -844,7 +852,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '87 · 2026-09-16 · clearer-keys';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '88 · 2026-09-16 · devices-and-playlist';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -857,7 +865,7 @@ const defaults = { sound:'grand', lookBeats:0.125, noteColor:'#ff3d8a', nextColo
 let S = { ...defaults };
 let noteColorEff = defaults.noteColor, nextColorEff = defaults.nextColor;   // the actual on-screen "now"/"next" colour — falls back to grey whenever it collides with the current (fixed, rainbow) scale colour, as a "pick another one" flag
 try { Object.assign(S, JSON.parse(localStorage.getItem('pk-settings') || '{}')); } catch(e) {}
-const save = () => { try { localStorage.setItem('pk-settings', JSON.stringify(S)); } catch(e) {} };
+const save = () => { try { localStorage.setItem('pk-settings', JSON.stringify(S)); } catch(e) {} if (typeof shareSettingsSoon === 'function') shareSettingsSoon(); };
 
 /* ---------- colour helpers ---------- */
 const isDark = () => { const t = document.documentElement.dataset.theme; return t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches); };
@@ -3413,55 +3421,162 @@ let liveSeq = Date.now();
 const lastSeqBy = new Map();   // ...and "have I seen this already?" is per sender. One shared counter meant whichever device started broadcasting second had all its early messages thrown away, because the other device's numbering had already run ahead. That is the bug behind "the playlist syncs but pressing play does nothing".
 let applyingRemote = false, liveUnsub = null, liveBroadcastTimer = null;
 let liveLogged = false, liveStaleLogged = false, liveSentLogged = false, liveErrLogged = false;
-/* ---------- which device actually makes the sound ----------
-   Playing the same song out of a phone and a laptop half a second apart is worse than either on its own. So one
-   device can claim the audio and every other one goes silent. The claim lives in its own document rather than
-   riding along with the live-playback state, so it works whether or not playback sync is switched on — and it is
-   a single shared value, so there can never be two devices each believing they are the one that sounds. */
-let audioOwner = null, audioOwnerName = '', audioUnsub = null, audioBeat = null;
-// A claim is only honoured while the device that made it is still around. The owner re-asserts every few minutes;
-// everyone else ignores a claim that has gone quiet for longer than this. Without that, a device that claimed the
-// sound and then went away would leave every other device silent for good, with nothing obvious to undo.
-const AUDIO_STALE = 15 * 60 * 1000;
+/* ---------- the devices in the session, and which one actually makes the sound ----------
+   Playing the same song out of a phone and a laptop half a second apart is worse than either on its own. So exactly
+   one device makes the sound and the rest go quiet. Everything here lives in its own documents rather than riding on
+   the live-playback state, so it works whether or not playback sync is switched on.
+   deviceId above is per TAB (it has to be, or two tabs of this page would swallow each other's messages). A device
+   the user can point at across reloads needs a steadier name than that, so every browser also keeps a key of its own. */
+const deviceKey = (() => { try { let k = localStorage.getItem('pk-device-key');
+  if (!k) { k = 'k' + (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)); localStorage.setItem('pk-device-key', k); }
+  return k; } catch (e) { return deviceId; } })();
 const deviceName = () => { try { return localStorage.getItem('pk-device-name') || ''; } catch (e) { return ''; } };
-const audioSilenced = () => !!audioOwner && audioOwner !== deviceId;
+const myLabel = () => deviceName() || 'This device';
+let knownDevices = new Map();           // key -> { name, at } — everyone who has said hello
+let audioOwner = null, audioOwnerName = '', audioUnsub = null, deviceBeat = null;
+const DEVICE_ONLINE = 3 * 60 * 1000;    // a device that has said nothing for this long is listed, but greyed as away
+// A claim is only honoured while the device that made it is still around, so a device that claimed the sound and then
+// vanished can't leave everything else silent for good with nothing obvious to undo.
+const AUDIO_STALE = 15 * 60 * 1000;
+const audioSilenced = () => !!audioOwner && audioOwner !== deviceKey;
+function deviceOnline(key) { const d = knownDevices.get(key); return !!d && Date.now() - (d.at || 0) < DEVICE_ONLINE; }
+function deviceLabel(key) { if (key === deviceKey) return myLabel(); const d = knownDevices.get(key); return (d && d.name) || 'Another device'; }
+
+// --- say hello, and keep saying it, so the other devices can list this one ---
+async function registerDevice() {
+  if (!cloudDb) return;
+  try { await cloudDb.doc('syncLive/devices').set({ [deviceKey]: { name: deviceName(), at: Date.now() } }, { merge: true }); }
+  catch (e) { /* a refused write here only costs the listing, never the playing */ }
+}
+function startDeviceBeat() { if (deviceBeat) clearInterval(deviceBeat); deviceBeat = setInterval(registerDevice, 60 * 1000); registerDevice(); }
+
+function renderDeviceList() {
+  const sel = $('audioOwner');
+  if (sel) {
+    const keys = [deviceKey, ...[...knownDevices.keys()].filter(k => k !== deviceKey).sort((a, b) => deviceLabel(a).localeCompare(deviceLabel(b)))];
+    const want = audioOwner || '';
+    sel.innerHTML = '';
+    const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); };
+    add('', 'Every device');
+    for (const k of keys) add(k, deviceLabel(k) + (k === deviceKey ? ' (this one)' : deviceOnline(k) ? '' : ' — away'));
+    sel.value = [...sel.options].some(o => o.value === want) ? want : '';
+  }
+  const list = $('deviceList');
+  if (list) { const others = [...knownDevices.keys()].filter(k => k !== deviceKey);
+    list.textContent = !others.length ? 'No other devices have checked in yet.'
+      : 'Devices: ' + [deviceKey, ...others].map(k => deviceLabel(k) + (deviceOnline(k) ? '' : ' (away)')).join(' · '); }
+}
 function syncAudioOwnerUi() {
-  const sel = $('audioOwner'); if (sel) sel.value = audioOwner === deviceId ? 'me' : '';
+  renderDeviceList();
+  const nm = $('deviceNameShown'); if (nm) { nm.textContent = deviceName() || 'Unnamed'; nm.style.opacity = deviceName() ? '' : '.5'; }
   const st = $('audioStatus');
   if (st) st.textContent = !audioOwner ? 'Every device makes its own sound'
-    : audioOwner === deviceId ? 'This device is the one you hear — the others are silent'
-    : 'Silent here — the sound is on ' + (audioOwnerName || 'another device');
+    : audioOwner === deviceKey ? 'This device is the one you hear — the others are silent'
+    : 'Silent here — the sound is on ' + (deviceLabel(audioOwner) || audioOwnerName || 'another device');
   ['piano', 'song', 'metro'].forEach(applyGain);   // re-apply, so the change is heard immediately
 }
-async function claimAudio(mine) {
-  audioOwner = mine ? deviceId : null; audioOwnerName = mine ? deviceName() : '';
+async function claimAudio(who) {   // who: '' for every device, or the key of the one device that should sound
+  audioOwner = who || null; audioOwnerName = who ? deviceLabel(who) : '';
   syncAudioOwnerUi();
   if (!cloudDb) return;
-  try { await cloudDb.doc('syncLive/audio').set({ owner: audioOwner, name: audioOwnerName, at: Date.now() }); }
+  try { await cloudDb.doc('syncLive/audio').set({ owner: audioOwner, name: audioOwnerName, at: Date.now(), by: deviceKey }); }
   catch (e) { log('Could not share the audio choice:', (e && e.message) || e); }
-  if (audioBeat) { clearInterval(audioBeat); audioBeat = null; }
-  if (mine) audioBeat = setInterval(() => { if (audioOwner === deviceId && cloudDb)
-    cloudDb.doc('syncLive/audio').set({ owner: deviceId, name: deviceName(), at: Date.now() }).catch(() => {}); }, 5 * 60 * 1000);
 }
+function applyAudioDoc(v) {
+  const was = audioSilenced();
+  const owner = v.owner || null;
+  // Honour a claim only while that device is still checking in — but never second-guess a claim on this device itself.
+  const stale = owner && owner !== deviceKey && knownDevices.size && !deviceOnline(owner) && v.at && (Date.now() - v.at) > AUDIO_STALE;
+  if (stale) { if (audioOwner) log('Ignoring the sound claim from a device that has gone quiet — sound is back on everywhere.');
+    audioOwner = null; audioOwnerName = ''; syncAudioOwnerUi(); return; }
+  audioOwner = owner; audioOwnerName = v.name || '';
+  syncAudioOwnerUi();
+  if (audioSilenced() && !was) log('Sound moved to ' + (deviceLabel(audioOwner) || 'another device') + ' — this one is silent now.');
+}
+
+/* ---------- the settings every device shares ----------
+   These are about the MUSIC, so all the devices in a session should agree on them. Anything about this particular
+   device — its speakers and mute buttons, its MIDI ports, how many keys fit on its screen, its LED brightness and
+   delay, its own name — deliberately stays local, because making a phone match a laptop on those would be wrong. */
+const SHARED_KEYS = ['sound', 'lookBeats', 'scaleOn', 'showPlaying', 'showNext', 'root', 'scaleType', 'fold', 'loop',
+  'bpm', 'sig', 'accentOn', 'countIn', 'metro', 'transpose', 'showFingersL', 'showFingersR', 'goodChordSound',
+  'badNoteSound', 'speakChords', 'speakDuck', 'fitKey', 'followKeys', 'progLock'];
+let sharedSnap = null, shareT = null, settingsApplied = false;
+const sharedNow = () => JSON.stringify(SHARED_KEYS.map(k => S[k]));
+function shareSettingsSoon() {
+  // save() runs from the very first lines of setup, long before the cloud layer below has been evaluated — so this
+  // has to survive being called while its own dependencies are still on their way up.
+  try { if (!cloudDb || !S.syncMode || applyingRemote) return; } catch (e) { return; }
+  const now = sharedNow(); if (now === sharedSnap) return; sharedSnap = now;
+  if (shareT) return;
+  shareT = setTimeout(() => { shareT = null; writeSharedSettings(); }, 600);   // a drag on the tempo or the duck slider is one write, not a hundred
+}
+async function writeSharedSettings() {
+  if (!cloudDb) return;
+  const s = {}; for (const k of SHARED_KEYS) s[k] = S[k];
+  try { await cloudDb.doc('syncLive/settings').set({ by: deviceKey, at: Date.now(), syncMode: !!S.syncMode, s }); }
+  catch (e) { /* the settings not travelling must never stop the app working */ }
+}
+function refreshSharedUi() {
+  const v = (id, val) => { const el = $(id); if (el) el.value = val; };
+  const c = (id, on) => { const el = $(id); if (el) el.checked = !!on; };
+  const pr = (id, on) => { const el = $(id); if (el) el.setAttribute('aria-pressed', String(!!on)); };
+  v('sound', S.sound); c('fold', S.fold); c('loop', S.loop); c('followKeys', S.followKeys); c('fitKey', S.fitKey);
+  v('speakDuck', S.speakDuck); const sd = $('speakDuckVal'); if (sd) sd.textContent = S.speakDuck;
+  v('bpm', S.bpm); v('sig', S.sig); v('root', S.root); v('scaleType', S.scaleType);
+  try { syncSelBtn('root', 'rootBtn'); syncSelBtn('scaleType', 'scaleTypeBtn'); } catch (e) {}
+  pr('speakChordBtn', S.speakChords); pr('goodChordSoundBtn', S.goodChordSound); pr('badNoteSoundBtn', S.badNoteSound);
+  pr('fingerLBtn', S.showFingersL); pr('fingerRBtn', S.showFingersR); pr('accentChip', S.accentOn);
+  pr('xNow', S.showPlaying); pr('xNext', S.showNext); pr('progLockBtn', S.progLock);
+  try { setBeats(S.lookBeats, true); } catch (e) {}
+  buildDots(); syncChips(); showBpm(); refreshSwatches(); renderKeys(); drawArr();
+}
+function applySettingsDoc(d) {
+  if (!d || d.by === deviceKey) return;
+  // The switch itself travels even to a device that has sync OFF — that is the whole point of ticking it in one place.
+  if (typeof d.syncMode === 'boolean' && d.syncMode !== !!S.syncMode) {
+    applyingRemote = true; try { setSyncMode(d.syncMode); } finally { applyingRemote = false; }
+    log('Live sync switched ' + (d.syncMode ? 'on' : 'off') + ' from ' + (deviceLabel(d.by) || 'another device') + '.');
+  }
+  if (!S.syncMode || !d.s) return;   // everything else only travels between devices that are actually in the session
+  applyingRemote = true;
+  try {
+    let touched = false;
+    for (const k of SHARED_KEYS) if (d.s[k] !== undefined && JSON.stringify(d.s[k]) !== JSON.stringify(S[k])) { S[k] = d.s[k]; touched = true; }
+    if (!touched && settingsApplied) return;
+    settingsApplied = true; sharedSnap = sharedNow();
+    try { localStorage.setItem('pk-settings', JSON.stringify(S)); } catch (e) {}
+    refreshSharedUi();
+  } finally { applyingRemote = false; }
+}
+
 function initAudioOwner() {
   if (audioUnsub) { audioUnsub(); audioUnsub = null; }
   if (!cloudDb) return;
+  startDeviceBeat();
+  // One subscription for the three shared documents: who is here, who makes the sound, and the settings they share.
+  // It runs whenever the cloud link is up, sync switched on or not — otherwise a device with sync off could never
+  // be told that someone has just switched it on.
   audioUnsub = cloudDb.collection('syncLive').onSnapshot(snap => {
-    const d = snap.docs.find(x => x.id === 'audio'); if (!d) return;
-    const v = d.data() || {}; const was = audioSilenced();
-    const stale = v.owner && v.owner !== deviceId && v.at && (Date.now() - v.at) > AUDIO_STALE;
-    if (stale) { if (audioOwner) log('Ignoring an audio claim from a device that has gone quiet — sound is back on everywhere.'); audioOwner = null; audioOwnerName = ''; syncAudioOwnerUi(); return; }
-    audioOwner = v.owner || null; audioOwnerName = v.name || '';
-    syncAudioOwnerUi();
-    if (audioSilenced() && !was) log('Sound moved to ' + (audioOwnerName || 'another device') + ' — this one is silent now.');
+    const get = id => { const d = snap.docs.find(x => x.id === id); return d ? (d.data() || null) : null; };
+    const devs = get('devices');
+    if (devs) { const m = new Map();
+      for (const [k, v] of Object.entries(devs)) if (v && typeof v === 'object') m.set(k, { name: v.name || '', at: v.at || 0 });
+      m.set(deviceKey, { name: deviceName(), at: Date.now() });   // we are definitely here, whatever the document says
+      knownDevices = m; renderDeviceList(); }
+    const aud = get('audio'); if (aud) applyAudioDoc(aud);
+    applySettingsDoc(get('settings'));
   }, () => {});
 }
 (() => {
-  const sel = $('audioOwner'); if (sel) sel.onchange = e => claimAudio(e.target.value === 'me');
+  const sel = $('audioOwner'); if (sel) sel.onchange = e => claimAudio(e.target.value);
   const nm = $('deviceName'); if (!nm) return;
   nm.value = deviceName();
-  nm.onchange = () => { try { localStorage.setItem('pk-device-name', nm.value.trim()); } catch (e) {}
-    if (audioOwner === deviceId) claimAudio(true); };   // renaming the device that holds the sound should update what the others show
+  const saveName = () => { try { localStorage.setItem('pk-device-name', nm.value.trim()); } catch (e) {}
+    knownDevices.set(deviceKey, { name: deviceName(), at: Date.now() });
+    syncAudioOwnerUi(); registerDevice();
+    if (audioOwner === deviceKey) claimAudio(deviceKey); };   // renaming the device that holds the sound should update what the others show
+  nm.oninput = saveName; nm.onchange = saveName;   // the name shows beside the box as you type, and is kept as you go
   syncAudioOwnerUi();
 })();   // log the first message that actually lands, so "is the other device reaching me at all?" is answerable from the Log tab
 function setSyncStatus(t) { const el = $('syncStatus'); if (el) el.textContent = t; }
@@ -3535,7 +3650,8 @@ function initLiveSync() {
 function syncSyncToggleBtn() { const on = !!S.syncMode; $('syncMode').checked = on;
   const txt = on ? 'Live sync on — mirroring play/pause, song, position and key hits to other devices' : 'Live sync off — tap to mirror playback across devices';
   [$('syncToggleBtn'), $('syncToggleBtnFull')].forEach(b => { if (!b) return; b.setAttribute('aria-pressed', String(on)); b.title = txt; b.setAttribute('aria-label', txt); }); }
-function setSyncMode(on) { S.syncMode = on; save(); initLiveSync(); if (S.syncMode) liveBroadcast(); syncSyncToggleBtn(); }
+function setSyncMode(on) { S.syncMode = on; save(); initLiveSync(); if (S.syncMode) liveBroadcast(); syncSyncToggleBtn();
+  if (!applyingRemote) { sharedSnap = sharedNow(); writeSharedSettings(); } }   // ticking it here ticks it everywhere: the switch travels even to devices that had sync off
 syncSyncToggleBtn();
 $('syncMode').onchange = e => setSyncMode(e.target.checked);
 $('syncToggleBtn').onclick = $('syncToggleBtnFull').onclick = () => setSyncMode(!S.syncMode);
@@ -3555,11 +3671,39 @@ $('queueToggleBtnFull').onclick = () => { queueRowOpenFull = !queueRowOpenFull; 
 let cuesRowOpen = false;   // mobile full-screen-only: the 6 cue-marker buttons + loop toggle stay tucked away behind #cuesToggleBtnFull so the play row is a single compact row and the keyboard gets the room
 function syncCuesRow() { const btn = $('cuesToggleBtnFull'); if (!btn) return; btn.setAttribute('aria-pressed', String(cuesRowOpen)); $('playRow').classList.toggle('cuesOpen', cuesRowOpen); }
 $('cuesToggleBtnFull').onclick = () => { cuesRowOpen = !cuesRowOpen; syncCuesRow(); };
+let chordClip = null;   // the scales & chords picked up with ⧉, waiting to be put down on another song
+function doPaste(s) {
+  if (!chordClip) return;
+  const secs = JSON.parse(JSON.stringify(chordClip.secs));
+  scSaveSections(s.id, secs);
+  saveSongKey(s.id, (secs.find(x => x.key) || {}).key || null);   // the first scale becomes the song's own, the way adding one by hand does
+  log('Pasted the scales & chords from "' + chordClip.name + '" onto "' + s.name + '".');
+  chordClip = null;
+  if (s.id === currentId && song) applySongChordSettings();   // the song that's loaded picks the new list up straight away
+  renderQueue();
+}
+// A destructive button on a playlist row turns the row into a question instead of just doing it. One press to ask,
+// one to go through with it — no dialog box to hunt for on a phone, and no way to lose a song with a stray tap.
+function askOnRow(el, question, go) {
+  if (el.classList.contains('confirming')) return;
+  const keep = el.innerHTML;
+  const undo = () => { el.classList.remove('confirming'); el.innerHTML = keep; renderQueue(); };
+  el.classList.add('confirming');
+  el.innerHTML = '<div class="grip">⋮⋮</div><div class="qAsk"></div>'
+    + '<button class="qdel armed" style="flex:none">Yes</button><button style="flex:none;min-height:32px;padding:0 10px">No</button>';
+  el.querySelector('.qAsk').textContent = question;
+  const [yes, no] = el.querySelectorAll('button');
+  yes.onclick = e => { e.stopPropagation(); go(); };
+  no.onclick = e => { e.stopPropagation(); undo(); };
+  setTimeout(() => { if (el.isConnected && el.classList.contains('confirming')) undo(); }, 8000);   // changed your mind and walked away: it puts itself back
+}
 function renderQueue() {
   const q = $('queue'); q.innerHTML = ''; $('queueEmpty').hidden = queue.length > 0;
   queue.forEach(s => { const el = document.createElement('div'); el.className = 'qitem' + (s.id === currentId ? ' cur' : ''); el.dataset.id = s.id;
     el.innerHTML = '<div class="grip" aria-label="Drag to reorder">⋮⋮</div><div class="qnamewrap"><div class="qname"></div><div class="qScales"></div></div>'
       + '<button class="qBadge qChordsBadge" aria-label="This song has a custom chord list" title="Custom chord list set" hidden><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="5" cy="15" r="2" fill="currentColor"/><circle cx="12" cy="10" r="2" fill="currentColor"/><circle cx="19" cy="13" r="2" fill="currentColor"/></svg></button>'
+      + '<button class="qcopy" aria-label="Copy the scales &amp; chords" title="Copy this song\'s scales &amp; chords">⧉</button>'
+      + '<button class="qpaste" aria-label="Paste the scales &amp; chords here" title="Paste the copied scales &amp; chords onto this song" hidden>⇩</button>'
       + '<button class="qchords" aria-label="Scales &amp; chords" title="Scales &amp; chords">♪</button><button class="qdel" aria-label="Remove">✕</button>';
     el.querySelector('.qname').textContent = s.name;
     el.querySelector('.qnamewrap').onclick = () => { loadSong(s); closeSheet(); };
@@ -3570,7 +3714,28 @@ function renderQueue() {
     chordsBadge.title = scaleNames.length ? 'Chords set — ' + scaleNames.join(', ') : 'Chords set for this song';   // the badge already says there's a chord list; hovering says which scales it covers
     chordsBadge.onclick = () => openSongChords(s);
     el.querySelector('.qchords').onclick = () => openSongChords(s);
-    el.querySelector('.qdel').onclick = () => { queue = queue.filter(x => x.id !== s.id); qSaveAll(); renderQueue(); cloudDeleteSong(s.id); };
+    // ---- copy the scales & chords from one song onto another ----
+    const copyBtn = el.querySelector('.qcopy'), pasteBtn = el.querySelector('.qpaste');
+    const mine = secs.some(x => (x.chords || []).length) || secs.some(x => x.key);
+    copyBtn.hidden = !mine;                                   // nothing to copy from a song with no chords set
+    copyBtn.classList.toggle('armed', chordClip && chordClip.from === s.id);
+    copyBtn.onclick = () => {
+      if (chordClip && chordClip.from === s.id) { chordClip = null; renderQueue(); return; }   // pressing it again puts the copy down
+      chordClip = { from: s.id, name: s.name, secs: JSON.parse(JSON.stringify(secs)) };
+      log('Copied the scales & chords from "' + s.name + '" — now press ⇩ on the song you want them on.');
+      renderQueue();
+    };
+    pasteBtn.hidden = !chordClip || chordClip.from === s.id;
+    if (!pasteBtn.hidden) pasteBtn.title = 'Paste the scales & chords from "' + chordClip.name + '" onto this song';
+    pasteBtn.onclick = () => {
+      if (!chordClip) return;
+      // Overwriting a song that already has its own chords is the one destructive case — ask, the same way deleting does.
+      if (mine) { askOnRow(el, 'Replace this song\'s own scales & chords?', () => doPaste(s)); return; }
+      doPaste(s);
+    };
+    // ---- deleting asks first ----
+    el.querySelector('.qdel').onclick = () => askOnRow(el, 'Remove "' + s.name + '" from the playlist?', () => {
+      queue = queue.filter(x => x.id !== s.id); qSaveAll(); renderQueue(); cloudDeleteSong(s.id); });
     q.appendChild(el); });
   renderMiniQueueFull();
 }
