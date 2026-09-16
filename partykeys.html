@@ -951,7 +951,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '114 · 2026-09-16 · one-root-and-scroll';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '115 · 2026-09-16 · ghost-scale';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -975,6 +975,8 @@ const PRESETS = ['#ff3d8a','#ff8a1f','#ffc21a','#3ddc84','#1fd1ff','#2f7cff','#9
 const RED = '#e0202a';   // reserved: chord notes outside the scale
 const CHORD_GREY = '#9aa0a8';   // tapped in-key chord — both its label button and the keys it lights up (grey, not green, so it never fights the rainbow scale colour or the now/next colours)
 const OUT_OF_SCALE = '#000';
+const SCALE_GHOST = '#010101';   // a second sentinel, like OUT_OF_SCALE: plain on screen, but a thin white glow on the board instead of dark — the scale notes you may play while the song runs
+const GHOST_WHITE = [34, 34, 34];   // how thin that glow is, before the brightness setting scales it further
 const BLACK_KEY_LIT = '#ffffff';   // HARDWARE only: a dim scale colour on the PartyKeys' black keys reads as "off", so a lit black key burns plain white there
 const FAINT_BLACK = [18, 18, 18];   // HARDWARE only: a black key that isn't lit keeps a faint glow so it stays findable in the dark
 const PRESSED_SCREEN = '#ffffff';   // SCREEN only: a key you're holding goes white (the hardware LED goes out instead — the two deliberately disagree)
@@ -2812,7 +2814,7 @@ function keyBgColor(m, colors, BASE, expected, pressed, soon) {
   // On SCREEN a note outside the scale is simply left alone — a white key stays white, a black key stays black. Painting
   // them black made a row of dead keys the eye had to read past; leaving them plain means the only thing with colour on
   // it is the scale, which is what you are actually looking for. The board still puts those LEDs out (see hwColorFor).
-  return c === OUT_OF_SCALE ? '' : c;
+  return (c === OUT_OF_SCALE || c === SCALE_GHOST) ? '' : c;   // both sentinels mean 'leave the key alone on screen'; they only differ on the board
 }
 function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly what renderKeys paints a given key — factored out so anything that plays "what's on screen" (the scale-row Play button) reads the very same decision
   if (arpNote === m) return scaleChordSel ? ROOT_COLORS[S.root] : noteColorEff;
@@ -2838,7 +2840,7 @@ function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly 
   // the one coming. The scale colouring underneath was a third layer competing with those two for the same keys, and
   // with seven of twelve keys tinted there was little left to tell them apart. Everything else goes plain — and dark
   // on the board, so the only lights on the PartyKeys are the ones you are meant to be looking at.
-  if (songRunning()) return OUT_OF_SCALE;
+  if (songRunning()) return (S.scaleOn && inScale(m)) ? SCALE_GHOST : OUT_OF_SCALE;   // in the key but not part of the music right now: a thin white glow on the board, so the notes you're allowed to play are still findable without competing with the chord
   const c = colors[m - BASE];
   if (c !== undefined && c !== OFF) return blackLift(m, (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.72 + (isDark() ? 55 : 120) * 0.28)));   // the rest of the scale: the root's own hue, dimmer than the root but still plainly that colour — now that the keys around it are white, it has to carry the scale on its own
   if (S.scaleOn && !inScale(m)) return OUT_OF_SCALE;   // not in the key: black, whether it's a white key or a black one
@@ -2858,7 +2860,8 @@ function hwColorFor(m, colors, BASE, expected, pressed, soon, b) {
   const held = liveNotes.has(m);
   if (held && (expected.has(m) || hitNow.has(m))) return scale(hex2rgb(noteColorEff), b);   // holding a note the song is actually sounding: full chord colour, so a correct finger stays lit rather than going dark
   const css = keyBgColorLit(m, colors, BASE, expected, held ? HELD_NONE : pressed, soon);   // ignore the "pressed" rule for the held key itself, or every wrong note would come back as the chord colour
-  if (css === OUT_OF_SCALE) return held ? scale(hex2rgb(RED), b) : OFF;   // not in the scale: the LED goes out — unless you're holding it, and then it's red, because that's a note you shouldn't be playing
+  if (css === OUT_OF_SCALE) return held ? scale(hex2rgb(RED), b) : OFF;
+  if (css === SCALE_GHOST) return scale([255, 255, 255], b * (held ? 1 : GHOST_WHITE[0] / 255));   // a scale note you may play: barely lit — full white the moment your finger lands on it   // not in the scale: the LED goes out — unless you're holding it, and then it's red, because that's a note you shouldn't be playing
   if (held && !css) return scale([255, 255, 255], b);   // held, plain key: full white, never dark
   if (!css)   // screen shows a plain key: the board shows a plain key too
     return isBlackKey(m) ? scale(FAINT_BLACK, b) : scale([255, 255, 255], b);
