@@ -311,6 +311,8 @@ body.kbfull #playRow.cuesOpen .playrowMarkers #markerLoopBtnFull .ico{width:18px
 .metrobit.off{opacity:.35}
 #metroBit:not(.off){color:var(--text);font-weight:600}
 #metroBit .fchip{width:26px;font-size:16px}
+.chip.hasGroove{position:relative}
+.chip.hasGroove::after{content:'';position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
 #metroBit:not(.off) .beats i{background:var(--muted)}
 #metroBit:not(.off) .beats i.hit{background:var(--accent)}
 .fchip{width:30px;height:26px;min-height:0;padding:0;display:inline-flex;align-items:center;justify-content:center}
@@ -377,6 +379,12 @@ body.kbfull .kb{cursor:zoom-out}
 #chordPlayPop .playOpt{display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;height:auto;text-align:left;padding:10px 14px;font-size:13px;min-height:40px;white-space:nowrap}
 #chordInvPop .playOpt{width:100%;height:auto;text-align:left;padding:9px 14px;font-size:13px;min-height:0;white-space:nowrap}
 #chordInvPop .playOpt[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+#groovePop{max-width:min(280px,86vw)}
+#groovePop .playOpt{display:block;width:100%;height:auto;text-align:left;padding:8px 12px;min-height:0;white-space:normal}
+#groovePop .playOpt b{display:block;font-size:13px;font-weight:600}
+#groovePop .playOpt small{display:block;font-size:11px;opacity:.65;margin-top:1px}
+#groovePop .playOpt[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+#groovePop .playOpt[aria-selected="true"] small{opacity:.8}
 .playOpt .ico{width:18px;height:18px;flex:none}
 #chordPlay[aria-expanded="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 .keyinfo .spk{width:38px;padding:0;display:inline-flex;align-items:center;justify-content:center}
@@ -626,6 +634,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 </style>
 
 <div class="app">
+  <div class="playPop" id="groovePop" hidden role="listbox" aria-label="What the metronome plays"></div>
   <div class="buildToast" id="buildToast" aria-hidden="true"></div>
   <button id="fsPrompt" class="fsPrompt" hidden aria-label="Tap for full screen" title="Tap for full screen"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tap for full screen</span></button>
 
@@ -880,7 +889,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '97 · 2026-09-16 · next-root-only';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '98 · 2026-09-16 · grooves';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -889,7 +898,7 @@ const logEl = $('log');
 const log = (...a) => { logEl.textContent = (a.join(' ') + '\n' + logEl.textContent).slice(0, 4000); };
 
 /* ---------- settings ---------- */
-const defaults = { sound:'grand', lookBeats:0.125, noteColor:'#ff3d8a', nextColor:'#ffc21a', scaleColor:'#2f7cff', scaleOn:false, showPlaying:true, showNext:true, root:0, scaleType:'major', bright:100, lag:0, fold:true, loop:false, bpm:120, sig:4, accentOn:true, startOct:3, countIn:false, metro:false, keysShown: matchMedia('(max-width: 699px)').matches ? 25 : 36, arrZoom:8, device:'partykeys', pianoVol:100, songVol:100, metroVol:80, pianoMuted:false, songMuted:false, metroMuted:false, transpose:0, currentSong:'', midiIn:'', midiOut:'', arrHeight:0, playRowH:0, showFingersL:false, showFingersR:false, goodChordSound:true, badNoteSound:true, progLock:false, speakChords:false, speakDuck:45, fitKey:true, followKeys:true, ownTempo:false, syncMode:false, midiEnabled:true, midiOutDaw:'', midiToDawEnabled:false };
+const defaults = { sound:'grand', lookBeats:0.125, noteColor:'#ff3d8a', nextColor:'#ffc21a', scaleColor:'#2f7cff', scaleOn:false, showPlaying:true, showNext:true, root:0, scaleType:'major', bright:100, lag:0, fold:true, loop:false, bpm:120, sig:4, accentOn:true, startOct:3, countIn:false, metro:false, keysShown: matchMedia('(max-width: 699px)').matches ? 25 : 36, arrZoom:8, device:'partykeys', pianoVol:100, songVol:100, metroVol:80, pianoMuted:false, songMuted:false, metroMuted:false, transpose:0, currentSong:'', midiIn:'', midiOut:'', arrHeight:0, playRowH:0, showFingersL:false, showFingersR:false, goodChordSound:true, badNoteSound:true, progLock:false, speakChords:false, speakDuck:45, fitKey:true, followKeys:true, ownTempo:false, groove:'click', syncMode:false, midiEnabled:true, midiOutDaw:'', midiToDawEnabled:false };
 let S = { ...defaults };
 let noteColorEff = defaults.noteColor, nextColorEff = defaults.nextColor;   // the actual on-screen "now"/"next" colour — falls back to grey whenever it collides with the current (fixed, rainbow) scale colour, as a "pick another one" flag
 try { Object.assign(S, JSON.parse(localStorage.getItem('pk-settings') || '{}')); } catch(e) {}
@@ -1635,6 +1644,70 @@ const taps = [];
 function metroSpb() { return 60 / S.bpm; }
 function accentN() { return S.accentOn ? +S.sig : 0; }
 function barLen() { return +S.sig || 4; }
+/* ---------- a small drum kit, and a few grooves to play on it ----------
+   Three synthesised sounds, no samples: a kick (a pitch drop), a snare (noise plus a short body tone) and a hat
+   (bright noise, long or short). Everything goes through the metronome's own gain, so the metronome volume and its
+   mute still govern the whole thing — a groove is the metronome wearing different clothes, not a second instrument. */
+let noiseBuf = null;
+function noise() {
+  if (!noiseBuf) { const n = Math.floor(ctx.sampleRate * 0.4); noiseBuf = ctx.createBuffer(1, n, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; }
+  const src = ctx.createBufferSource(); src.buffer = noiseBuf; return src;
+}
+function drumKick(when, v) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(150, when); o.frequency.exponentialRampToValueAtTime(48, when + 0.11);
+  g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(v, when + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, when + 0.20);
+  o.connect(g).connect(metroGain || master); o.start(when); o.stop(when + 0.22);
+}
+function drumSnare(when, v) {
+  const src = noise(), hp = ctx.createBiquadFilter(), g = ctx.createGain();
+  hp.type = 'highpass'; hp.frequency.value = 1100;
+  g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(v, when + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, when + 0.13);
+  src.connect(hp).connect(g).connect(metroGain || master); src.start(when); src.stop(when + 0.15);
+  const o = ctx.createOscillator(), og = ctx.createGain();   // a little body under the hiss, or it reads as a hat
+  o.type = 'triangle'; o.frequency.setValueAtTime(190, when);
+  og.gain.setValueAtTime(0.0001, when); og.gain.exponentialRampToValueAtTime(v * 0.45, when + 0.003); og.gain.exponentialRampToValueAtTime(0.0001, when + 0.08);
+  o.connect(og).connect(metroGain || master); o.start(when); o.stop(when + 0.1);
+}
+function drumHat(when, v, open) {
+  const src = noise(), hp = ctx.createBiquadFilter(), g = ctx.createGain();
+  hp.type = 'highpass'; hp.frequency.value = 7500;
+  const len = open ? 0.24 : 0.045;
+  g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(v, when + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, when + len);
+  src.connect(hp).connect(g).connect(metroGain || master); src.start(when); src.stop(when + len + 0.02);
+}
+/* Each groove is four beats of four sixteenths. K kick, S snare, H closed hat, O open hat, and a bar's first beat is
+   marked so it still lands where the metronome's accent would. A bar in 3/4 or 5/4 simply uses that many of the four
+   beats, which keeps every groove usable at any time signature without inventing a variant for each. */
+const GROOVES = [
+  { id: 'click', name: 'Metronome', hint: 'The plain click' },
+  { id: 'rock',  name: 'Basic rock', hint: 'Kick 1 & 3, snare 2 & 4, hats on 8ths',
+    p: [['KH','','H',''], ['SH','','H',''], ['KH','','H',''], ['SH','','H','']] },
+  { id: 'drive', name: 'Driving 8ths', hint: 'Rock with a pickup kick before the snare',
+    p: [['KH','','H',''], ['SH','','H','K'], ['KH','','H',''], ['SH','','H','K']] },
+  { id: 'four',  name: 'Four on the floor', hint: 'Kick every beat, open hat off the beat',
+    p: [['K','','O',''], ['KS','','O',''], ['K','','O',''], ['KS','','O','']] },
+  { id: 'half',  name: 'Half time', hint: 'Kick 1, snare 3 — room to breathe',
+    p: [['KH','','H',''], ['H','','H',''], ['SH','','H',''], ['H','','H','']] },
+  { id: 'double',name: 'Double time', hint: 'Snare on every off-beat, hats on 16ths',
+    p: [['KH','H','SH','H'], ['H','H','SH','H'], ['KH','H','SH','H'], ['H','H','SH','H']] },
+  { id: 'shuffle', name: 'Shuffle', hint: 'Swung 8ths, snare 2 & 4',
+    p: [['KH','','','H'], ['SH','','','H'], ['KH','','','H'], ['SH','','','H']] },
+];
+const grooveOf = id => GROOVES.find(g => g.id === id) || GROOVES[0];
+function playGrooveBeat(when, beat, spb, accent) {   // one beat's worth of whatever the metronome is currently playing
+  const gr = grooveOf(S.groove);
+  if (!gr.p) { click(when, accent); return; }
+  const row = gr.p[((beat % 4) + 4) % 4], six = spb / 4;
+  for (let i = 0; i < 4; i++) { const cell = row[i]; if (!cell) continue;
+    const t = when + i * six, first = accent && i === 0;
+    if (cell.includes('K')) drumKick(t, first ? 0.95 : 0.8);
+    if (cell.includes('S')) drumSnare(t, 0.5);
+    if (cell.includes('O')) drumHat(t, 0.16, true);
+    if (cell.includes('H')) drumHat(t, first ? 0.2 : 0.14, false);
+  }
+}
 function click(when, accent) {
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.type = 'square'; o.frequency.value = accent ? 1760 : 1175;
@@ -1688,7 +1761,7 @@ function metroTick() {
     metroNext += missed * spb; metroBeat += missed; }
   while (metroNext < ctx.currentTime + METRO_LOOK) {
     const bi = ((metroBeat % barLen()) + barLen()) % barLen();
-    click(metroNext, n > 0 && bi === 0);
+    playGrooveBeat(metroNext, metroBeat, spb, n > 0 && bi === 0);
     flashDot(metroNext, bi);
     metroNext += metroSpb(); metroBeat++;
   }
@@ -3702,7 +3775,7 @@ function applyAudioDoc(v) {
    delay, its own name — deliberately stays local, because making a phone match a laptop on those would be wrong. */
 const SHARED_KEYS = ['sound', 'lookBeats', 'scaleOn', 'showPlaying', 'showNext', 'root', 'scaleType', 'fold', 'loop',
   'bpm', 'sig', 'accentOn', 'countIn', 'metro', 'transpose', 'showFingersL', 'showFingersR', 'goodChordSound',
-  'badNoteSound', 'speakChords', 'speakDuck', 'fitKey', 'followKeys', 'progLock', 'ownTempo'];
+  'badNoteSound', 'speakChords', 'speakDuck', 'fitKey', 'followKeys', 'progLock', 'ownTempo', 'groove'];
 let sharedSnap = null, shareT = null, settingsApplied = false;
 const sharedNow = () => JSON.stringify(SHARED_KEYS.map(k => S[k]));
 function shareSettingsSoon() {
@@ -4204,8 +4277,41 @@ const syncChips = () => { document.body.classList.toggle('metro-on', S.metro); $
 $('metroChip').onclick = () => { S.metro = !S.metro; save(); syncChips(); liveBroadcast(); if (stepMode) { stepMode = false; hit.clear(); clearInterval(stepTimer); stepTimer = null; play(); return; } if (isRunning()) { if (S.metro && !metroOn) { advance(); posBeats = Math.round(posBeats); metroStart(ctx.currentTime + 0.05, posBeats); lastCtx = ctx.currentTime + 0.05; } else if (!S.metro && metroOn) { advance(); metroStop(); if (!playing) pause(); } } };
 $('countChip').onclick = () => { S.countIn = !S.countIn; save(); syncChips(); liveBroadcast(); };
 $('metroChipFull').onclick = () => $('metroChip').click();
-$('metroPlayChip').onclick = () => { ensureAudio(); if (playing || stepMode || counting) return; buildDots(); if (metroOn) metroStop(); else metroStart(ctx.currentTime + 0.05, 0); liveBroadcast(); };
-$('metroPlayChipFull').onclick = () => $('metroPlayChip').click();
+/* ---------- what the metronome plays ----------
+   Pressing ▶ while it is silent asks what to play, rather than assuming the click: the same button is now the way to
+   a handful of simple grooves. Pressing it while something is going stops it, so it is still one press to silence. */
+function closeGroovePop() { const pop = $('groovePop'); if (!pop) return; pop.hidden = true;
+  ['metroPlayChip', 'metroPlayChipFull'].forEach(id => { const b = $(id); if (b) b.setAttribute('aria-expanded', 'false'); }); }
+function startGroove() { ensureAudio(); buildDots(); metroStart(ctx.currentTime + 0.05, 0); liveBroadcast(); }
+function openGroovePop(btn) {
+  const pop = $('groovePop'); if (!pop) return;
+  pop.innerHTML = '';
+  for (const g of GROOVES) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'playOpt';
+    b.setAttribute('aria-selected', String(S.groove === g.id));
+    b.innerHTML = '<b></b><small></small>';
+    b.querySelector('b').textContent = g.name; b.querySelector('small').textContent = g.hint;
+    b.onclick = () => { S.groove = g.id; save(); closeGroovePop(); syncGrooveBtns(); startGroove(); };
+    pop.appendChild(b);
+  }
+  pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
+  placePop(pop, btn);
+}
+function syncGrooveBtns() {   // the button says what it will play, so the choice is visible without opening anything
+  const g = grooveOf(S.groove), txt = g.id === 'click' ? 'Hear the metronome click on its own' : 'Play ' + g.name.toLowerCase() + ' — press again to stop';
+  ['metroPlayChip', 'metroPlayChipFull'].forEach(id => { const b = $(id); if (!b) return; b.title = txt; b.setAttribute('aria-label', txt);
+    b.classList.toggle('hasGroove', g.id !== 'click'); });
+}
+const metroPlayPressed = btn => { ensureAudio(); if (playing || stepMode || counting) return;
+  if (metroOn) { closeGroovePop(); metroStop(); liveBroadcast(); return; }   // something is going: one press stops it
+  if (!$('groovePop').hidden) { closeGroovePop(); return; }
+  openGroovePop(btn); };
+$('metroPlayChip').onclick = () => metroPlayPressed($('metroPlayChip'));
+$('metroPlayChipFull').onclick = () => metroPlayPressed($('metroPlayChipFull'));
+document.addEventListener('pointerdown', e => { const pop = $('groovePop');
+  if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.closest('#metroPlayChip, #metroPlayChipFull')) closeGroovePop(); }, true);
+syncGrooveBtns();
 syncChips(); syncMetroPlay();
 $('keysShown').value = S.keysShown; $('keysShown').onchange = e => { S.keysShown = +e.target.value; keysOverride = null; save(); applyRange(); syncKeysReset(); };
 const syncDevice = () => { const g = !dev().lights; $('midiOut').disabled = g; $('midiOut').closest('label').style.opacity = g ? .4 : ''; $('lightsPanel').style.opacity = g ? .4 : ''; $('lightsPanel').querySelectorAll('input').forEach(i => i.disabled = g); const h = $('noLightsHint'); if (h) h.hidden = !g; };
