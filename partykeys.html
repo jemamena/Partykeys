@@ -844,7 +844,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '85 · 2026-09-15 · steady-beat';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '86 · 2026-09-16 · sync-pause-fix';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1651,7 +1651,7 @@ function spbAt(beat) { return metroOn ? metroSpb() : (song ? fileSpbAt(song, bea
 function advance() { if (!playing) return; const t = ctx.currentTime; if (t < lastCtx) return; posBeats += (t - lastCtx) / spbAt(posBeats); lastCtx = t; }
 function position() { advance(); return posBeats; }
 async function play() {
-  if (!song && !S.metro) return; ensureAudio(); if (preview) setPreview(preview); hand = null; $('chordInfo').hidden = true; showFingers(new Map());
+  if (!song && !S.metro) return; markLocalCmd(); ensureAudio(); if (preview) setPreview(preview); hand = null; $('chordInfo').hidden = true; showFingers(new Map());
   if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) {} }
   if (song && posBeats >= song.durBeats) posBeats = 0;
   if (S.metro && song) posBeats = Math.round(posBeats);
@@ -1670,7 +1670,7 @@ function startSong(at) {
   clearInterval(tickTimer); tickTimer = setInterval(tick, 25); tick();
 }
 function pause() {
-  cancelCount(); metroStop(); stepMode = false; hit.clear(); clearInterval(stepTimer); stepTimer = null;
+  markLocalCmd(); cancelCount(); metroStop(); stepMode = false; hit.clear(); clearInterval(stepTimer); stepTimer = null;
   if (playing) { advance(); playing = false; killFileVoices(); clearInterval(tickTimer); tickTimer = null; dawPanic(); }
   $('playBtn').textContent = '▶ Play'; $('playBtn').classList.remove('playing'); renderKeys(); if (song) updateTime(); releaseWake();
 }
@@ -3470,16 +3470,26 @@ async function liveBroadcast(extra) {   // writes this device's full current sta
   catch (e) { if (!liveErrLogged) { liveErrLogged = true; log('Live sync: broadcast REFUSED —', (e && e.code) || '', (e && e.message) || e); setSyncStatus('Cannot write live state — check the Firestore rules'); } }
 }
 let liveSoonT = null;
+// Both devices write the same state document, so a press here and a heartbeat there can cross in flight. Two rules
+// keep that from undoing what you just did: a heartbeat may never change anyone's play/pause (only a real press does),
+// and for a moment after you press something on THIS device, nothing arriving from another device may overrule it.
+let localCmdAt = 0; const CMD_GRACE = 900;
+function markLocalCmd() { if (!applyingRemote) localCmdAt = Date.now(); }
 function liveBroadcastSoon() { if (liveSoonT) return; liveSoonT = setTimeout(() => { liveSoonT = null; liveBroadcast(); }, 250); }   // dragging the tempo fires continuously — coalesce, so one drag is a couple of writes rather than a hundred
 function stopLiveBroadcastTimer() { if (liveBroadcastTimer) clearInterval(liveBroadcastTimer); liveBroadcastTimer = null; }
-function startLiveBroadcastTimer() { stopLiveBroadcastTimer(); liveBroadcastTimer = setInterval(() => { if (playing) liveBroadcast(); }, 400); }   // while playing, keep the playhead roughly in step on the other end without writing on every 25ms tick
+function startLiveBroadcastTimer() { stopLiveBroadcastTimer(); liveBroadcastTimer = setInterval(() => { if (playing) liveBroadcast({ beat: true }); }, 400); }   // while playing, keep the playhead roughly in step on the other end without writing on every 25ms tick. Marked as a heartbeat: it says where this device HAS GOT TO, never what the others should do.
+let settleT = null;
+function settleLive() { if (settleT) return; settleT = setTimeout(() => { settleT = null; liveBroadcast({ beat: true }); }, 350); }   // after following someone else's play/pause, write the settled state back once, so the shared doc stops claiming the old one
 async function applyLiveState(data) {   // a state doc that just arrived from another device with sync on — becomes this device's own transport state, best-effort (the round trip is Firestore-listener speed, not sample-accurate)
   if (!data || data.by === deviceId) return;   // our own broadcast echoing back
+  const firstFrom = !lastSeqBy.has(data.by);   // the first thing we ever hear from a device is its full state — that is how a device joining late catches up
   if (typeof data.seq === 'number') { const prev = lastSeqBy.get(data.by) || 0;
     if (data.seq <= prev) { if (!liveStaleLogged) { liveStaleLogged = true; log('Live sync: ignoring an out-of-order update from', data.by, '(seq ' + data.seq + ' after ' + prev + ')'); } return; }
     lastSeqBy.set(data.by, data.seq); }
   if (!liveLogged) { liveLogged = true; log('Live sync: receiving updates from another device — the link is working.'); }
-  if (data.playing && !playing) {   // a remote "play" is not a tap, and browsers keep audio suspended until this page is touched
+  const isBeat = !!data.beat && !firstFrom;   // a position heartbeat, not a press
+  const mayCommand = !isBeat && Date.now() - localCmdAt > CMD_GRACE;
+  if (data.playing && !playing && mayCommand) {   // a remote "play" is not a tap, and browsers keep audio suspended until this page is touched
     if (!ctx) log('Live sync: remote play arrived before this device had any audio — tap the page once to let it make sound.');
     else if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) {} 
       if (ctx.state !== 'running') log('Live sync: this browser is holding audio suspended — tap the page once, then it will follow.'); }
@@ -3493,17 +3503,19 @@ async function applyLiveState(data) {   // a state doc that just arrived from an
     if (typeof data.bpm === 'number' && data.bpm !== S.bpm) setBpm(data.bpm);
     if (typeof data.sig === 'number' && data.sig !== S.sig) { S.sig = data.sig; $('sig').value = S.sig; save(); buildDots(); }
     if (typeof data.accentOn === 'boolean' && data.accentOn !== S.accentOn) { S.accentOn = data.accentOn; save(); $('accentChip').setAttribute('aria-pressed', S.accentOn); syncChips(); buildDots(); }
-    if (typeof data.metroHear === 'boolean' && data.metroHear !== metroOn && !playing && !stepMode) $('metroPlayChip').click();   // the click running on its own, between songs
+    if (typeof data.metroHear === 'boolean' && data.metroHear !== metroOn && !playing && !stepMode && mayCommand) $('metroPlayChip').click();   // the click running on its own, between songs
     if (typeof data.loop === 'boolean' && data.loop !== S.loop) { S.loop = data.loop; save(); $('loop').checked = S.loop; drawArr(); }
     if (typeof data.transpose === 'number' && data.transpose !== S.transpose) setTranspose(data.transpose);
     if (data.cmd === 'clearColor') clearPerfHistory();
-    if (song && typeof data.posBeats === 'number') { const drift = Math.abs(posBeats - data.posBeats);
+    // Don't let a device that is still running drag the playhead of one that has just been paused (or the reverse):
+    // follow the position only from a device in the same transport state, or from an explicit seek.
+    if (song && typeof data.posBeats === 'number' && (data.cmd === 'seek' || !isBeat || !!data.playing === !!playing)) { const drift = Math.abs(posBeats - data.posBeats);
       if (data.cmd === 'seek' || drift > 0.2) { posBeats = Math.max(0, Math.min(song.durBeats, data.posBeats)); lastCtx = ctx.currentTime;
         nextIdx = song.notes.findIndex(n => n.b1 > posBeats); if (nextIdx < 0) nextIdx = song.notes.length; hit.clear(); updateTime(); renderKeys(); } }
     if (Array.isArray(data.loopMarkers)) loopMarkers = data.loopMarkers.filter(i => Number.isInteger(i));
     if (typeof data.markerLoopOn === 'boolean' && data.markerLoopOn !== markerLoopOn) { markerLoopOn = data.markerLoopOn; syncMarkerButtons(); }
     else if (Array.isArray(data.loopMarkers)) syncMarkerButtons();
-    if (typeof data.playing === 'boolean' && data.playing !== playing) { if (data.playing) play(); else pause(); }
+    if (typeof data.playing === 'boolean' && data.playing !== playing && mayCommand) { if (data.playing) play(); else pause(); settleLive(); }
     drawArr();   // whatever changed above (seek, markers, metro/count-in, play/pause) — keep the arrangement view's own picture in step with the rest of this device's UI
   } finally { applyingRemote = false; }
 }
