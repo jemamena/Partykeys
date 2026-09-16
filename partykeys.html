@@ -951,7 +951,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '110 · 2026-09-16 · chord-octave';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '111 · 2026-09-16 · true-colours';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -979,7 +979,8 @@ const BLACK_KEY_LIT = '#ffffff';   // HARDWARE only: a dim scale colour on the P
 const FAINT_BLACK = [18, 18, 18];   // HARDWARE only: a black key that isn't lit keeps a faint glow so it stays findable in the dark
 const PRESSED_SCREEN = '#ffffff';   // SCREEN only: a key you're holding goes white (the hardware LED goes out instead — the two deliberately disagree)
 const isBlackKey = m => [1, 3, 6, 8, 10].includes(((m % 12) + 12) % 12);
-const blackLift = (m, hex) => isBlackKey(m) ? rgb2hex(hex2rgb(hex).map(v => v + (255 - v) * 0.38)) : hex;   // on screen a black key keeps the scale's own colour, just lifted so it still reads against the dark key   // scale on: notes outside the key go black on both keyboards, so the only thing lit is what you can actually play — the scale itself stays one hue in two tones (bright root, dim rest)
+let hwPass = false;   // true while the LED frame is being built: the board wants the colour itself, not the screen's legibility tweaks
+const blackLift = (m, hex) => (!hwPass && isBlackKey(m)) ? rgb2hex(hex2rgb(hex).map(v => v + (255 - v) * 0.38)) : hex;   // on screen a black key keeps the scale's own colour, just lifted so it still reads against the dark key   // scale on: notes outside the key go black on both keyboards, so the only thing lit is what you can actually play — the scale itself stays one hue in two tones (bright root, dim rest)
 const EXT_GREY = '#5f6670';   // a darker grey for Ext mode (chord tones + 9/11/13), so it still reads differently from plain All
 const hsl2hex = (h, s, l) => { s /= 100; l /= 100; const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return rgb2hex([255 * f(0), 255 * f(8), 255 * f(4)]); };
 const ROOT_COLORS = Array.from({ length: 12 }, (_, i) => hsl2hex((i * 30 + 15) % 360, 72, 54));   // fixed rainbow, one hue per key, starting near C — offset 15° off pure red so no root colour ever collides with the reserved "wrong note" red — the scale colour is no longer user-configurable
@@ -2815,7 +2816,7 @@ function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly 
     const from = hex2rgb(hex), to = hex2rgb(nextColorEff);
     return rgb2hex(from.map((v, j) => v + (to[j] - v) * a)); };
   if (pressed.has(m)) return blackLift(m, toNext(noteColorEff));   // you're actually holding this key down
-  if (expected.has(m)) return blackLift(m, toNext(rgb2hex(scale(hex2rgb(noteColorEff), 0.58))));   // the song wants this next, but you haven't played it yet
+  if (expected.has(m)) return blackLift(m, toNext(noteColorEff));   // the song is sounding this — its own colour, full strength
   if (soon.has(m)) { const f = soon.get(m); const base = isDark() ? [170,170,170] : [214,214,214]; return blackLift(m, rgb2hex(hex2rgb(nextColorEff).map((v, j) => base[j] + (v - base[j]) * (0.36 + 0.5 * f)))); }   // same floor: a note only just coming up is still visibly its colour, not a hint of one
   // While the song is running the keyboard shows the music, not the theory: the chord sounding now, and the root of
   // the one coming. The scale colouring underneath was a third layer competing with those two for the same keys, and
@@ -2838,11 +2839,13 @@ function hwColorFor(m, colors, BASE, expected, pressed, soon, b) {
   if (css === OUT_OF_SCALE) return OFF;   // not in the scale: the LED goes out, black key or white — nothing you can't play is lit
   if (!css)   // screen shows a plain key: the board shows a plain key too
     return isBlackKey(m) ? scale(FAINT_BLACK, b) : scale([255, 255, 255], b);
-  return isBlackKey(m) ? scale(hex2rgb(BLACK_KEY_LIT), b) : scale(hex2rgb(css), b);
+  return scale(hex2rgb(css), b);   // black key or white, the LED shows the colour that key is showing
 }
 function hwFrame(colors, BASE, expected, pressed, soon) {   // the LOW..HIGH window the hardware actually owns, regardless of where the screen is scrolled
   const b = S.bright / 100, out = [];
-  for (let i = 0; i < NKEYS; i++) out.push(hwColorFor(LOW + i, colors, BASE, expected, pressed, soon, b));
+  hwPass = true;
+  try { for (let i = 0; i < NKEYS; i++) out.push(hwColorFor(LOW + i, colors, BASE, expected, pressed, soon, b)); }
+  finally { hwPass = false; }
   return out;
 }
 function litNotesInView() {   // every key currently visible on screen (left to right) that's actually lit up, in the exact same terms renderKeys paints them
