@@ -521,6 +521,11 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted);letter-spacing:
 }
 /* phones: the scale/chord buttons are the easiest thing to mis-tap, so give them extra room to touch on a narrow screen */
 @media (max-width: 699px){
+  /* Phone: the tempo number is a drag — left and right — which is quicker and more accurate than aiming at a small
+     −/+ on a touch screen, and they were only ever a second way to do the same thing. The buttons stay on a desktop,
+     where there is room and a mouse to hit them with. The drag target widens to take back the space they leave. */
+  .bpm #bpmDown, .bpm #bpmUp{display:none}
+  .bpm .bpmval{min-width:66px;padding:0 10px}
   /* the top-row icon cluster grew (MIDI-out-to-DAW + live-sync toggles) — on narrow phones there's no longer room for the centered "Scale" pill to float over it without overlapping, so here it just becomes a normal left-aligned flex item, pushing the icons to the right instead of colliding with them */
   .legend .scalefull{position:static;transform:none;margin-right:auto;flex:none;max-width:38vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .keyinfo select,.keyinfo button{min-height:44px}
@@ -875,7 +880,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '95 · 2026-09-16 · tighter-bar';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '96 · 2026-09-16 · drag-the-tempo';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
