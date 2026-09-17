@@ -94,7 +94,7 @@ h2 .infoBtn{margin-left:8px;position:relative;top:-1px}
 .circleCenter.cfLearnCentre > b,.circleCenter.cfLearnCentre > span:not(.cfDeg),.circleCenter.cfLearnCentre > em{display:none}
 .circleCenter .cfDeg{font:800 34px/1 Inter,system-ui,sans-serif;color:var(--text);letter-spacing:.02em}
 @media (min-width:700px){.circleCenter .cfDeg{font-size:44px}}
-#circleLearnBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+#circleLearnBtn[aria-pressed="true"],#fsBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 .cfMinorLabel.cfTwo{font-size:7.5px}
 .cfAccLabel{font-weight:800;font-size:10px;fill:var(--accent);pointer-events:none;opacity:1;paint-order:stroke;stroke:var(--accent-ink);stroke-width:2px;stroke-linejoin:round}
 .cfRomanLabel{font-weight:800;font-size:9px;fill:var(--accent);pointer-events:none;opacity:1;paint-order:stroke;stroke:var(--accent-ink);stroke-width:2px;stroke-linejoin:round}
@@ -369,6 +369,19 @@ body.kbfull #playRow.cuesOpen .playrowMarkers #markerLoopBtnFull .ico{width:18px
 .fbCenter{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:4px;z-index:1}   /* full screen: the Scale pill and the circle-of-fifths button travel together in the middle of the bar */
 .fbCenter .scalefull{position:static;transform:none}
 .fbCenter .cog{margin-left:0}
+/* The Scale pill is centred in the bar; the circle button belongs beside it, not stranded at the far right, so the
+   two travel together as one centred group. */
+.scaleGroup{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:8px;z-index:1}
+.scaleGroup .scalefull{position:static;transform:none}
+/* One circle button at a time: beside the Scale pill on a desktop in the normal view, and back at the right-hand
+   end everywhere else (full screen, and on phones where the bar doesn't centre anything). */
+.legend #circleBtnTop{display:none}
+@media (min-width:700px){
+  .legend #circleBtnTop{display:flex}
+  .legend > #circleBtn{display:none}
+  body.kbfull .legend #circleBtnTop{display:none}
+  body.kbfull .legend > #circleBtn{display:flex}
+}
 .scalefull{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);min-height:0;height:44px;padding:0 26px;font:700 16px/1 Inter,system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;border:1px solid transparent;border-radius:10px;color:#1C1824;z-index:1}
 .scalefull.off{opacity:.35;background:var(--surface2)!important;color:var(--muted)!important;border-color:var(--line)}
 .fullbar .beats{gap:5px}
@@ -484,12 +497,16 @@ body.kbfull .kb{cursor:zoom-out}
 #progAddsPop .subRow button{min-height:0;padding:4px 10px;font-size:12px;border-radius:5px}
 #progAddsPop .subRow button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 #scaleProgPop{min-width:212px}
-#scaleProgPop .exRow{padding:6px 10px 2px}
-#scaleProgPop .exLbl{display:block;font:700 10px/1 Inter,system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
-#scaleProgPop .exOpts{display:flex;flex-wrap:wrap;gap:4px}
-#scaleProgPop .exOpts button{min-height:0;padding:5px 9px;font-size:12px;border-radius:5px;flex:none}
-#scaleProgPop .exOpts button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
-#scaleProgPop .exNote{padding:2px 10px 6px;font:600 11px/1.2 Inter,system-ui,sans-serif;color:var(--muted);font-variant-numeric:tabular-nums}
+#scaleProgPop .exRow{padding:6px 8px 4px}
+#scaleProgPop .exOpts{display:flex;gap:6px;justify-content:center}
+#scaleProgPop .exDir{min-height:0;width:52px;height:36px;padding:0;border-radius:6px;flex:none;display:flex;align-items:center;justify-content:center}
+#scaleProgPop .exDir .ico{width:20px;height:20px}
+#scaleProgPop .exStack{display:flex;flex-direction:column;gap:4px;padding:6px 8px 2px}
+#scaleProgPop .exWide{width:100%;min-height:0;padding:8px 12px;font-size:13px;border-radius:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}
+#scaleProgPop .exWide em{font-style:normal;font-size:11px;font-weight:700;opacity:.6;font-variant-numeric:tabular-nums}
+#scaleProgPop .exWide[aria-selected="true"],#scaleProgPop .exDir[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+#scaleProgPop .exWide[aria-selected="true"] em{opacity:.75}
+#scaleProgPop .exSep{height:1px;background:var(--line);margin:6px 8px 0}
 #progAddsPop .playOpt{width:100%;text-align:left;padding:9px 14px;font-size:13px;min-height:0;white-space:nowrap;display:flex;align-items:center;gap:10px}
 #progAddsPop .playOpt .tick{width:15px;flex:none;font-weight:800}
 #progAddsPop .playOpt[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
@@ -625,6 +642,7 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted);letter-spacing:
   /* The top bar gained the practice button, and on a narrow phone the Scale pill's fixed width was squeezing the
      circle-of-fifths button down to a few pixels. The pill is the one thing here that can afford to be smaller —
      it is a label you read, not a target you aim at — so it gives up the room and every button keeps its size. */
+  .legend .scaleGroup{position:static;transform:none;margin-right:auto}
   .legend .scalefull{position:static;transform:none;margin-right:auto;flex:none;max-width:26vw;padding:0 9px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .legend > *{flex:none}
   .keyinfo select,.keyinfo button{min-height:44px}
@@ -754,8 +772,8 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
     <div class="legend">
         <button id="practiceToggle" class="barBtn" aria-pressed="false" aria-label="Practice tools — hands, exercises and the feedback sounds" title="Practice tools — hands, exercises and the feedback sounds"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2 9l10 5 10-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M6 11.5V16c0 1.6 2.7 2.9 6 2.9s6-1.3 6-2.9v-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
         <span class="fbGroup" id="barToggles"><button id="keyInfoToggleTop" class="barBtn" aria-pressed="false" aria-label="Show/hide the scale bar" title="Show/hide the scale bar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V14M9 20V10M14 20V6M19 20V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><button id="chordInfoToggleTop" class="barBtn" aria-pressed="false" aria-label="Show/hide the chord bar" title="Show/hide the chord bar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="5" cy="15" r="2" fill="currentColor"/><circle cx="12" cy="10" r="2" fill="currentColor"/><circle cx="19" cy="13" r="2" fill="currentColor"/></svg></button></span>
-        <button id="lgScale" class="scalefull" aria-pressed="false">Scale</button>
-        <button id="circleBtn" class="cog" aria-label="Circle of fifths" title="Circle of fifths"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="3.6" r="1.6" fill="currentColor"/><circle cx="18.4" cy="7.8" r="1.6" fill="currentColor" opacity=".8"/><circle cx="18.4" cy="16.2" r="1.6" fill="currentColor" opacity=".6"/><circle cx="12" cy="20.4" r="1.6" fill="currentColor" opacity=".4"/><circle cx="5.6" cy="16.2" r="1.6" fill="currentColor" opacity=".6"/><circle cx="5.6" cy="7.8" r="1.6" fill="currentColor" opacity=".8"/></svg></button><span class="fbGroup"><button id="midiToggleBtn" class="cog" aria-pressed="true" aria-label="Enable/disable MIDI input" title="Enable/disable MIDI input"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="13" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="7.3" cy="10.2" r=".9" fill="currentColor"/><circle cx="16.7" cy="10.2" r=".9" fill="currentColor"/><path d="M9 4v3M15 4v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button id="midiDawToggleBtn" class="cog" aria-pressed="false" aria-label="Enable/disable MIDI out to Ableton/DAW" title="Enable/disable MIDI out to Ableton/DAW"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 4 11 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="syncToggleBtn" class="cog" aria-pressed="false" aria-label="Enable/disable live sync across devices" title="Enable/disable live sync across devices"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.3-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17.3 3v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 12a8 8 0 0 1-13.3 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6.7 21v-5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span><button id="settingsBtn" class="cog" aria-label="Settings" title="Settings"><span class="dot" id="menuDot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.5-2.4 1a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.6 7.6 0 0 0 7 6.5l-2.4-1-2 3.5 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 2.6-1.5l2.4 1 2-3.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+        <span class="scaleGroup" id="scaleGroup"><button id="lgScale" class="scalefull" aria-pressed="false">Scale</button><button id="circleBtnTop" class="cog" aria-label="Circle of fifths" title="Circle of fifths"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="3.6" r="1.6" fill="currentColor"/><circle cx="18.4" cy="7.8" r="1.6" fill="currentColor" opacity=".8"/><circle cx="18.4" cy="16.2" r="1.6" fill="currentColor" opacity=".6"/><circle cx="12" cy="20.4" r="1.6" fill="currentColor" opacity=".4"/><circle cx="5.6" cy="16.2" r="1.6" fill="currentColor" opacity=".6"/><circle cx="5.6" cy="7.8" r="1.6" fill="currentColor" opacity=".8"/></svg></button></span>
+        <button id="fsBtn" class="cog" aria-pressed="false" aria-label="Full screen keyboard" title="Full screen keyboard"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="circleBtn" class="cog" aria-label="Circle of fifths" title="Circle of fifths"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="3.6" r="1.6" fill="currentColor"/><circle cx="18.4" cy="7.8" r="1.6" fill="currentColor" opacity=".8"/><circle cx="18.4" cy="16.2" r="1.6" fill="currentColor" opacity=".6"/><circle cx="12" cy="20.4" r="1.6" fill="currentColor" opacity=".4"/><circle cx="5.6" cy="16.2" r="1.6" fill="currentColor" opacity=".6"/><circle cx="5.6" cy="7.8" r="1.6" fill="currentColor" opacity=".8"/></svg></button><span class="fbGroup"><button id="midiToggleBtn" class="cog" aria-pressed="true" aria-label="Enable/disable MIDI input" title="Enable/disable MIDI input"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="13" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="7.3" cy="10.2" r=".9" fill="currentColor"/><circle cx="16.7" cy="10.2" r=".9" fill="currentColor"/><path d="M9 4v3M15 4v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button id="midiDawToggleBtn" class="cog" aria-pressed="false" aria-label="Enable/disable MIDI out to Ableton/DAW" title="Enable/disable MIDI out to Ableton/DAW"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 4 11 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="syncToggleBtn" class="cog" aria-pressed="false" aria-label="Enable/disable live sync across devices" title="Enable/disable live sync across devices"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.3-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17.3 3v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 12a8 8 0 0 1-13.3 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6.7 21v-5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span><button id="settingsBtn" class="cog" aria-label="Settings" title="Settings"><span class="dot" id="menuDot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.5-2.4 1a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.6 7.6 0 0 0 7 6.5l-2.4-1-2 3.5 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 2.6-1.5l2.4 1 2-3.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
     </div>
     <div class="kbwrap">
       <div class="chords" id="chordsRow"><span class="chord" id="chordNow"><b>—</b><button class="xtog" id="xNow" aria-label="Show now notes on the keys" aria-pressed="true">×</button></span><span class="chord" id="chordNext"><b></b><button class="xtog" id="xNext" aria-label="Show next notes on the keys" aria-pressed="true">×</button><span class="cdticks" id="cdTicks" aria-hidden="true"></span></span></div>
@@ -1001,7 +1019,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '139 · 2026-09-17 · tap-to-answer';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '142 · 2026-09-17 · roll-a-chord';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1206,22 +1224,57 @@ function toggleKbFull() { kbFull = !kbFull; document.body.classList.toggle('kbfu
   if (kbFull) { window.scrollTo(0, 0); setTimeout(() => window.scrollTo(0, 0), 100); setTimeout(() => window.scrollTo(0, 0), 400); }   // nudges Safari into collapsing its address bar where the Fullscreen API isn't available
   if (kbFull && landscapeMq.matches) collapseExplanationRowsDefault();
   else if (!kbFull) { manualHideArr = false; syncArrVisibility(); chordsRowHidden = false; syncChordsRowVisibility(); playRowHidden = false; syncPlayRowVisibility(); keysHidden = false; syncKeysVisibility(); queueRowOpenFull = false; syncMiniQueueFull(); cuesRowOpen = false; syncCuesRow(); }
-  setTimeout(() => { drawArr(); renderKeys(); syncFsPrompt(); }, 60); }
+  setTimeout(() => { drawArr(); renderKeys(); syncFsPrompt(); if (typeof syncFsBtn === 'function') syncFsBtn(); }, 60); }
 $('fsPrompt').onclick = () => {   // this click IS a direct user gesture, so unlike the rotation-triggered attempts, the browser will actually honor it
   try { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}); } catch (e) {}
   window.scrollTo(0, 0); setTimeout(syncFsPrompt, 60);
 };
+// ---- playing the on-screen keys with your fingers ----
+// The keyboard was display-only: on a phone there was nothing to play unless a MIDI keyboard was plugged in. Now a
+// finger on a key sounds it, several fingers sound a chord, and sliding across the keys runs up them. It feeds the
+// very same noteOn/noteOff the physical keyboard does, so the drills, the scoring, the lights and the other synced
+// devices all treat it as playing. Touch and pen only — a mouse keeps the old tap-to-toggle-full-screen behaviour.
+const touchNotes = new Map();   // pointerId -> the note that pointer is currently holding
+function kbNoteAt(x, y) { const el = document.elementFromPoint(x, y); const k = el && el.closest && el.closest('.key');
+  return k && kb.contains(k) ? +k.dataset.note : null; }
+function touchNoteOn(id, n) {
+  const was = touchNotes.get(id); if (was === n) return;
+  if (was !== undefined) { noteOff(was, 'touch'); liveBroadcast({ cmd: 'note', note: { n: was, on: false } }); dawNoteOff(was); }
+  touchNotes.set(id, n);
+  if (n !== null && n !== undefined) { noteOn(n, 100, 'touch'); liveBroadcast({ cmd: 'note', note: { n, vel: 100, on: true } }); dawNoteOn(n, 100); }
+  renderKeys();
+}
+function touchNoteOff(id) {
+  const n = touchNotes.get(id); if (n === undefined) return;
+  touchNotes.delete(id);
+  if (n !== null) { noteOff(n, 'touch'); liveBroadcast({ cmd: 'note', note: { n, on: false } }); dawNoteOff(n); }
+  renderKeys();
+}
+(() => {
+  const playable = () => true;   // a mouse plays them as well now — full screen has its own button in the top bar, so the keys no longer have to double as one
+  kb.addEventListener('pointerdown', e => { if (!playable(e)) return;
+    ensureAudio(); if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+    const n = kbNoteAt(e.clientX, e.clientY); if (n === null) return;
+    touchNoteOn(e.pointerId, n); e.preventDefault(); }, { passive: false });
+  kb.addEventListener('pointermove', e => { if (!playable(e) || !touchNotes.has(e.pointerId)) return;
+    const n = kbNoteAt(e.clientX, e.clientY); if (n !== null) touchNoteOn(e.pointerId, n); e.preventDefault(); }, { passive: false });
+  const end = e => touchNoteOff(e.pointerId);
+  kb.addEventListener('pointerup', end); kb.addEventListener('pointercancel', end); kb.addEventListener('pointerleave', end);
+  window.addEventListener('blur', () => { [...touchNotes.keys()].forEach(touchNoteOff); });
+})();
 (() => { let t0 = 0, x0 = 0, y0 = 0, dragging = false, mode = null, startKeys = 36, startLow = 0, lastN = 36, lastShift = 0;
-  kb.addEventListener('pointerdown', e => { t0 = performance.now(); x0 = e.clientX; y0 = e.clientY; dragging = false; mode = null;
+  kb.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') return;   // a finger is playing, not resizing
+    t0 = performance.now(); x0 = e.clientX; y0 = e.clientY; dragging = false; mode = null;
     startKeys = keysOverride !== null ? keysOverride : (+S.keysShown || 36); lastN = startKeys;
     startLow = lowOverride || 0; lastShift = startLow; try { kb.setPointerCapture(e.pointerId); } catch (err) {} });
-  kb.addEventListener('pointermove', e => { if (!t0) return; const dx = e.clientX - x0, dy = e.clientY - y0;
-    if (!dragging) { if (Math.max(Math.abs(dx), Math.abs(dy)) < 14) return; dragging = true; mode = Math.abs(dy) > Math.abs(dx) ? 'resize' : 'shift'; kb.classList.add('dragBW'); }   // up/down = expand or contract how many keys show; left/right = shift the starting key; a tap still opens full-screen — plain black & white while dragging so the colour highlighting doesn't fight the resize/shift preview
+  kb.addEventListener('pointermove', e => { if (!t0 || e.pointerType !== 'mouse') return; const dx = e.clientX - x0, dy = e.clientY - y0;
+    if (!dragging) { if (Math.max(Math.abs(dx), Math.abs(dy)) < 14) return; dragging = true; touchNoteOff(e.pointerId);   // it turned out to be a drag, not a note — drop the note it started
+      mode = Math.abs(dy) > Math.abs(dx) ? 'resize' : 'shift'; kb.classList.add('dragBW'); }   // up/down = expand or contract how many keys show; left/right = shift the starting key; a tap still opens full-screen — plain black & white while dragging so the colour highlighting doesn't fight the resize/shift preview
     if (mode === 'resize') { const n = Math.max(12, Math.min(88, startKeys - Math.round(dy / 22)));
       if (n !== lastN) { lastN = n; keysOverride = n; buildKeys(); renderKeys(); syncKeysReset(); } }
     else { const s = Math.max(-48, Math.min(48, startLow + Math.round(dx / 22)));
       if (s !== lastShift) { lastShift = s; lowOverride = s; buildKeys(); renderKeys(); syncKeysReset(); } } });
-  kb.addEventListener('pointerup', e => { if (!dragging && performance.now() - t0 < 400 && Math.hypot(e.clientX - x0, e.clientY - y0) < 12 && !touchLike()) toggleKbFull();   // on a phone/tablet the keys never change the layout at all — a finger on them is a performance. Rotating to landscape is what opens full screen, rotating back to portrait is what leaves it. A mouse-driven screen keeps the old tap-to-toggle.
+  kb.addEventListener('pointerup', e => {   // a click on a key is a note now, nothing else — full screen is its own button in the top bar
     t0 = 0; dragging = false; mode = null; kb.classList.remove('dragBW'); });
   kb.addEventListener('pointercancel', () => { t0 = 0; dragging = false; mode = null; kb.classList.remove('dragBW'); }); })();
 $('keysResetBtn').onclick = () => { keysOverride = null; lowOverride = null; buildKeys(); renderKeys(); syncKeysReset(); };
@@ -1234,11 +1287,12 @@ const applyOrientation = () => { const want = landscapeMq.matches; if (!want) la
   setTimeout(() => { if (kbFull) collapseExplanationRowsDefault(); else { manualHideArr = false; syncArrVisibility(); chordsRowHidden = false; syncChordsRowVisibility(); playRowHidden = false; syncPlayRowVisibility(); keysHidden = false; syncKeysVisibility(); queueRowOpenFull = false; syncMiniQueueFull(); cuesRowOpen = false; syncCuesRow(); } drawArr(); renderKeys(); syncFsPrompt(); }, 80); } else syncFsPrompt(); };   // deferred: keyInfoHidden/chordInfoHidden/manualHideArr/chordsRowHidden/playRowHidden aren't declared yet on the very first synchronous call — leaving mobile full screen resets the arrangement + chords row + play row back to visible
 landscapeMq.addEventListener ? landscapeMq.addEventListener('change', applyOrientation) : landscapeMq.addListener(applyOrientation);
 applyOrientation();
+setTimeout(() => { if (typeof syncFsBtn === 'function') syncFsBtn(); }, 0);
 document.addEventListener('fullscreenchange', () => {
   // browser entered fullscreen by some other route (F11, window controls, OS shortcut) — mirror it in the app layout
   if (document.fullscreenElement && !kbFull) { kbFull = true; document.body.classList.add('kbfull'); setTimeout(() => { drawArr(); renderKeys(); if (landscapeMq.matches) collapseExplanationRowsDefault(); syncFsPrompt(); }, 60); return; }
   if (!document.fullscreenElement && kbFull && !landscapeMq.matches) { kbFull = false; document.body.classList.remove('kbfull'); setTimeout(() => { manualHideArr = false; syncArrVisibility(); chordsRowHidden = false; syncChordsRowVisibility(); playRowHidden = false; syncPlayRowVisibility(); keysHidden = false; syncKeysVisibility(); queueRowOpenFull = false; syncMiniQueueFull(); cuesRowOpen = false; syncCuesRow(); drawArr(); renderKeys(); syncFsPrompt(); }, 60); return; }
-  syncFsPrompt();
+  syncFsPrompt(); if (typeof syncFsBtn === 'function') syncFsBtn();
 });
 
 /* ---------- audio engine ---------- */
@@ -1442,7 +1496,7 @@ function stepAdvanceIfDone(force) {
 }
 function startStep() { if (!song) return; stepMode = true; hit.clear(); attempted = false; const nx = song.notes.find(sn => sn.b1 > posBeats + 1e-6); if (nx) posBeats = Math.max(posBeats, nx.b0); updateTime(); renderKeys();
   clearInterval(stepTimer); stepTimer = setInterval(renderKeys, 120); }   // no auto-playback here, but keep the arrangement/chords live while we wait for you
-function noteOff(n, src) { const k = voiceKey(n, src); const v = sounding.get(k); if (v) { v.stop(0); sounding.delete(k); } liveNotes.delete(n);
+function noteOff(n, src) { const k = voiceKey(n, src); const v = sounding.get(k); if (v) { v.stop(0); sounding.delete(k); } liveNotes.delete(n); recentNotes.set(n, performance.now());
   if (stepMode && attempted && liveNotes.size === 0) stepAdvanceIfDone(true);   // all keys released: move on even if some notes were missed
   updateCirclePlaying();
   renderKeys(); }
@@ -2761,9 +2815,9 @@ function circleProgAdvance(n) {   // a circle-of-fifths progression judged the s
   if (!scaleProgChordHasPc(n)) progMiss++;
   if (((n % 12) + 12) % 12 === pc) progPlayRoot = n;
   const tpl = progAddsTpl((CHORDS.find(x => x[0] === scaleChordSel.q) || ['', [0, 4, 7]])[1], progDegOf(pc));
-  const held = new Set([...liveNotes].map(x => ((x % 12) + 12) % 12));
+  const held = chordHeldPcs();
   if (!tpl.map(iv => (((pc + iv) % 12) + 12) % 12).every(p => held.has(p))) return;
-  if (progAdd('r2r')) { const roots = [...liveNotes].filter(x => ((x % 12) + 12) % 12 === pc);
+  if (progAdd('r2r')) { const roots = [...chordHeld()].filter(x => ((x % 12) + 12) % 12 === pc);
     if (!roots.some(x => roots.includes(x + r2rIv()))) return; }
   if (progAdd('lh')) { const roots = [...liveNotes].filter(x => ((x % 12) + 12) % 12 === pc);
     const rest = [...liveNotes].filter(x => ((x % 12) + 12) % 12 !== pc);
@@ -2781,6 +2835,17 @@ function circleProgAdvance(n) {   // a circle-of-fifths progression judged the s
   renderCircleProgression(); renderProgKbRow();
   syncCircleProgChord(false);
 }
+// Fingers on a screen can't roll onto a chord the way hands on real keys do — one finger lands, the others follow,
+// and whichever went down first has often been lifted again by the time the last one arrives. So for the purposes
+// of "is the chord down?", a note counts as still held for a moment after it's released. Physical keyboards are
+// unaffected in practice: you'd have to release and re-press inside the window for it to make any difference.
+const CHORD_HOLD_MS = 700;
+const recentNotes = new Map();   // note -> when it was let go
+function noteReleasedRecently(n) { const t = recentNotes.get(n); return t !== undefined && performance.now() - t < CHORD_HOLD_MS; }
+function chordHeld() { const s = new Set(liveNotes);
+  for (const [n, t] of recentNotes) { if (performance.now() - t < CHORD_HOLD_MS) s.add(n); else recentNotes.delete(n); }
+  return s; }
+function chordHeldPcs() { const s = new Set(); for (const n of chordHeld()) s.add(((n % 12) + 12) % 12); return s; }
 function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note just pressed): if a practice mode is on, react to it per the active mode — the arpeggio modes care about that one specific note; the others just check what's now held
   if (circleLearnOn()) { circleLearnAdvance(n); return; }
   if (!scaleProgMode) { circleProgAdvance(n); return; }
@@ -2803,32 +2868,33 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
   } else if (scaleProgInvMode()) {   // inversions share their pitch classes, so only the exact voicing counts — root position and its inversions are otherwise indistinguishable
     let rootMidi = DLOW; while (rootMidi % 12 !== cur.pc) rootMidi++;
     rootMidi = progLhShift(rootMidi, tpl);
-    if (!invertTpl(tpl, scaleProgInv).every(iv => liveNotes.has(rootMidi + iv))) return;
+    if (!invertTpl(tpl, scaleProgInv).every(iv => chordHeld().has(rootMidi + iv))) return;
   } else if (scaleProgOctMode()) {   // the register matters here — but you may START the exercise anywhere, so accept the chord in whatever octave you actually played it and carry the whole exercise there
     let found = null;
     for (let d = 0; d <= 3 && found === null; d++) for (const k of (d ? [d, -d] : [0])) {
       const rm = progRootMidiFor(cur.pc, tpl) + k * 12;
-      if (rm >= LOW - 24 && tpl.every(iv => liveNotes.has(rm + iv))) { found = k; break; } }
+      if (rm >= LOW - 24 && tpl.every(iv => chordHeld().has(rm + iv))) { found = k; break; } }
     if (found === null) return;
     if (found) chordOct += found;   // you picked it up an octave away: the exercise moves with you
   } else {
     const need = tpl.map(iv => (cur.pc + iv) % 12);
-    const held = new Set([...liveNotes].map(n => ((n % 12) + 12) % 12));
+    const held = chordHeldPcs();
     if (!need.every(pc => held.has(pc))) return;   // not all the chord's notes are down yet
     // An inversion is only a different arrangement of the same notes, so a pitch-class check can't see it either:
     // when one is asked for, the exact keys have to be down.
     if (progInvOn()) { const rm = progRootMidiFor(cur.pc, tpl, false);
-      if (!tpl.every(iv => liveNotes.has(rm + iv)) && !tpl.every(iv => liveNotes.has(rm + iv + 12)) && !tpl.every(iv => liveNotes.has(rm + iv - 12))) return; }
+      const hh = chordHeld();
+      if (!tpl.every(iv => hh.has(rm + iv)) && !tpl.every(iv => hh.has(rm + iv + 12)) && !tpl.every(iv => hh.has(rm + iv - 12))) return; }
     // "the same note an octave up" is invisible to a pitch-class check — 0 and 12 are the same class. So when an
     // octave reach is ticked, look at the actual keys: the root has to be down twice, the right distance apart.
     if (progAdd('r2r')) {
-      const roots = [...liveNotes].filter(x => ((x % 12) + 12) % 12 === cur.pc);
+      const roots = [...chordHeld()].filter(x => ((x % 12) + 12) % 12 === cur.pc);
       if (!roots.some(x => roots.includes(x + r2rIv()))) return;
     }
     // Two hands: the left one has to be holding the root properly below the chord, not just somewhere in the pile.
     if (progAdd('lh')) {
-      const roots = [...liveNotes].filter(x => ((x % 12) + 12) % 12 === cur.pc);
-      const rest = [...liveNotes].filter(x => ((x % 12) + 12) % 12 !== cur.pc);
+      const roots = [...chordHeld()].filter(x => ((x % 12) + 12) % 12 === cur.pc);
+      const rest = [...chordHeld()].filter(x => ((x % 12) + 12) % 12 !== cur.pc);
       if (!roots.length || !rest.length || Math.min(...roots) + 12 > Math.min(...rest)) return;
     }
   }
@@ -2860,7 +2926,7 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
     const d = Math.round((anchor - lit) / 12);
     if (d) { let o = chordOct + d; while (o > 0 && !scaleProgChordFits(nextDeg, o, dt)) o--; chordOct = Math.max(0, o); }
   }
-  progPlayRoot = null; progMiss = 0;   // next chord starts hidden again
+  progPlayRoot = null; progMiss = 0; recentNotes.clear();   // next chord starts hidden again, and nothing you played for the last one counts towards it
   const next = dt.find(d => d.deg === nextDeg) || dt[0];
   scaleChordSel = { root: next.pc, q: scaleProgDom7Mode() ? '7' : next.q };
   if (scaleProgMode === 'rand') setTimeout(playExerciseChord, 260);   // you get to HEAR the chord you have to find — there is no pattern to fall back on in this one
@@ -3793,7 +3859,7 @@ function circleLearnPick() {
   // fair game: recognising that you've been handed the answer is part of reading the circle.
   const pick = { pos, deg, pc: learnTargetPc(pos, deg), minor: LEARN_DEGS[deg].ring === 'inner',
     clue: Math.floor(Math.random() * LEARN_DEGS.length) };
-  circleLearn = pick; progMiss = 0; progPlayRoot = null; scaleOverride = null;
+  circleLearn = pick; progMiss = 0; progPlayRoot = null; scaleOverride = null; recentNotes.clear();
   scaleChordSel = { root: pick.pc, q: pick.minor ? 'm' : '' };
   if (!showScaleChords) { showScaleChords = true; const b = $('scaleChordsBtn'); if (b) b.setAttribute('aria-pressed', 'true'); }
   savedLastNow = lastNow; savedNowNotes = nowNotes.slice(); showAllNotes = false; showExtensions = false;
@@ -3851,7 +3917,7 @@ function circleLearnAdvance(n) {   // a fresh key-press while the drill is runni
   const pc = scaleChordSel.root;
   if (!scaleProgChordHasPc(n)) { progMiss++; scaleOverride = circleLearnStage() >= 2 ? circleLearnScale() : null; renderKeys(); return; }   // wrong note: one more rung of help
   const tpl = progAddsTpl((CHORDS.find(x => x[0] === scaleChordSel.q) || ['', [0, 4, 7]])[1], progDegOf(pc));
-  const held = new Set([...liveNotes].map(x => ((x % 12) + 12) % 12));
+  const held = chordHeldPcs();
   if (!tpl.map(iv => (((pc + iv) % 12) + 12) % 12).every(p => held.has(p))) return;
   if (S.goodChordSound) playSuccessChime();
   circleLearnPick();
@@ -3919,6 +3985,11 @@ function syncCircleTools() {
 }
 function openCircle() { if (!$('circleWheel').children.length) buildCircleWheel(); syncCircleSelection(); syncTransposeBtn(); syncCircleTools(); resetCircleZoom(); $('circleOverlay').hidden = false; updateCirclePlaying(); }
 function closeCircle() { $('circleOverlay').hidden = true; closeProgPop(); closeTransposePop(); }
+$('fsBtn').onclick = () => { toggleKbFull(); syncFsBtn(); };
+function syncFsBtn() { const b = $('fsBtn'); if (!b) return; b.setAttribute('aria-pressed', String(kbFull));
+  b.title = b.ariaLabel = kbFull ? 'Leave full screen' : 'Full screen keyboard'; }
+$('circleBtnTop').addEventListener('pointerdown', flashCircle);
+$('circleBtnTop').onclick = openCircle;
 $('circleBtn').addEventListener('pointerdown', flashCircle);
 $('circleBtnFull').addEventListener('pointerdown', flashCircle);
 $('circleBtn').onclick = openCircle;   // this used to be assigned the return of addEventListener — i.e. undefined — so the circle button outside full screen quietly did nothing at all
@@ -5139,6 +5210,11 @@ $('scaleDegBtn').onclick = () => { showScaleDegNums = !showScaleDegNums; $('scal
 $('romanBtn').onclick = () => { showRomanNums = !showRomanNums; $('romanBtn').setAttribute('aria-pressed', showRomanNums); renderKeys(); };
 // An exercise is a DIRECTION and a TYPE, picked separately, rather than one flat list of every combination.
 // The internal mode name is derived from the pair, so everything downstream carries on unchanged.
+const DIR_ICONS = {
+  up: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V5M12 5l-6 6M12 5l6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  down: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v15M12 19l-6-6M12 19l6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  updown: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20V5M8 5 4 9M8 5l4 4M16 4v15M16 19l-4-4M16 19l4-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
 const EX_DIRS = [ { id: 'up', label: 'Up' }, { id: 'down', label: 'Down' }, { id: 'updown', label: 'Up/Down' } ];
 const EX_TYPES = [ { id: 'chords', label: 'Chords' }, { id: 'arp', label: 'Arpeggio' }, { id: 'rand', label: 'Random with audio' } ];
 const ARP_PATS = [   // the order the chord's notes are asked for, before the direction is applied
@@ -5305,14 +5381,17 @@ $('progResetBtn').onclick = restartScaleProg; syncProgResetBtn();
 function closeScaleProgPop() { const p = $('scaleProgPop'); if (!p) return; p.hidden = true; $('scaleProgBtn').setAttribute('aria-expanded', 'false'); }
 function openScaleProgPop() {   // On/Off, then two rows of choices — direction and type — and the arpeggio's own pattern row when that's the type
   const pop = $('scaleProgPop'), btn = $('scaleProgBtn');
-  const row = (label, items, cur, attr) => `<div class="exRow"><span class="exLbl">${label}</span><div class="exOpts">` +
-    items.map(x => `<button type="button" data-${attr}="${x.id}" aria-selected="${cur === x.id}">${x.label}</button>`).join('') + '</div></div>';
   const draw = () => {
-    pop.innerHTML = `<button type="button" class="playOpt" data-onoff="1" aria-selected="${exerciseOn}"><span class="tick">${exerciseOn ? '\u2713' : ''}</span>${exerciseOn ? 'On' : 'Off'}</button>`
-      + row('Direction', EX_DIRS, exDir(), 'exdir')
-      + row('Type', EX_TYPES, exType(), 'extype')
-      + (exType() === 'arp' ? row('Arpeggio', ARP_PATS.map(x => ({ id: x.id, label: x.label })), arpPat(), 'arppat')
-         + `<div class="exNote">${ARP_SHAPE[arpPat()] || ''}</div>` : '');
+    // Arpeggio patterns sit at the TOP, one per row, and only when the arpeggio type is picked. Then the three
+    // types as full-width rectangles, one below the other. Then the direction, as three icons with no label —
+    // an arrow says "up" better than the word does.
+    const arpRows = exType() === 'arp'
+      ? '<div class="exStack">' + ARP_PATS.map(x => `<button type="button" class="exWide" data-arppat="${x.id}" aria-selected="${arpPat() === x.id}"><span>${x.label}</span><em>${ARP_SHAPE[x.id] || ''}</em></button>`).join('') + '</div><div class="exSep"></div>'
+      : '';
+    pop.innerHTML = arpRows
+      + '<div class="exStack">' + EX_TYPES.map(x => `<button type="button" class="exWide" data-extype="${x.id}" aria-selected="${exType() === x.id}"><span>${x.label}</span></button>`).join('') + '</div>'
+      + '<div class="exRow exDirRow"><div class="exOpts">' + EX_DIRS.map(x => `<button type="button" class="exDir" data-exdir="${x.id}" aria-selected="${exDir() === x.id}" title="${x.label}" aria-label="${x.label}">${DIR_ICONS[x.id]}</button>`).join('') + '</div></div>'
+      + `<button type="button" class="playOpt" data-onoff="1" aria-selected="${exerciseOn}"><span class="tick">${exerciseOn ? '\u2713' : ''}</span>${exerciseOn ? 'On' : 'Off'}</button>`;
     pop.querySelector('[data-onoff]').onclick = () => { exerciseOn = !exerciseOn; applyExercise(); draw(); placePop(pop, btn); };
     pop.querySelectorAll('[data-exdir]').forEach(b => { b.onclick = () => { S.exDir = b.dataset.exdir; save(); exerciseOn = true; applyExercise(); draw(); placePop(pop, btn); }; });
     pop.querySelectorAll('[data-extype]').forEach(b => { b.onclick = () => { S.exType = b.dataset.extype; save(); exerciseOn = true; applyExercise(); draw(); placePop(pop, btn); }; });
