@@ -496,7 +496,7 @@ body.kbfull .kb{cursor:zoom-out}
 #progAddsPop .subRow{display:flex;gap:4px;padding:2px 10px 8px 38px}
 #progAddsPop .subRow button{min-height:0;padding:4px 10px;font-size:12px;border-radius:5px}
 #progAddsPop .subRow button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
-#scaleProgPop{min-width:212px}
+
 #scaleProgPop .exRow{padding:6px 8px 4px}
 #scaleProgPop .exOpts{display:flex;gap:6px;justify-content:center}
 #scaleProgPop .exDir{min-height:0;width:52px;height:36px;padding:0;border-radius:6px;flex:none;display:flex;align-items:center;justify-content:center}
@@ -506,7 +506,12 @@ body.kbfull .kb{cursor:zoom-out}
 #scaleProgPop .exWide em{font-style:normal;font-size:11px;font-weight:700;opacity:.6;font-variant-numeric:tabular-nums}
 #scaleProgPop .exWide[aria-selected="true"],#scaleProgPop .exDir[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 #scaleProgPop .exWide[aria-selected="true"] em{opacity:.75}
-#scaleProgPop .exSep{height:1px;background:var(--line);margin:6px 8px 0}
+#scaleProgPop{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:0;padding:0;width:max-content;max-width:min(94vw,440px);min-width:0}
+#scaleProgPop[hidden]{display:none}   /* an id rule beats .playPop[hidden], so without this the menu set hidden=true and stayed on screen anyway */
+#scaleProgPop .exMain{display:flex;flex-direction:column;gap:0;padding:6px;min-width:196px}
+#scaleProgPop .exArpCol{display:flex;flex-direction:column;gap:4px;padding:6px 6px 6px 0;border-left:1px solid var(--line);margin-left:2px;padding-left:8px;min-width:168px}
+#scaleProgPop .exStack{padding:0 0 4px}
+#scaleProgPop .exRow{padding:2px 0 4px}
 #progAddsPop .playOpt{width:100%;text-align:left;padding:9px 14px;font-size:13px;min-height:0;white-space:nowrap;display:flex;align-items:center;gap:10px}
 #progAddsPop .playOpt .tick{width:15px;flex:none;font-weight:800}
 #progAddsPop .playOpt[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
@@ -580,6 +585,13 @@ input[type=range]{width:100%;accent-color:var(--accent);height:30px;margin:0}
 .bpmval{flex:1;min-width:0;text-align:center;font-size:18px;font-weight:500;line-height:1}
 .bpmval small{font-size:12px;color:var(--muted);margin-left:5px;font-family:Inter,system-ui,sans-serif}
 .metrogrid{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+/* On a phone in portrait the metronome row is wider than the screen (485px of controls in 344px), so it used to
+   scroll sideways and half of it sat off the edge. It wraps onto two rows there instead, with everything visible
+   at once and the groups spread across the width. */
+@media (max-width: 699px){
+  body:not(.kbfull) .metrogrid{flex-wrap:wrap;overflow-x:visible;row-gap:8px;justify-content:space-between}
+  body:not(.kbfull) .metrogrid > #tempoGroup{order:-1;flex:1 1 100%;justify-content:center}
+}
 .metrogrid::-webkit-scrollbar{display:none}
 .metrogrid button,.metrogrid select{min-height:28px;height:28px}
 .metrogrid .bpm,.metrogrid .beats{flex:none}
@@ -643,6 +655,7 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted);letter-spacing:
      circle-of-fifths button down to a few pixels. The pill is the one thing here that can afford to be smaller —
      it is a label you read, not a target you aim at — so it gives up the room and every button keeps its size. */
   .legend .scaleGroup{position:static;transform:none;margin-right:auto}
+  .legend #fsBtn{display:none}   /* a phone gets full screen by rotating, so the button is just a button that lies */
   .legend .scalefull{position:static;transform:none;margin-right:auto;flex:none;max-width:26vw;padding:0 9px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .legend > *{flex:none}
   .keyinfo select,.keyinfo button{min-height:44px}
@@ -697,6 +710,11 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted);letter-spacing:
   /* ...and with the two bars reachable from up here, their own in-bar square buttons are a second way to do the
      same thing taking up room at the start of each bar. They stay on phones, where there is no group to press. */
   .keyinfo > #keyInfoToggle, #chordInfo > #chordInfoToggle{display:none}
+  /* ...except in mobile full screen. A phone in landscape is wider than 700px, so it was caught by the rule above
+     and lost the in-bar buttons the portrait view has — leaving the top bar as the only way to put a bar away. */
+  @media (orientation:landscape) and (max-height:620px){
+    body.kbfull .keyinfo > #keyInfoToggle, body.kbfull #chordInfo > #chordInfoToggle{display:inline-flex}
+  }
   body{font-size:15px}
   .app{max-width:min(94vw, 1100px);padding:16px 20px 20px;gap:14px}
   h1{font-size:26px}
@@ -1019,7 +1037,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '142 · 2026-09-17 · roll-a-chord';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '148 · 2026-09-17 · metro-two-rows';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1040,7 +1058,8 @@ const hex2rgb = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), pars
 const rgb2hex = c => '#' + c.map(v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
 const scale = (c, f) => c.map(v => v * f);
 const PRESETS = ['#ff3d8a','#ff8a1f','#ffc21a','#3ddc84','#1fd1ff','#2f7cff','#9b5cff','#ffffff'];
-const RED = '#e0202a';   // reserved: chord notes outside the scale
+const RED = '#e0202a';
+const MARKER_RGB = [47, 182, 255];   // markers are their own blue, so they never read as part of the orange start bar they sit on   // reserved: chord notes outside the scale
 const CHORD_GREY = '#9aa0a8';   // tapped in-key chord — both its label button and the keys it lights up (grey, not green, so it never fights the rainbow scale colour or the now/next colours)
 const OUT_OF_SCALE = '#000';
 const SCALE_GHOST = '#010101';   // a second sentinel, like OUT_OF_SCALE: plain on screen, but a thin white glow on the board instead of dark — the scale notes you may play while the song runs
@@ -1908,6 +1927,10 @@ function click(when, accent) {
   g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(accent ? 1.5 : 0.95, when + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, when + (accent ? 0.07 : 0.045));
   o.connect(g).connect(metroGain || master); o.start(when); o.stop(when + 0.1);
 }
+function announceChord(delay) {   // level 3 has nothing to look at, so the chord is played instead — the same way the random exercise does it
+  if (!progHintAudio() && scaleProgMode !== 'rand') return;
+  setTimeout(playExerciseChord, delay === undefined ? 240 : delay);
+}
 function playExerciseChord() {   // sound the exercise chord where it's lit, so "random" can be played by ear
   if (!scaleChordSel) return;
   try { ensureAudio(); } catch (e) { return; }
@@ -2164,7 +2187,11 @@ function computeColors() {
       keys = tpl.map(iv => rootMidi + iv).filter(n => n >= BASE && n <= END); }
     // Root-only drill: the exercise still runs on the whole chord — you play all of it to move on — but the keyboard
     // How much the drill gives away: the whole chord, just the root, or nothing — and one step more help per slip.
-    if (progExercise() && !progShowsChord()) keys = progShowsRoot() ? keys.filter(m => ((m % 12) + 12) % 12 === scaleChordSel.root) : [];
+    if (progExercise() && !progShowsChord()) {
+      if (!progShowsRoot()) keys = [];
+      else { const roots = keys.filter(m => ((m % 12) + 12) % 12 === scaleChordSel.root);
+        keys = roots.length ? [Math.min(...roots)] : []; }   // ONE root, not every octave of it that the ticks happen to add
+    }
     const chordKeySet = new Set(keys);
     for (const m of keys) { const pc = m % 12;
       const got = liveNotes.has(m);
@@ -2707,6 +2734,9 @@ let progMiss = 0;   // how many wrong notes on THIS chord so far — one earns t
 // The first wrong note drops it back to the normal picture: out-of-key keys out, the chord in colour.
 function progBlankBoard() { return circleLearnOn() ? circleLearnStage() < 1 : (progExercise() && !progShowsScale()); }   // nothing given away yet
 function progScaleOnly() { return circleLearnOn() ? circleLearnStage() === 2 : (progExercise() && progShowsScale() && !progShowsChord()); }   // the key is showing, the chord still isn't
+let justWrapped = false;   // the chord right after a restart must not be dragged by anything left over from the run that just ended
+let runBaseOct = 0;   // the octave the current run started in — a wrap back to the beginning returns here, so the
+                      // restart lands exactly where the first chord of the run was, not wherever the top of it drifted to
 let progPlayRoot = null;   // the root note you actually struck for the current chord — the exercise carries on in whatever octave that was
 let scaleProgInv = 0;   // 'inv' only: which inversion of the current chord is due (0 root position, 1 first, 2 second) — the chord only moves on once all three have been played
 // What the drill asks you to PLAY, on top of the plain triad — kept separate from the progression mode, which is
@@ -2734,7 +2764,11 @@ function progSpan() { return progAdd('oct2') ? 2 : 1; }   // how many octaves an
 // Where "root 2 root" puts its closing root. An octave up closes a plain triad or a seventh — but once the chord
 // reaches past an octave on its own (extensions go up to the 13th) or the exercise is running two octaves, closing
 // an octave up would land in the middle of what you just played. Then it's the two-octave root that finishes it.
-function r2rIv() { return (progAdd('oct2') || progAdd('ext')) ? 24 : 12; }
+// "Root 2 root" is about the RUN, not about each chord: the exercise climbs its octave (or two) and finishes on
+// the tonic it started from, rather than stopping on the 7th and dropping back. No middle root is asked for —
+// unless the arpeggio pattern happens to want one.
+function r2rIv() { return progSpan() * 12; }
+function progEndsOnRoot() { return progAdd('r2r'); }
 // With two hands the chord has to sit high enough that there's a whole octave underneath it for the left hand.
 // Everything that decides where the chord IS — the lights, the sound, and the check that you played it — goes
 // through here, so they can't disagree about which octave it's in.
@@ -2765,7 +2799,7 @@ function progAddsTpl(tpl, degIdx) {   // the chord's template with whatever is t
     if (progAdd('seventh')) add(diatonicIv(sc, degIdx, 6));
     if (progAdd('ext')) { add(diatonicIv(sc, degIdx, 8)); add(diatonicIv(sc, degIdx, 10)); add(diatonicIv(sc, degIdx, 12)); }
   }
-  if (progAdd('r2r')) add(r2rIv());   // finish the chord on its own root again, one octave up — or two, when the chord already reaches that far
+
   if (progAdd('lh')) add(-12);   // left hand takes the root, an octave below everything the right hand is holding
   return out.sort((x, y) => x - y);
 }
@@ -2817,8 +2851,6 @@ function circleProgAdvance(n) {   // a circle-of-fifths progression judged the s
   const tpl = progAddsTpl((CHORDS.find(x => x[0] === scaleChordSel.q) || ['', [0, 4, 7]])[1], progDegOf(pc));
   const held = chordHeldPcs();
   if (!tpl.map(iv => (((pc + iv) % 12) + 12) % 12).every(p => held.has(p))) return;
-  if (progAdd('r2r')) { const roots = [...chordHeld()].filter(x => ((x % 12) + 12) % 12 === pc);
-    if (!roots.some(x => roots.includes(x + r2rIv()))) return; }
   if (progAdd('lh')) { const roots = [...liveNotes].filter(x => ((x % 12) + 12) % 12 === pc);
     const rest = [...liveNotes].filter(x => ((x % 12) + 12) % 12 !== pc);
     if (!roots.length || !rest.length || Math.min(...roots) + 12 > Math.min(...rest)) return; }
@@ -2875,7 +2907,8 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
       const rm = progRootMidiFor(cur.pc, tpl) + k * 12;
       if (rm >= LOW - 24 && tpl.every(iv => chordHeld().has(rm + iv))) { found = k; break; } }
     if (found === null) return;
-    if (found) chordOct += found;   // you picked it up an octave away: the exercise moves with you
+    if (found && !justWrapped) { chordOct += found; if (scaleProgOct === 0) runBaseOct = chordOct; }
+    justWrapped = false;   // you picked it up an octave away: the exercise moves with you — and if that was the first chord of the run, that's its new home
   } else {
     const need = tpl.map(iv => (cur.pc + iv) % 12);
     const held = chordHeldPcs();
@@ -2887,10 +2920,6 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
       if (!tpl.every(iv => hh.has(rm + iv)) && !tpl.every(iv => hh.has(rm + iv + 12)) && !tpl.every(iv => hh.has(rm + iv - 12))) return; }
     // "the same note an octave up" is invisible to a pitch-class check — 0 and 12 are the same class. So when an
     // octave reach is ticked, look at the actual keys: the root has to be down twice, the right distance apart.
-    if (progAdd('r2r')) {
-      const roots = [...chordHeld()].filter(x => ((x % 12) + 12) % 12 === cur.pc);
-      if (!roots.some(x => roots.includes(x + r2rIv()))) return;
-    }
     // Two hands: the left one has to be holding the root properly below the chord, not just somewhere in the pile.
     if (progAdd('lh')) {
       const roots = [...chordHeld()].filter(x => ((x % 12) + 12) % 12 === cur.pc);
@@ -2898,6 +2927,7 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
       if (!roots.length || !rest.length || Math.min(...roots) + 12 > Math.min(...rest)) return;
     }
   }
+  let wrapped = false;   // set when the run restarts, so the octave-carry below doesn't drag the restart along with it
   if (S.goodChordSound) playSuccessChime();
   if (progInvOn() && progInvSel() === 'all' && scaleProgInv < 2) { scaleProgInv++; userInv = 0; progMiss = 0; progPlayRoot = null; syncInvGroup(); renderKeys(); return; }   // same chord again, the next inversion up — all three before it moves on
   if (progInvOn()) scaleProgInv = 0;
@@ -2910,26 +2940,32 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
   else if (scaleProgMode === 'bounce') { nextDeg = cur.deg + scaleProgDir;   // reverse direction at either end instead of wrapping around
     if (nextDeg > 6) { scaleProgDir = -1; nextDeg = cur.deg - 1; } else if (nextDeg < 0) { scaleProgDir = 1; nextDeg = cur.deg + 1; } }
   else if (scaleProgMode === 'fwdOct') { let [d, o] = scaleProgStep(cur.deg, scaleProgOct, 1);
-    if (o >= progSpan() || !scaleProgChordFits(d, o, dt)) { d = 0; o = 0; }   // done its octave (or ran off the keyboard) — back to the bottom and round again
+    const top = progSpan(), onClosing = cur.deg === 0 && scaleProgOct >= top;   // that was the closing tonic
+    const wantClosing = progEndsOnRoot() && d === 0 && o === top;               // ...and this would be it
+    if (onClosing || (o >= top && !wantClosing) || !scaleProgChordFits(d, o, dt)) { d = 0; o = 0; chordOct = runBaseOct; wrapped = true; justWrapped = true; recentNotes.clear(); progPlayRoot = null; }
     nextDeg = d; scaleProgOct = o; }
   else if (scaleProgMode === 'backOct') { let [d, o] = scaleProgStep(cur.deg, scaleProgOct, -1);
-    if (o < 0) { o = 0; while (scaleProgChordFits(6, o + 1, dt)) o++; d = 6; }   // ran off the bottom — restart at the highest octave that still fits
+    if (o < 0) { const top = progSpan();   // ran off the bottom — start again from the top of the run
+      chordOct = runBaseOct; wrapped = true;
+      if (progEndsOnRoot() && scaleProgChordFits(0, top, dt)) { d = 0; o = top; } else { d = 6; o = Math.max(0, top - 1); } }
     nextDeg = d; scaleProgOct = o; }
   else { let [d, o] = scaleProgStep(cur.deg, scaleProgOct, scaleProgDir);   // bounceOct: climb its octaves, then turn round and come back down, indefinitely
-    if (o < 0 || o >= progSpan() || !scaleProgChordFits(d, o, dt)) { scaleProgDir *= -1; [d, o] = scaleProgStep(cur.deg, scaleProgOct, scaleProgDir); }
+    const top = progSpan();
+    const past = o < 0 || o > top || (o === top && !(progEndsOnRoot() && d === 0)) || (cur.deg === 0 && scaleProgOct >= top && scaleProgDir > 0);
+    if (past || !scaleProgChordFits(d, o, dt)) { scaleProgDir *= -1; [d, o] = scaleProgStep(cur.deg, scaleProgOct, scaleProgDir); chordOct = runBaseOct; wrapped = true; }
     nextDeg = d; scaleProgOct = o; }
   // Wherever you played this chord, that's where the exercise carries on from. Measured against where it was LIT,
   // so playing it exactly where shown changes nothing and playing it an octave away moves the whole exercise.
-  if (!scaleProgOctMode() && progPlayRoot !== null) {
+  if (!wrapped && !scaleProgOctMode() && progPlayRoot !== null) {
     const lit = progRootMidiFor(cur.pc, tpl);
     let anchor = progPlayRoot; if (progAdd('lh') && anchor < lit) anchor += 12;   // that was the left hand, an octave under the chord
     const d = Math.round((anchor - lit) / 12);
-    if (d) { let o = chordOct + d; while (o > 0 && !scaleProgChordFits(nextDeg, o, dt)) o--; chordOct = Math.max(0, o); }
+    if (d) { let o = chordOct + d; while (o > 0 && !scaleProgChordFits(nextDeg, o, dt)) o--; chordOct = Math.max(0, o); if (scaleProgOct === 0) runBaseOct = chordOct; }
   }
   progPlayRoot = null; progMiss = 0; recentNotes.clear();   // next chord starts hidden again, and nothing you played for the last one counts towards it
   const next = dt.find(d => d.deg === nextDeg) || dt[0];
   scaleChordSel = { root: next.pc, q: scaleProgDom7Mode() ? '7' : next.q };
-  if (scaleProgMode === 'rand') setTimeout(playExerciseChord, 260);   // you get to HEAR the chord you have to find — there is no pattern to fall back on in this one
+  announceChord();   // you get to HEAR the chord — always in the random exercise, and at light level 3 in any of them
 }
 function showScaleChordPreview() {   // tapped a scale-degree chord label: show it in the "now" field/explanation row, in green, like a normal now-chord preview
   const { root: pc, q } = scaleChordSel;
@@ -2942,7 +2978,9 @@ function showScaleChordPreview() {   // tapped a scale-degree chord label: show 
   $('chordNow').style.background = `rgba(${gr},${gg},${gb},0.65)`;
   $('chordNow').querySelector('b').textContent = spellName(scaleProgDom7Mode() ? transposeName(name, S.transpose) : simpleName(transposeName(name, S.transpose)));   // the 7 is the whole point of the jazz drill, so don't let the label simplify it away
   $('chordText').textContent = chordTextFor(name, notes);
-  $('chordInfo').hidden = false;
+  // Tapping a chord by hand opens the bar that describes it; a drill picking its own chord does not — the bars are
+  // yours, and a drill shouldn't push one onto the screen you didn't ask for. Already open, it stays open and fills in.
+  if (!progExercise() || !$('chordInfo').hidden) $('chordInfo').hidden = false;
   syncHands();
 }
 function scaleChordMatches() {   // shared by the chord-name row and the roman-numeral row: which keys in view carry a diatonic triad, and how wide each one's key is
@@ -3257,14 +3295,6 @@ function drawArr() {
     if (startOn) { g.beginPath(); g.moveTo(Math.round(xa) + .5, RUL); g.lineTo(Math.round(xa) + .5, H); g.stroke(); }
     if (endOn) { g.beginPath(); g.moveTo(Math.round(xb) - .5, RUL); g.lineTo(Math.round(xb) - .5, H); g.stroke(); }
   })();
-  // markers: tap the ruler strip to drop one, tap a flag to jump there, hold a flag to remove it — passed markers dim once the start line reaches them
-  if (song && song.markers && song.markers.length) { const [ar, ag, ab] = hex2rgb(cs.getPropertyValue('--accent').trim());
-    for (let mi = 0; mi < song.markers.length; mi++) { const mb = song.markers[mi]; if (mb < x0 - 1 || mb > x0 + VIS + 1) continue; const x = bx(mb); if (x < KW) continue;
-      const here = Math.abs(mb - pos) < 0.02;
-      g.fillStyle = here ? RED : (mb <= pos ? `rgba(${ar},${ag},${ab},0.4)` : `rgb(${ar},${ag},${ab})`);   // the start line is parked right on this marker
-      g.beginPath(); g.moveTo(x - 5, 0); g.lineTo(x + 5, 0); g.lineTo(x, RUL - 1); g.closePath(); g.fill();
-      if (mi < 4) { g.fillStyle = '#fff'; g.font = '700 7px Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(String(mi + 1), x, RUL - 4); g.textAlign = 'left'; }   // numbered 1-4 to match the jump buttons in the transport bar
-    } }
   // pitch range: only the notes visible in the window (rounded to whole octaves), so fewer notes = bigger lanes
   let lo = DLOW, hi = DLOW + VIEW - 1;
   if (song) { let mn = Infinity, mx = -Infinity; for (const n of song.notes) { if (n.b1 < x0 || n.b0 > x0 + VIS) continue; const k = foldNote(n.n + (S.transpose || 0)); if (k === null) continue; mn = Math.min(mn, k); mx = Math.max(mx, k); }
@@ -3316,6 +3346,17 @@ function drawArr() {
   const px = Math.round(KW + (W - KW) * HEAD) + .5, headColor = onMarker ? RED : cs.getPropertyValue('--accent').trim();
   g.strokeStyle = headColor; g.lineWidth = 2; g.beginPath(); g.moveTo(px, 0); g.lineTo(px, H); g.stroke();
   g.fillStyle = headColor; g.beginPath(); g.moveTo(px - 5, 0); g.lineTo(px + 5, 0); g.lineTo(px, 7); g.fill();
+  // Markers, LAST so they sit on top of the start bar, and in their own blue — they used to be the same accent
+  // colour as the bar and drawn underneath it, so a marker the playhead was sitting on simply vanished.
+  // tap the ruler strip to drop one, tap a flag to jump there, hold a flag to remove it — passed markers dim
+  if (song && song.markers && song.markers.length) { const [ar, ag, ab] = MARKER_RGB;
+    for (let mi = 0; mi < song.markers.length; mi++) { const mb = song.markers[mi]; if (mb < x0 - 1 || mb > x0 + VIS + 1) continue; const x = bx(mb); if (x < KW) continue;
+      g.fillStyle = mb <= pos - 0.02 ? `rgba(${ar},${ag},${ab},0.45)` : `rgb(${ar},${ag},${ab})`;
+      g.beginPath(); g.moveTo(x - 6, 0); g.lineTo(x + 6, 0); g.lineTo(x, RUL); g.closePath();
+      g.fill();
+      g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 1; g.stroke();   // a thin dark edge keeps the flag legible wherever it lands, start bar included
+      if (mi < 4) { g.fillStyle = '#fff'; g.font = '700 7px Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(String(mi + 1), x, RUL - 4); g.textAlign = 'left'; }   // numbered 1-4 to match the jump buttons in the transport bar
+    } }
   syncMarkerButtons();
 }
 const MARKER_BTNS = 6;
@@ -3861,10 +3902,8 @@ function circleLearnPick() {
     clue: Math.floor(Math.random() * LEARN_DEGS.length) };
   circleLearn = pick; progMiss = 0; progPlayRoot = null; scaleOverride = null; recentNotes.clear();
   scaleChordSel = { root: pick.pc, q: pick.minor ? 'm' : '' };
-  if (!showScaleChords) { showScaleChords = true; const b = $('scaleChordsBtn'); if (b) b.setAttribute('aria-pressed', 'true'); }
-  savedLastNow = lastNow; savedNowNotes = nowNotes.slice(); showAllNotes = false; showExtensions = false;
-  syncChordModeButtons(); openChordInfoRow();
-  renderCircleLearn(); renderKeys();
+  savedLastNow = lastNow; savedNowNotes = nowNotes.slice();
+  renderCircleLearn(); renderKeys(); announceChord();
 }
 function renderCircleLearn() {   // ring the key, blank every note name inside it, and put the degree in the middle
   const wheel = $('circleWheel'); if (!wheel) return;
@@ -3942,11 +3981,9 @@ function circleStepChord() {   // the chord the progression is waiting for, as a
 function syncCircleProgChord(play) {   // light it like any other drill chord, so Light behaviour and Exercise types apply to a progression too
   if (!circleProg || scaleProgMode) return;
   const ch = circleStepChord(); if (!ch) return;
-  if (!showScaleChords) { showScaleChords = true; const b = $('scaleChordsBtn'); if (b) b.setAttribute('aria-pressed', 'true'); }
-  savedLastNow = lastNow; savedNowNotes = nowNotes.slice(); showAllNotes = false; showExtensions = false;
-  syncChordModeButtons(); openChordInfoRow();
+  savedLastNow = lastNow; savedNowNotes = nowNotes.slice();   // the bars are left exactly as they are — see setScaleProgMode
   scaleChordSel = ch; progMiss = 0; userInv = 0;
-  if (play) setTimeout(playExerciseChord, 200);
+  if (play) setTimeout(playExerciseChord, 200); else announceChord();
   renderKeys();
 }
 function circleTrackProgress(n) {   // call on a fresh note-press: if it matches the step we're waiting for, advance to the next one
@@ -5240,11 +5277,12 @@ function syncProgLockBtn() {}   // the lock is gone — the exercise types and l
 // help in stages: the first slip shows you the KEY you're in, the second shows you the chord itself. The count is
 // per chord — it resets every time the drill moves on.
 const PROG_HINTS = [
-  { id: 'chord', label: 'Show chord' },
-  { id: 'root',  label: 'Show root' },
-  { id: 'none',  label: 'Show nothing' },
+  { id: 'chord', label: '1 · Chord' },
+  { id: 'root',  label: '2 · Root key' },
+  { id: 'audio', label: '3 · Audio only' },
 ];
-const HINT_MIGRATE = { full: 'chord', mistakeRoot: 'root', mistake: 'none', mistakeScale: 'none', allLit: 'none' };
+const HINT_MIGRATE = { full: 'chord', mistakeRoot: 'root', mistake: 'audio', mistakeScale: 'audio', allLit: 'audio', none: 'audio' };
+function progHintAudio() { return progHint() === 'audio'; }   // level 3: nothing on the keys, you get to hear it instead
 function progHint() { const h = S.progHint; return HINT_MIGRATE[h] || (PROG_HINTS.some(x => x.id === h) ? h : 'chord'); }
 function progExercise() { return !!scaleProgMode || !!circleProg || circleLearnOn(); }   // a practice exercise OR a circle-of-fifths progression — both are drills, and the light/types/start buttons drive whichever is running
 function progStage() { return progHint() === 'chord' ? 2 : Math.min(2, progMiss); }   // 0 nothing, 1 the scale, 2 the chord
@@ -5332,7 +5370,7 @@ function syncExerciseBtn() { const btn = $('scaleProgBtn'); if (!btn) return;
   if (onProg) closeScaleProgPop(); }
 function restartScaleProg() {
   if (!scaleProgMode && !circleProg && !circleLearnOn()) return;
-  scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null; progMiss = 0;
+  scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null; progMiss = 0; runBaseOct = chordOct;
   if (typeof resetChordOct === 'function') resetChordOct();
   if (typeof syncInvGroup === 'function') syncInvGroup();
   if (scaleProgMode) {
@@ -5345,13 +5383,15 @@ function restartScaleProg() {
   renderKeys();
 }
 function setScaleProgMode(mode) {   // mode: null (off) or one of SCALE_PROG_EXERCISES' — mutually exclusive by construction, since only one can be picked from the dropdown at a time
-  scaleProgMode = mode; scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null;
+  scaleProgMode = mode; scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null; runBaseOct = chordOct;
   $('scaleProgBtn').setAttribute('aria-pressed', String(!!scaleProgMode));
   if (scaleProgMode) {
-    if (!showScaleChords) { showScaleChords = true; $('scaleChordsBtn').setAttribute('aria-pressed', 'true'); }
+  // Starting a drill used to open the scale bar and the chord bar and reset their All/Ext toggles. It doesn't
+  // touch them any more: the drill begins with the screen exactly as you left it, and whatever you had showing
+  // stays showing.
     if (!scaleChordSel && !chordsBlocked()) {
       const dt = diatonicTriads(SCALES[S.scaleType][1], S.root); const first = dt.find(d => d.deg === 0);
-      if (first) { savedLastNow = lastNow; savedNowNotes = nowNotes.slice(); showAllNotes = false; showExtensions = false; syncChordModeButtons(); openChordInfoRow(); scaleChordSel = { root: first.pc, q: scaleProgDom7Mode() ? '7' : first.q }; }
+      if (first) { savedLastNow = lastNow; savedNowNotes = nowNotes.slice(); scaleChordSel = { root: first.pc, q: scaleProgDom7Mode() ? '7' : first.q }; }
     }
   }
   if (scaleChordSel) {   // keep the lit chord's quality in step with the drill in BOTH directions: a dominant 7th for the jazz drill, the key's own triad for every other mode (and when the drill is switched off)
@@ -5362,6 +5402,7 @@ function setScaleProgMode(mode) {   // mode: null (off) or one of SCALE_PROG_EXE
   }
   syncProgLockBtn(); syncProgResetBtn(); syncProgRootBtn(); syncProgAddsBtn(); syncExerciseBtn();
   renderKeys();
+  if (scaleProgMode) announceChord(320);
 }
 
 $('progHintBtn').onclick = () => { $('progHintPop').hidden ? openProgHintPop() : closeProgHintPop(); };
@@ -5385,13 +5426,18 @@ function openScaleProgPop() {   // On/Off, then two rows of choices — directio
     // Arpeggio patterns sit at the TOP, one per row, and only when the arpeggio type is picked. Then the three
     // types as full-width rectangles, one below the other. Then the direction, as three icons with no label —
     // an arrow says "up" better than the word does.
-    const arpRows = exType() === 'arp'
-      ? '<div class="exStack">' + ARP_PATS.map(x => `<button type="button" class="exWide" data-arppat="${x.id}" aria-selected="${arpPat() === x.id}"><span>${x.label}</span><em>${ARP_SHAPE[x.id] || ''}</em></button>`).join('') + '</div><div class="exSep"></div>'
-      : '';
-    pop.innerHTML = arpRows
+    // The arpeggio patterns are a second column beside the menu, not a pile on top of it, so picking the type
+    // doesn't shove everything else down the screen.
+    const main = '<div class="exMain">'
       + '<div class="exStack">' + EX_TYPES.map(x => `<button type="button" class="exWide" data-extype="${x.id}" aria-selected="${exType() === x.id}"><span>${x.label}</span></button>`).join('') + '</div>'
       + '<div class="exRow exDirRow"><div class="exOpts">' + EX_DIRS.map(x => `<button type="button" class="exDir" data-exdir="${x.id}" aria-selected="${exDir() === x.id}" title="${x.label}" aria-label="${x.label}">${DIR_ICONS[x.id]}</button>`).join('') + '</div></div>'
-      + `<button type="button" class="playOpt" data-onoff="1" aria-selected="${exerciseOn}"><span class="tick">${exerciseOn ? '\u2713' : ''}</span>${exerciseOn ? 'On' : 'Off'}</button>`;
+      + `<button type="button" class="playOpt" data-onoff="1" aria-selected="${exerciseOn}"><span class="tick">${exerciseOn ? '\u2713' : ''}</span>${exerciseOn ? 'On' : 'Off'}</button>`
+      + '</div>';
+    const arpCol = exType() === 'arp'
+      ? '<div class="exArpCol">' + ARP_PATS.map(x => `<button type="button" class="exWide" data-arppat="${x.id}" aria-selected="${arpPat() === x.id}"><span>${x.label}</span><em>${ARP_SHAPE[x.id] || ''}</em></button>`).join('') + '</div>'
+      : '';
+    pop.innerHTML = main + arpCol;
+    pop.classList.toggle('hasArp', exType() === 'arp');
     pop.querySelector('[data-onoff]').onclick = () => { exerciseOn = !exerciseOn; applyExercise(); draw(); placePop(pop, btn); };
     pop.querySelectorAll('[data-exdir]').forEach(b => { b.onclick = () => { S.exDir = b.dataset.exdir; save(); exerciseOn = true; applyExercise(); draw(); placePop(pop, btn); }; });
     pop.querySelectorAll('[data-extype]').forEach(b => { b.onclick = () => { S.exType = b.dataset.extype; save(); exerciseOn = true; applyExercise(); draw(); placePop(pop, btn); }; });
