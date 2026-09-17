@@ -72,7 +72,7 @@ h2 .infoBtn{margin-left:8px;position:relative;top:-1px}
 .circleWrap.cfZoomed{cursor:grab}
 .circleWheel{transform-origin:50% 50%}
 /* a small fixed-size reference strip living in the header row, well clear of the wheel below — its size never factors into the wheel's own size formula, so showing/hiding it never changes the circle */
-.circleMiniKb{position:relative;width:140px;height:44px;flex:none;margin-right:10px;display:flex;border-radius:2px;overflow:hidden}
+.circleMiniKb{position:relative;width:212px;height:62px;flex:none;margin-right:10px;display:flex;border-radius:3px;overflow:hidden}
 .circleMiniKb[hidden]{display:none}
 .cmkWhite{position:relative;flex:1;background:var(--white-key);border:1px solid var(--key-line);box-sizing:border-box}
 .cmkBlack{position:absolute;top:0;height:62%;width:8.5%;background:var(--black-key);border:1px solid var(--key-line);box-sizing:border-box;z-index:2}
@@ -89,6 +89,12 @@ h2 .infoBtn{margin-left:8px;position:relative;top:-1px}
 .cfMajorLabel{font-weight:800;font-size:13px;fill:currentColor;pointer-events:none}
 .cfMinorLabel{font-weight:700;font-size:9px;fill:currentColor;pointer-events:none;opacity:.85}
 .cfMajorLabel.cfTwo{font-size:10px}
+.cfBlank{opacity:0}
+/* while the drill runs the centre stops reporting the current root and just poses the question */
+.circleCenter.cfLearnCentre > b,.circleCenter.cfLearnCentre > span:not(.cfDeg),.circleCenter.cfLearnCentre > em{display:none}
+.circleCenter .cfDeg{font:800 34px/1 Inter,system-ui,sans-serif;color:var(--text);letter-spacing:.02em}
+@media (min-width:700px){.circleCenter .cfDeg{font-size:44px}}
+#circleLearnBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 .cfMinorLabel.cfTwo{font-size:7.5px}
 .cfAccLabel{font-weight:800;font-size:10px;fill:var(--accent);pointer-events:none;opacity:1;paint-order:stroke;stroke:var(--accent-ink);stroke-width:2px;stroke-linejoin:round}
 .cfRomanLabel{font-weight:800;font-size:9px;fill:var(--accent);pointer-events:none;opacity:1;paint-order:stroke;stroke:var(--accent-ink);stroke-width:2px;stroke-linejoin:round}
@@ -653,7 +659,7 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted);letter-spacing:
   #scaleChordsB .scChord{padding:14px 8px}
   .circleHead.hasMiniKb{min-height:88px;align-items:flex-start}   /* room for the title/close row plus the centred keyboard strip below it */
   .circleHead.hasMiniKb h2{top:18px;transform:translate(-50%,-50%)}   /* pinned to the same 36px-tall top row as the close button, instead of centring over the whole taller box */
-  .circleMiniKb{position:absolute;left:50%;top:44px;margin:0;transform:translateX(-50%)}
+  .circleMiniKb{position:absolute;left:50%;top:44px;margin:0;transform:translateX(-50%);width:248px;height:70px}
 }
 /* bigger screens: scale the UI up instead of leaving it phone-sized in a narrow column */
 @media (max-width: 399px){
@@ -823,7 +829,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
   <div class="circleOverlay" id="circleOverlay" hidden>
    <div class="circleCard" id="circleCard">
     <div class="circleHead"><h2>Circle of fifths</h2><div class="circleMiniKb" id="circleMiniKb" hidden></div><button id="circleClose" class="circleClose" aria-label="Close">&#10005;</button></div>
-    <div class="circleWrap" id="circleWrap"><div class="circleTools"><button id="circleAccBtn" class="cog" aria-pressed="false" aria-label="Show/hide number of sharps or flats" title="Show/hide number of sharps or flats"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v18M15 3v18" stroke="currentColor" stroke-width="1.8"/><path d="M5 9h14M5 15h14" stroke="currentColor" stroke-width="1.8"/></svg></button><button id="circleKbBtn" class="cog" aria-pressed="false" aria-label="Show/hide the scale on a mini keyboard" title="Show/hide the scale on a mini keyboard"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 4v10M13 4v10M16 4v10" stroke="currentColor" stroke-width="1.6"/></svg></button><button id="circleProgBtn" class="cog" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-label="Chord progressions" title="Chord progressions"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="4" cy="18" r="2.3" fill="currentColor"/><circle cx="12" cy="7" r="2.3" fill="currentColor"/><circle cx="20" cy="15" r="2.3" fill="currentColor"/><path d="M6 16.3 10 9M14 8.3 18 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg></button><div class="playPop" id="circleProgPop" hidden></div><button id="circleRomanBtn" class="cog" aria-pressed="false" aria-label="Show/hide roman numerals" title="Show/hide roman numerals"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16" text-anchor="middle" font-size="9.5" font-weight="800" fill="currentColor">Ⅰ Ⅴ</text></svg></button><button id="circleTransposeBtn" class="cog" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-label="Transpose the progression" title="Transpose the progression"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button><div class="playPop" id="circleTransposePop" hidden></div></div><div class="circleWheel" id="circleWheel"></div></div>
+    <div class="circleWrap" id="circleWrap"><div class="circleTools"><button id="circleLearnBtn" class="cog" aria-pressed="false" aria-label="Learn the circle" title="Learn the circle — a wedge goes blank, you play it"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.5 12 4l9 4.5-9 4.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M6.5 11v5.2c0 1.7 2.7 3 5.5 3s5.5-1.3 5.5-3V11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><button id="circleAccBtn" class="cog" aria-pressed="false" aria-label="Show/hide number of sharps or flats" title="Show/hide number of sharps or flats"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v18M15 3v18" stroke="currentColor" stroke-width="1.8"/><path d="M5 9h14M5 15h14" stroke="currentColor" stroke-width="1.8"/></svg></button><button id="circleKbBtn" class="cog" aria-pressed="false" aria-label="Show/hide the scale on a mini keyboard" title="Show/hide the scale on a mini keyboard"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 4v10M13 4v10M16 4v10" stroke="currentColor" stroke-width="1.6"/></svg></button><button id="circleProgBtn" class="cog" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-label="Chord progressions" title="Chord progressions"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="4" cy="18" r="2.3" fill="currentColor"/><circle cx="12" cy="7" r="2.3" fill="currentColor"/><circle cx="20" cy="15" r="2.3" fill="currentColor"/><path d="M6 16.3 10 9M14 8.3 18 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg></button><div class="playPop" id="circleProgPop" hidden></div><button id="circleRomanBtn" class="cog" aria-pressed="false" aria-label="Show/hide roman numerals" title="Show/hide roman numerals"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16" text-anchor="middle" font-size="9.5" font-weight="800" fill="currentColor">Ⅰ Ⅴ</text></svg></button><button id="circleTransposeBtn" class="cog" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-label="Transpose the progression" title="Transpose the progression"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button><div class="playPop" id="circleTransposePop" hidden></div></div><div class="circleWheel" id="circleWheel"></div></div>
    </div>
   </div>
   <aside class="sheet" id="sheet" hidden>
@@ -995,7 +1001,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '135 · 2026-09-17 · circle-fixes';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '139 · 2026-09-17 · tap-to-answer';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1077,7 +1083,9 @@ const SCALES = {
 };
 NOTE_NAMES.forEach((n,i) => $('root').add(new Option(n, i)));
 Object.entries(SCALES).forEach(([k,v]) => $('scaleType').add(new Option(v[0], k)));
-const inScale = midi => { const set = SCALES[S.scaleType][1]; return set.includes(((midi - S.root) % 12 + 12) % 12); };
+let scaleOverride = null;   // {root, type} — the learn-the-circle drill points the scale at the chord it is asking for, rather than at whatever key the app happens to be in
+const inScale = midi => { const k = scaleOverride || { root: S.root, type: S.scaleType };
+  const set = SCALES[k.type][1]; return set.includes(((midi - k.root) % 12 + 12) % 12); };
 
 /* ---------- root/scale pickers: a button that expands into a tap list, instead of a native <select> ---------- */
 function buildSelPop(selectId, popId) {   // built once from the hidden <select>'s own <option>s — same source of truth, no duplicated data
@@ -2643,8 +2651,8 @@ let progMiss = 0;   // how many wrong notes on THIS chord so far — one earns t
 // "Light every key" means a blank keyboard, not a lit-up one: no chord, no scale colouring, and no blacked-out
 // keys either — exactly what the board looks like with nothing selected, so there is nothing at all to read off it.
 // The first wrong note drops it back to the normal picture: out-of-key keys out, the chord in colour.
-function progBlankBoard() { return progExercise() && !progShowsScale(); }   // nothing given away yet
-function progScaleOnly() { return progExercise() && progShowsScale() && !progShowsChord(); }   // the key is showing, the chord still isn't
+function progBlankBoard() { return circleLearnOn() ? circleLearnStage() < 1 : (progExercise() && !progShowsScale()); }   // nothing given away yet
+function progScaleOnly() { return circleLearnOn() ? circleLearnStage() === 2 : (progExercise() && progShowsScale() && !progShowsChord()); }   // the key is showing, the chord still isn't
 let progPlayRoot = null;   // the root note you actually struck for the current chord — the exercise carries on in whatever octave that was
 let scaleProgInv = 0;   // 'inv' only: which inversion of the current chord is due (0 root position, 1 first, 2 second) — the chord only moves on once all three have been played
 // What the drill asks you to PLAY, on top of the plain triad — kept separate from the progression mode, which is
@@ -2774,6 +2782,7 @@ function circleProgAdvance(n) {   // a circle-of-fifths progression judged the s
   syncCircleProgChord(false);
 }
 function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note just pressed): if a practice mode is on, react to it per the active mode — the arpeggio modes care about that one specific note; the others just check what's now held
+  if (circleLearnOn()) { circleLearnAdvance(n); return; }
   if (!scaleProgMode) { circleProgAdvance(n); return; }
   if (!scaleChordSel || chordsBlocked()) return;
   const dt = diatonicTriads(SCALES[S.scaleType][1], S.root); if (dt.length !== 7) return;
@@ -3591,14 +3600,17 @@ function buildCircleWheel() {   // built once — the wedge colours and note pos
   wheel.innerHTML = svg + '<div class="circleCenter" id="circleCenter" role="button" tabindex="0" aria-label="Open full screen with this root"><b></b><span id="circleCenterSig"></span><span>current root</span><em id="circleCenterMinor"></em></div>' + overlay;
   const goFull = () => { closeCircle(); if (!kbFull) toggleKbFull(); else { drawArr(); renderKeys(); } };
   wheel.querySelectorAll('.cfMajor').forEach(b => b.onclick = () => {
+    if (circleLearnAnswer(+b.dataset.pc, false)) return;   // mid-drill a wedge is an answer, not a key change
     S.root = +b.dataset.pc; S.scaleType = 'major'; S.scaleOn = true; $('root').value = S.root; $('scaleType').value = S.scaleType; syncSelBtn('root', 'rootBtn'); syncSelBtn('scaleType', 'scaleTypeBtn'); save(); refreshSwatches(); renderKeys(); syncCircleSelection(); renderCircleProgression(); renderProgKbRow();
   });
   wheel.querySelectorAll('.cfMinorWedge').forEach(b => b.onclick = () => {
+    if (circleLearnAnswer(+b.dataset.pc, true)) return;
     S.root = +b.dataset.pc; S.scaleType = 'minor'; S.scaleOn = true; $('root').value = S.root; $('scaleType').value = S.scaleType; syncSelBtn('root', 'rootBtn'); syncSelBtn('scaleType', 'scaleTypeBtn'); save(); refreshSwatches(); renderKeys(); syncCircleSelection(); renderCircleProgression(); renderProgKbRow();
   });
-  const center = $('circleCenter'); if (center) { center.onclick = goFull; center.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goFull(); } }; }
+  const center = $('circleCenter'); if (center) { center.onclick = () => { if (circleLearnOn()) { circleLearnPick(); return; } goFull(); };   // mid-drill the centre is the question, so tapping it asks a new one instead of leaving the circle
+  center.onclickOld = goFull; center.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goFull(); } }; }
   wheel.classList.toggle('showAcc', circleShowAcc);
-  wheel.classList.toggle('showRoman', circleShowRoman);
+  wheel.classList.toggle('showRoman', circleShowRoman && !circleLearnOn());
 }
 function rebuildCircleWheel() {   // used when a labelling toggle (sharps/flats) changes and the whole wheel's text needs regenerating
   const wheel = $('circleWheel'); if (!wheel) return;
@@ -3638,6 +3650,7 @@ function updateRomanLabels() {
   });
 }
 function renderCircleRootArc() {   // outlines the WHOLE selected section (major wedge + its relative minor stacked below it) in white, not just one ring
+  if (circleLearnOn()) return;   // the drill owns this outline while it runs — it marks the wedge you're being asked for
   const wheel = $('circleWheel'); if (!wheel) return;
   const layer = wheel.querySelector('#cfRootLayer'); if (!layer) return;
   const seg = 360 / 12;
@@ -3659,6 +3672,7 @@ function syncCircleSelection() {
   updateRomanLabels();
   renderCircleProgression();
   updateCircleMiniKb();
+  if (circleLearnOn()) renderCircleLearn();
 }
 // PROGRESSIONS: each step is a chord expressed as a hop (d) around the circle of fifths from the current
 // root, plus which ring it lives on — "outer" (major) or "inner" (that position's relative minor). This works
@@ -3742,6 +3756,106 @@ function renderCircleNextArc() {   // paints the outer perimeter, right where th
   const p1 = cfPt(r, a0), p2 = cfPt(r, a1);
   layer.innerHTML = `<path d="M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${r} ${r} 0 0 1 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}" fill="none" stroke="#2fb6ff" stroke-width="5" stroke-linecap="round"></path>`;
 }
+// ---- Learn the circle ----
+// One wedge goes blank and gets the white outline; you play that chord. Get it wrong and the help arrives a step at
+// a time on the keyboard — the root, then the whole scale, then the chord itself — the same ladder the practice
+// exercises use, one rung longer. It owns the circle while it runs, so no other exercise or progression is active.
+let circleLearn = null;   // { pc, minor } — the wedge you're being asked for
+function circleLearnOn() { return !!circleLearn; }
+function circleLearnStage() { return Math.min(3, progMiss); }   // 0 nothing · 1 the root · 2 the scale · 3 the chord
+function circleLearnScale() {   // the KEY the outline is round — the one all six degrees belong to
+  if (!circleLearn) return null;
+  return { root: FIFTHS_ORDER[circleLearn.pos], type: 'major' };
+}
+// Where each degree of a key sits on the circle: I/IV/V are three neighbouring outer wedges, and vi/ii/iii are the
+// relative minors directly under them. So a whole key is three positions wide, both rings.
+const LEARN_DEGS = [
+  { roman: 'I',   off: 0,  ring: 'outer' },
+  { roman: 'ii',  off: -1, ring: 'inner' },
+  { roman: 'iii', off: 1,  ring: 'inner' },
+  { roman: 'IV',  off: -1, ring: 'outer' },
+  { roman: 'V',   off: 1,  ring: 'outer' },
+  { roman: 'vi',  off: 0,  ring: 'inner' },
+];
+function learnPosOf(pos, off) { return ((pos + off) % 12 + 12) % 12; }
+function learnTargetPc(pos, degIdx) {
+  const d = LEARN_DEGS[degIdx], maj = FIFTHS_ORDER[learnPosOf(pos, d.off)];
+  return d.ring === 'inner' ? relMinorPc(maj) : maj;
+}
+function circleLearnPick() {
+  const prev = circleLearn;
+  // A new degree in the SAME key most of the time — that's the thing being learnt. Moving to another position is
+  // the occasional change of scenery, not the default, or you never settle into a key long enough to know it.
+  let pos, deg;
+  if (prev && Math.random() < 0.75) { pos = prev.pos; do { deg = Math.floor(Math.random() * LEARN_DEGS.length); } while (deg === prev.deg); }
+  else { let g = 0; do { pos = Math.floor(Math.random() * 12); } while (prev && pos === prev.pos && ++g < 20); deg = Math.floor(Math.random() * LEARN_DEGS.length); }
+  // One of the six keeps its note name as a foothold — it might even be the one you're being asked for, which is
+  // fair game: recognising that you've been handed the answer is part of reading the circle.
+  const pick = { pos, deg, pc: learnTargetPc(pos, deg), minor: LEARN_DEGS[deg].ring === 'inner',
+    clue: Math.floor(Math.random() * LEARN_DEGS.length) };
+  circleLearn = pick; progMiss = 0; progPlayRoot = null; scaleOverride = null;
+  scaleChordSel = { root: pick.pc, q: pick.minor ? 'm' : '' };
+  if (!showScaleChords) { showScaleChords = true; const b = $('scaleChordsBtn'); if (b) b.setAttribute('aria-pressed', 'true'); }
+  savedLastNow = lastNow; savedNowNotes = nowNotes.slice(); showAllNotes = false; showExtensions = false;
+  syncChordModeButtons(); openChordInfoRow();
+  renderCircleLearn(); renderKeys();
+}
+function renderCircleLearn() {   // ring the key, blank every note name inside it, and put the degree in the middle
+  const wheel = $('circleWheel'); if (!wheel) return;
+  wheel.classList.toggle('showRoman', circleShowRoman && !circleLearnOn());   // the wheel's own numerals would either give it away or point at the wrong key
+  wheel.querySelectorAll('.cfBlank').forEach(el => el.classList.remove('cfBlank'));
+  const centre = $('circleCenter');
+  const layer = wheel.querySelector('#cfRootLayer');
+  if (!circleLearn) { if (centre) { centre.classList.remove('cfLearnCentre'); const q = centre.querySelector('.cfDeg'); if (q) q.remove(); } renderCircleRootArc(); return; }
+  const majLabels = wheel.querySelectorAll('.cfMajorLabel'), minLabels = wheel.querySelectorAll('.cfMinorLabel');
+  // Five of the six degrees lose their note name; the clue keeps its own.
+  const clue = LEARN_DEGS[circleLearn.clue % LEARN_DEGS.length];
+  const cluePos = learnPosOf(circleLearn.pos, clue.off);
+  for (const d of LEARN_DEGS) { const p = learnPosOf(circleLearn.pos, d.off);
+    const set = d.ring === 'inner' ? minLabels : majLabels;
+    if (set[p] && !(p === cluePos && d.ring === clue.ring)) set[p].classList.add('cfBlank'); }
+  if (layer) { const seg = 360 / 12;
+    const a0 = (circleLearn.pos - 1) * seg - seg / 2, a1 = (circleLearn.pos + 1) * seg + seg / 2;
+    layer.innerHTML = `<path d="${cfWedge(33, 99, a0, a1)}" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"></path>`; }
+  if (centre) { centre.classList.add('cfLearnCentre');
+    let q = centre.querySelector('.cfDeg'); if (!q) { q = document.createElement('span'); q.className = 'cfDeg'; centre.appendChild(q); }
+    q.textContent = LEARN_DEGS[circleLearn.deg].roman; }
+}
+function setCircleLearn(on) {
+  if (on) {   // it owns the circle: nothing else may be running at the same time
+    exerciseOn = false; setScaleProgMode(null);
+    circleProg = null; progStepPtr = 0; $('circleProgBtn').setAttribute('aria-pressed', 'false');
+    closeProgPop(); renderCircleProgression(); syncProgKbBtn(); renderProgKbRow();
+    S.scaleOn = true;
+    circleLearnPick();
+  } else { circleLearn = null; progMiss = 0; scaleOverride = null; clearScaleChordSel(); renderCircleLearn(); renderKeys(); }
+  $('circleLearnBtn').setAttribute('aria-pressed', String(circleLearnOn()));
+  syncCircleTools(); syncTransposeBtn(); syncExerciseBtn(); syncProgResetBtn(); syncProgRootBtn(); syncProgAddsBtn();
+}
+// Point at the answer on the wheel instead of playing it — same question, same scoring. Returns true when the
+// drill handled the tap, so the wedge doesn't also change the app's key underneath you.
+function circleLearnAnswer(pc, minor) {
+  if (!circleLearn) return false;
+  if (pc === circleLearn.pc && minor === circleLearn.minor) {
+    if (S.goodChordSound) playSuccessChime();
+    circleLearnPick();
+  } else {
+    if (S.badNoteSound) playMistakeBuzz();
+    progMiss++; scaleOverride = circleLearnStage() >= 2 ? circleLearnScale() : null;
+    renderCircleLearn(); renderKeys();
+  }
+  return true;
+}
+function circleLearnAdvance(n) {   // a fresh key-press while the drill is running
+  if (!circleLearn || !scaleChordSel || chordsBlocked()) return;
+  const pc = scaleChordSel.root;
+  if (!scaleProgChordHasPc(n)) { progMiss++; scaleOverride = circleLearnStage() >= 2 ? circleLearnScale() : null; renderKeys(); return; }   // wrong note: one more rung of help
+  const tpl = progAddsTpl((CHORDS.find(x => x[0] === scaleChordSel.q) || ['', [0, 4, 7]])[1], progDegOf(pc));
+  const held = new Set([...liveNotes].map(x => ((x % 12) + 12) % 12));
+  if (!tpl.map(iv => (((pc + iv) % 12) + 12) % 12).every(p => held.has(p))) return;
+  if (S.goodChordSound) playSuccessChime();
+  circleLearnPick();
+}
 let circleChordPcs = new Set(), circleChordLocked = false;   // the circle's currently "recognised" chord — needs 3+ notes held at once to lock in, and only unlocks once every key is fully released, so a new chord isn't (mis)read mid-transition
 function updateCirclePlaying() {   // highlights whichever wedges (major AND their relative-minor inner wedge) belong to the recognised chord
   if (liveNotes.size === 0) { circleChordLocked = false; circleChordPcs = new Set(); }   // fully released: ready to recognise a fresh chord next
@@ -3784,6 +3898,7 @@ function openProgPop() {
     b.setAttribute('aria-selected', String(idx >= 0 && circleProg === PROGRESSIONS[idx]));
     b.onclick = () => { circleProg = idx >= 0 ? PROGRESSIONS[idx] : null; progStepPtr = 0; $('circleProgBtn').setAttribute('aria-pressed', String(!!circleProg)); closeProgPop(); renderCircleProgression(); syncProgKbBtn(); renderProgKbRow();
       if (circleProg) syncCircleProgChord(false); else if (!scaleProgMode) clearScaleChordSel();
+      syncTransposeBtn();
       syncProgResetBtn(); syncProgRootBtn(); syncProgAddsBtn(); syncExerciseBtn(); renderKeys(); };
   });
   pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
@@ -3792,11 +3907,13 @@ function openProgPop() {
 $('circleProgBtn').onclick = () => { $('circleProgPop').hidden ? openProgPop() : closeProgPop(); };
 document.addEventListener('pointerdown', e => { if (!$('circleProgPop').hidden && !e.target.closest('#circleProgPop') && !e.target.closest('#circleProgBtn')) closeProgPop(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeProgPop(); });
-function syncCircleTools() {   // make the tool buttons, the mini keyboard and the wheel's own layers agree with the view toggles — on first open that's what puts the defaults on screen
+function syncCircleTools() {
+  syncCircleProgBtnEnabled();
+  { const b = $('circleLearnBtn'); if (b) b.setAttribute('aria-pressed', String(circleLearnOn())); }   // make the tool buttons, the mini keyboard and the wheel's own layers agree with the view toggles — on first open that's what puts the defaults on screen
   $('circleAccBtn').setAttribute('aria-pressed', String(circleShowAcc));
   $('circleRomanBtn').setAttribute('aria-pressed', String(circleShowRoman));
   $('circleKbBtn').setAttribute('aria-pressed', String(circleShowKb));
-  const w = $('circleWheel'); if (w) { w.classList.toggle('showAcc', circleShowAcc); w.classList.toggle('showRoman', circleShowRoman); }
+  const w = $('circleWheel'); if (w) { w.classList.toggle('showAcc', circleShowAcc); w.classList.toggle('showRoman', circleShowRoman && !circleLearnOn()); }
   const mk = $('circleMiniKb');
   if (mk) { mk.hidden = !circleShowKb; mk.closest('.circleHead').classList.toggle('hasMiniKb', circleShowKb); if (circleShowKb) updateCircleMiniKb(); }
 }
@@ -3809,7 +3926,8 @@ $('circleBtnFull').onclick = openCircle;
 $('circleOverlay').addEventListener('pointerdown', e => { if (e.target === e.currentTarget) closeCircle(); });   // desktop only, in effect: the overlay is edge-to-edge on mobile (the card fills it, so there's no backdrop to click), but on desktop it's the dimmed area around the popup card — clicking there closes it
 $('circleClose').onclick = closeCircle;
 $('circleAccBtn').onclick = () => { circleShowAcc = !circleShowAcc; $('circleAccBtn').setAttribute('aria-pressed', circleShowAcc); const w = $('circleWheel'); if (w) w.classList.toggle('showAcc', circleShowAcc); };
-$('circleRomanBtn').onclick = () => { circleShowRoman = !circleShowRoman; $('circleRomanBtn').setAttribute('aria-pressed', circleShowRoman); const w = $('circleWheel'); if (w) w.classList.toggle('showRoman', circleShowRoman); };
+$('circleRomanBtn').onclick = () => { circleShowRoman = !circleShowRoman; $('circleRomanBtn').setAttribute('aria-pressed', circleShowRoman); const w = $('circleWheel'); if (w) w.classList.toggle('showRoman', circleShowRoman && !circleLearnOn()); };
+$('circleLearnBtn').onclick = () => setCircleLearn(!circleLearnOn());
 $('circleKbBtn').onclick = () => { circleShowKb = !circleShowKb; $('circleKbBtn').setAttribute('aria-pressed', circleShowKb); $('circleMiniKb').hidden = !circleShowKb; $('circleMiniKb').closest('.circleHead').classList.toggle('hasMiniKb', circleShowKb); if (circleShowKb) updateCircleMiniKb(); };
 /* ---------- pinch to zoom the wheel (and drag it around once it's bigger than the frame) ---------- */
 let cfZoom = 1, cfPanX = 0, cfPanY = 0, cfMoved = false, cfGestureEnd = -1e9;
@@ -3864,14 +3982,23 @@ function resetCircleZoom() { cfZoom = 1; cfPanX = 0; cfPanY = 0; applyCircleZoom
   }, { passive: false });
 })();
 function closeTransposePop() { const p = $('circleTransposePop'); if (!p) return; p.hidden = true; $('circleTransposeBtn').setAttribute('aria-expanded', 'false'); }
-function syncTransposeBtn() { const btn = $('circleTransposeBtn'); if (!btn) return; btn.setAttribute('aria-pressed', String(progTranspose !== 0)); }   // stays lit whenever a transpose is dialled in, even with the popup closed — otherwise there was no way to tell a transpose was still active just by glancing at the wheel
+// Transposing used to redraw the wheel and stop there — the chord actually lit on the keyboard stayed where it
+// was, so from the keys it looked like nothing had happened. It moves everything now. With no progression picked
+// there is nothing to transpose, so the button says so instead of doing nothing.
+function afterTranspose() { renderTransposePop(); renderCircleProgression(); renderProgKbRow(); renderCircleNextArc();
+  if (circleProg && !scaleProgMode) syncCircleProgChord(false);
+  renderKeys(); }
+function syncTransposeBtn() { const btn = $('circleTransposeBtn'); if (!btn) return;
+  btn.disabled = !circleProg;
+  btn.title = circleProg ? 'Transpose the progression' : 'Transpose — pick a progression first';
+  btn.setAttribute('aria-pressed', String(progTranspose !== 0)); }   // stays lit whenever a transpose is dialled in, even with the popup closed — otherwise there was no way to tell a transpose was still active just by glancing at the wheel
 function renderTransposePop() { const p = $('circleTransposePop'); if (!p || p.hidden) return; const v = $('circleTransposeVal'); if (v) v.textContent = (progTranspose > 0 ? '+' : '') + progTranspose; syncTransposeBtn(); }
 function openTransposePop() {
   const pop = $('circleTransposePop'), btn = $('circleTransposeBtn');
   pop.innerHTML = '<button type="button" class="fchip" id="circleTransposeDown" aria-label="Transpose down">−</button><span class="mono" id="circleTransposeVal"></span><button type="button" class="fchip" id="circleTransposeUp" aria-label="Transpose up">+</button><button type="button" class="playOpt" id="circleTransposeReset" style="width:auto;padding:6px 10px">Reset</button>';
-  const step = d => { progTranspose = Math.max(-11, Math.min(11, progTranspose + d)); renderTransposePop(); renderCircleProgression(); renderProgKbRow(); };
+  const step = d => { progTranspose = Math.max(-11, Math.min(11, progTranspose + d)); afterTranspose(); };
   $('circleTransposeDown').onclick = () => step(-1); $('circleTransposeUp').onclick = () => step(1);
-  $('circleTransposeReset').onclick = () => { progTranspose = 0; renderTransposePop(); renderCircleProgression(); renderProgKbRow(); };
+  $('circleTransposeReset').onclick = () => { progTranspose = 0; afterTranspose(); };
   pop.hidden = false; btn.setAttribute('aria-expanded', 'true');   // unhide BEFORE the first renderTransposePop() call below — that function bails out early while the popup is still hidden, so the transpose value used to come up blank every time the popup was freshly opened (only filled in once you tapped +/- or Reset) — which read as "it doesn't show the transposition is in"
   renderTransposePop();
   placePop(pop, btn, 'right');
@@ -5043,11 +5170,11 @@ const PROG_HINTS = [
 ];
 const HINT_MIGRATE = { full: 'chord', mistakeRoot: 'root', mistake: 'none', mistakeScale: 'none', allLit: 'none' };
 function progHint() { const h = S.progHint; return HINT_MIGRATE[h] || (PROG_HINTS.some(x => x.id === h) ? h : 'chord'); }
-function progExercise() { return !!scaleProgMode || !!circleProg; }   // a practice exercise OR a circle-of-fifths progression — both are drills, and the light/types/start buttons drive whichever is running
+function progExercise() { return !!scaleProgMode || !!circleProg || circleLearnOn(); }   // a practice exercise OR a circle-of-fifths progression — both are drills, and the light/types/start buttons drive whichever is running
 function progStage() { return progHint() === 'chord' ? 2 : Math.min(2, progMiss); }   // 0 nothing, 1 the scale, 2 the chord
-function progShowsChord() { return progStage() >= 2; }
-function progShowsScale() { return progStage() >= 1; }
-function progShowsRoot() { return progHint() === 'root'; }
+function progShowsChord() { return circleLearnOn() ? circleLearnStage() >= 3 : progStage() >= 2; }
+function progShowsScale() { return circleLearnOn() ? circleLearnStage() >= 2 : progStage() >= 1; }
+function progShowsRoot() { return circleLearnOn() ? circleLearnStage() === 1 : progHint() === 'root'; }
 function syncProgRootBtn() { const btn = $('progHintBtn'); if (!btn) return;
   btn.disabled = !progExercise(); btn.setAttribute('aria-pressed', String(progHint() !== 'chord'));
   const h = PROG_HINTS.find(x => x.id === progHint()); btn.title = h ? 'Light behaviour: ' + h.label : 'Light behaviour'; }
@@ -5113,13 +5240,14 @@ function openProgHintPop() {
 // the first degree, every counter the exercises keep (direction, octave, arpeggio step, inversion) is zeroed, and a
 // circle-of-fifths progression rewinds to its first step too.
 function syncProgResetBtn() { const btn = $('progResetBtn'); if (btn) btn.disabled = !progExercise(); }
+function syncCircleProgBtnEnabled() { const b = $('circleProgBtn'); if (b) b.disabled = circleLearnOn(); }
 const EX_ICON = '<path d="M4 5l7 7-7 7M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>';
 const PROG_ICON = '<circle cx="4" cy="18" r="2.3" fill="currentColor"/><circle cx="12" cy="7" r="2.3" fill="currentColor"/><circle cx="20" cy="15" r="2.3" fill="currentColor"/><path d="M6 16.3 10 9M14 8.3 18 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>';
 // A circle-of-fifths progression IS the exercise while it's picked, so the exercise list is closed off and the
 // button wears the progression's own icon — the rest of the group (light behaviour, types, start again) then
 // drives the progression instead.
 function syncExerciseBtn() { const btn = $('scaleProgBtn'); if (!btn) return;
-  const onProg = !!circleProg && !scaleProgMode;
+  const onProg = (!!circleProg || circleLearnOn()) && !scaleProgMode;
   btn.disabled = onProg;
   btn.setAttribute('aria-pressed', String(!!scaleProgMode || onProg));
   if (!scaleProgMode) exerciseOn = false;
@@ -5127,7 +5255,7 @@ function syncExerciseBtn() { const btn = $('scaleProgBtn'); if (!btn) return;
   const svg = btn.querySelector('svg'); if (svg) svg.innerHTML = onProg ? PROG_ICON : EX_ICON;
   if (onProg) closeScaleProgPop(); }
 function restartScaleProg() {
-  if (!scaleProgMode && !circleProg) return;
+  if (!scaleProgMode && !circleProg && !circleLearnOn()) return;
   scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null; progMiss = 0;
   if (typeof resetChordOct === 'function') resetChordOct();
   if (typeof syncInvGroup === 'function') syncInvGroup();
@@ -5135,6 +5263,7 @@ function restartScaleProg() {
     const dt = diatonicTriads(SCALES[S.scaleType][1], S.root); const first = dt.find(d => d.deg === 0);
     if (first) scaleChordSel = { root: first.pc, q: scaleProgDom7Mode() ? '7' : first.q };
   }
+  if (circleLearnOn()) { circleLearnPick(); return; }
   if (circleProg) { progStepPtr = 0; renderCircleProgression(); renderProgKbRow(); if (!scaleProgMode) syncCircleProgChord(false); }
   const btn = $('progResetBtn'); if (btn) { btn.classList.add('primary'); setTimeout(() => btn.classList.remove('primary'), 160); }
   renderKeys();
