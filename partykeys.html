@@ -5,6 +5,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>PartyKeys Player</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#1C1824"/><g transform="translate(6,14)"><rect x="0" y="0" width="52" height="36" rx="3" fill="#ffffff"/><path d="M8.7 0v36M17.3 0v36M26 0v36M34.7 0v36M43.3 0v36" stroke="#1C1824" stroke-width="1.6"/><rect x="5.6" y="0" width="6" height="22" rx="1.4" fill="#1C1824"/><rect x="14.2" y="0" width="6" height="22" rx="1.4" fill="#ff3d8a"/><rect x="31.6" y="0" width="6" height="22" rx="1.4" fill="#1C1824"/><rect x="40.2" y="0" width="6" height="22" rx="1.4" fill="#ffc21a"/></g></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#1C1824"/><g transform="translate(6,14)"><rect x="0" y="0" width="52" height="36" rx="3" fill="#ffffff"/><path d="M8.7 0v36M17.3 0v36M26 0v36M34.7 0v36M43.3 0v36" stroke="#1C1824" stroke-width="1.6"/><rect x="5.6" y="0" width="6" height="22" rx="1.4" fill="#1C1824"/><rect x="14.2" y="0" width="6" height="22" rx="1.4" fill="#ff3d8a"/><rect x="31.6" y="0" width="6" height="22" rx="1.4" fill="#1C1824"/><rect x="40.2" y="0" width="6" height="22" rx="1.4" fill="#ffc21a"/></g></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <style>
 :root{
@@ -60,13 +62,13 @@ h2 .infoBtn{margin-left:8px;position:relative;top:-1px}
 .exClose{position:absolute;top:3px;right:3px;width:24px;height:24px;min-height:0;padding:0;border-radius:4px;background:transparent;border:0;color:var(--muted);font-size:13px;line-height:1}
 .scrim{position:fixed;inset:0;background:rgba(8,6,12,.55);z-index:20}
 .sheet{position:fixed;left:0;right:0;top:0;max-height:92dvh;background:var(--bg);border:1px solid var(--line);border-top:0;border-radius:0 0 4px 4px;z-index:21;display:flex;flex-direction:column;max-width:560px;margin:0 auto;box-shadow:0 12px 40px rgba(0,0,0,.35)}
-.circleOverlay{position:fixed;inset:0;background:var(--bg);z-index:25;display:flex;flex-direction:column;padding:max(12px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
+.circleOverlay{position:fixed;inset:0;background:var(--bg);z-index:60;display:flex;flex-direction:column;padding:max(12px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
 .circleOverlay[hidden]{display:none}
 .circleCard{display:flex;flex-direction:column;flex:1;min-height:0}   /* mobile: just passes through, filling the full-bleed overlay exactly as before — the desktop media query below is what turns this into an actual popup card */
 .circleHead{position:relative;display:flex;align-items:center;justify-content:flex-end;flex:none;margin-bottom:6px;min-height:36px}
 .circleHead h2{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;font-size:16px;font-weight:800;white-space:nowrap}
 .circleClose{width:36px;height:36px;min-height:0;padding:0;border-radius:8px;background:var(--surface2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:15px}
-.circleWrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding-left:64px;overflow:hidden;touch-action:none}
+.circleWrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-height:0;overflow:hidden;touch-action:none}   /* no left gutter for the tools any more: they float over the wheel's empty top-left corner, so the circle gets the full width of the screen to start from */
 .circleWrap.cfZoomed{cursor:grab}
 .circleWheel{transform-origin:50% 50%}
 /* a small fixed-size reference strip living in the header row, well clear of the wheel below — its size never factors into the wheel's own size formula, so showing/hiding it never changes the circle */
@@ -75,13 +77,19 @@ h2 .infoBtn{margin-left:8px;position:relative;top:-1px}
 .cmkWhite{position:relative;flex:1;background:var(--white-key);border:1px solid var(--key-line);box-sizing:border-box}
 .cmkBlack{position:absolute;top:0;height:62%;width:8.5%;background:var(--black-key);border:1px solid var(--key-line);box-sizing:border-box;z-index:2}
 .circleTools{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:8px;flex:none;z-index:2}
+/* These were bare icons floating over the wheel and read as decoration; they're real controls, so they look it. */
+.circleTools .cog{background:var(--surface2);border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
 .circleTools .cog[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
-.circleWheel{position:relative;width:min(calc(100vw - 96px),calc(100vh - 136px),820px);height:min(calc(100vw - 96px),calc(100vh - 136px),820px);flex:none}
+#circleProgPop{max-height:min(70vh,440px);overflow-y:auto;overscroll-behavior:contain}
+.circleTools .cog[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.circleWheel{position:relative;width:min(calc(100vw - 76px),calc(100vh - 120px),820px);height:min(calc(100vw - 76px),calc(100vh - 120px),820px);flex:none}
 .circleWheel svg{width:100%;height:100%;display:block;overflow:visible}
 .cfOverlaySvg{position:absolute;inset:0;pointer-events:none}
 .cfMajor{cursor:pointer}
 .cfMajorLabel{font-weight:800;font-size:13px;fill:currentColor;pointer-events:none}
 .cfMinorLabel{font-weight:700;font-size:9px;fill:currentColor;pointer-events:none;opacity:.85}
+.cfMajorLabel.cfTwo{font-size:10px}
+.cfMinorLabel.cfTwo{font-size:7.5px}
 .cfAccLabel{font-weight:800;font-size:10px;fill:var(--accent);pointer-events:none;opacity:1;paint-order:stroke;stroke:var(--accent-ink);stroke-width:2px;stroke-linejoin:round}
 .cfRomanLabel{font-weight:800;font-size:9px;fill:var(--accent);pointer-events:none;opacity:1;paint-order:stroke;stroke:var(--accent-ink);stroke-width:2px;stroke-linejoin:round}
 .circleWheel:not(.showAcc) .cfAccLabel{opacity:0}
@@ -148,6 +156,11 @@ body.keysGoneFull .arr.arrHidden{display:flex!important}
 .fngRowB span{position:absolute;bottom:0;transform:translateX(-50%);font:800 17px/1 Inter,system-ui,sans-serif;background:rgba(0,0,0,.55);color:#fff;border-radius:3px;padding:4px 6px;white-space:nowrap}
 .practicebar[hidden]{display:none}
 .practicebar .chGroup{flex:none}
+/* The practice bar has more in it than a phone is wide, and it was simply being clipped — the groups at the right
+   end were unreachable. It scrolls sideways now (no visible scrollbar), so everything in it can be got at. */
+.practicebar{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.practicebar::-webkit-scrollbar{display:none}
+.practicebar > *{flex:none}
 .shiftGroup{display:flex;align-items:center}
 .shiftVal{min-width:34px;padding:0 4px;font-variant-numeric:tabular-nums;font-weight:600;background:none;border:0;color:var(--text)}
 .shiftVal.moved{color:var(--accent)}
@@ -429,6 +442,12 @@ body.kbfull .kb{cursor:zoom-out}
 .keyinfo .spk .ico{width:19px;height:19px}
 .keyinfo .smBtn{width:30px;padding:0;flex:none}
 .chordinfo .chGroup button{min-height:37px;height:37px;width:38px;padding:0;font-size:13.5px;display:inline-flex;align-items:center;justify-content:center}
+/* A hidden button in one of these groups was still being laid out — the flex display rule beat the `hidden`
+   attribute — so the three old feedback-sound buttons, kept only so their state is still readable, were taking up
+   real width in the bar for nothing. */
+.chordinfo .chGroup button[hidden],.chordinfo button[hidden]{display:none!important}
+#soundsBtn{width:32px;padding:0}
+#soundsBtn .ico{width:17px;height:17px}
 .chordinfo .chGroup button.chW32{width:32px}
 .chordinfo .chGroup button.chW40{width:40px}
 .scaleChordRow{position:relative;flex:none;height:40px}
@@ -440,14 +459,34 @@ body.kbfull .kb{cursor:zoom-out}
 #romanBtn[aria-pressed="true"],#scaleDegBtn[aria-pressed="true"],#scaleProgBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 #goodChordSoundBtn[aria-pressed="true"]{background:#2f9e5b;color:#fff;border-color:transparent}
 #badNoteSoundBtn[aria-pressed="true"]{background:#d4483f;color:#fff;border-color:transparent}
-#progLockBtn[aria-pressed="true"]{background:#d4483f;color:#fff;border-color:transparent}
-#progLockBtn:disabled{opacity:.4}
+#soundsBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+#soundsPop .playOpt{width:100%;text-align:left;padding:9px 14px;font-size:13px;min-height:0;white-space:nowrap;display:flex;align-items:center;gap:10px}
+#soundsPop .playOpt .tick{width:15px;flex:none;font-weight:800}
+#soundsPop .playOpt[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
 #progKbBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 #progKbBtn:disabled{opacity:.4}
 .progKbRow span{background:var(--accent);color:var(--accent-ink);border-radius:50%;min-width:1.6em;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.4);pointer-events:auto;cursor:pointer}
 #scaleChordsBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 #fingerLBtn[aria-pressed="true"],#fingerRBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 #progHintBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+#progAddsBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+#progAddsBtn:disabled{opacity:.4}
+#progAddsBtn{position:relative}
+#progAddsBtn .exTag{position:absolute;right:1px;bottom:0;font:800 9px/1 Inter,system-ui,sans-serif;letter-spacing:-.02em;pointer-events:none}
+#progAddsBtn .exTag:empty{display:none}
+#progAddsPop .subRow{display:flex;gap:4px;padding:2px 10px 8px 38px}
+#progAddsPop .subRow button{min-height:0;padding:4px 10px;font-size:12px;border-radius:5px}
+#progAddsPop .subRow button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+#scaleProgPop{min-width:212px}
+#scaleProgPop .exRow{padding:6px 10px 2px}
+#scaleProgPop .exLbl{display:block;font:700 10px/1 Inter,system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+#scaleProgPop .exOpts{display:flex;flex-wrap:wrap;gap:4px}
+#scaleProgPop .exOpts button{min-height:0;padding:5px 9px;font-size:12px;border-radius:5px;flex:none}
+#scaleProgPop .exOpts button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+#scaleProgPop .exNote{padding:2px 10px 6px;font:600 11px/1.2 Inter,system-ui,sans-serif;color:var(--muted);font-variant-numeric:tabular-nums}
+#progAddsPop .playOpt{width:100%;text-align:left;padding:9px 14px;font-size:13px;min-height:0;white-space:nowrap;display:flex;align-items:center;gap:10px}
+#progAddsPop .playOpt .tick{width:15px;flex:none;font-weight:800}
+#progAddsPop .playOpt[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
 #progHintBtn:disabled{opacity:.4}
 #progHintPop .playOpt{width:100%;text-align:left;padding:9px 14px;font-size:13px;min-height:0;white-space:nowrap}
 #progHintPop .playOpt[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
@@ -656,9 +695,10 @@ details summary{cursor:pointer;font-size:12px;color:var(--muted);letter-spacing:
   .key .lbl{font-size:12px}
   .arr{height:130px}
   .sheet{max-width:min(94vw, 1100px)}
-  /* desktop: the circle-of-fifths becomes an actual popup — a dimmed backdrop behind a centred card sized to its own content, not a full-bleed screen — so there's room to click outside it and close it */
-  .circleOverlay{background:rgba(8,6,12,.55);align-items:center;justify-content:center;padding:24px}
-  .circleCard{flex:none;width:auto;max-width:calc(100vw - 48px);max-height:calc(100vh - 48px);background:var(--bg);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.5);padding:16px 20px 20px;overflow:auto;cursor:default}
+  /* The circle is edge-to-edge at every size now, full-screen keyboard included: it used to shrink to a centred
+     card on desktop, which left the wheel small in the middle of a dimmed page and little room to zoom into. The
+     whole screen IS the circle; the ✕ closes it (and so does Escape). */
+  .circleOverlay{padding:max(12px,env(safe-area-inset-top)) 20px max(16px,env(safe-area-inset-bottom))}
 }
 @media (min-width: 1200px){
   body{font-size:16px}
@@ -717,7 +757,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
         <div id="arrScore" class="arrScore" hidden aria-live="polite"></div>
         <button id="arrReset" class="arrReset" hidden aria-label="Clear how you played" title="Clear the green/red marks and leave the song as it was"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0 0 13.9 3M18.5 9a8 8 0 0 0-13.9-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg><span>Reset</span></button></div>
       <div class="arrResize" id="arrResize" role="separator" aria-orientation="horizontal" aria-label="Resize the arrangement view" tabindex="0"></div>
-      <div class="kbstage"><div class="kb" id="kb"></div><button id="keysResetBtn" class="kbReset" hidden aria-pressed="true" title="Back to the default number of keys"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0 0 13.9 3M18.5 9a8 8 0 0 0-13.9-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button><div class="kbOverlay" id="kbOverlay"><div class="chordinfo keyinfo" id="keyInfo" hidden><button id="keyInfoClearBtn" class="rowToggle rowToggleLead" aria-label="Clear all scale toggles" title="Clear all scale toggles"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0 0 13.9 3M18.5 9a8 8 0 0 0-13.9-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button><select id="root" aria-label="Root" style="display:none"></select><select id="scaleType" aria-label="Scale" style="display:none"></select><span class="keyGroup"><button id="rootBtn" class="selBtn" aria-haspopup="listbox" aria-expanded="false" title="Root"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.6" fill="currentColor"/><circle cx="17.5" cy="16" r="2.6" fill="currentColor"/></svg><span class="selVal"></span></button><button id="scaleTypeBtn" class="selBtn" aria-haspopup="listbox" aria-expanded="false" title="Scale"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V14M9 20V10M14 20V6M19 20V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="selVal"></span></button><button id="keyFromSong" class="detectBtn" title="Detect from song"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2"/><line x1="14.3" y1="14.3" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Detect</span></button><button id="relScaleBtn" class="smBtn" title="Switch to the relative major/minor" aria-label="Switch to the relative major/minor"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v14M7 3L3 7M7 3l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M17 21V7M17 21l-4-4M17 21l4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button></span><div class="selPop" id="rootPop" hidden role="listbox" aria-label="Root"></div><div class="selPop" id="scaleTypePop" hidden role="listbox" aria-label="Scale"></div><span class="chGroup"><button id="scaleChordsBtn" class="spk" aria-pressed="true" aria-label="Show the chord built on each scale note" title="Show the chord built on each scale note"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="5" cy="15" r="2" fill="currentColor"/><circle cx="12" cy="10" r="2" fill="currentColor"/><circle cx="19" cy="13" r="2" fill="currentColor"/></svg></button><button id="scaleDegBtn" aria-pressed="false" class="smBtn" title="Show/hide the scale's degree numbers (1-7) on the keys">#</button><button id="romanBtn" aria-pressed="false" class="smBtn" title="Show/hide roman numerals for each scale-degree chord">Ⅰ</button></span><button id="keyInfoToggle" class="rowToggle rowToggleSq" aria-pressed="false" aria-label="Show/hide the scale bar" title="Show/hide the scale bar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V14M9 20V10M14 20V6M19 20V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><div class="chordinfo practicebar" id="practiceBar" hidden><button id="practiceToggleInner" class="rowToggle rowToggleSq" aria-pressed="false" aria-label="Hide the practice bar" title="Hide the practice bar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2 9l10 5 10-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M6 11.5V16c0 1.6 2.7 2.9 6 2.9s6-1.3 6-2.9v-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><span class="chGroup"><button id="fingerLBtn" aria-pressed="false" class="smBtn" title="Show left-hand finger numbers">L</button><button id="fingerRBtn" aria-pressed="false" class="smBtn" title="Show right-hand finger numbers">R</button><button id="fingerBBtn" aria-pressed="false" class="smBtn chW40" aria-haspopup="true" aria-expanded="false" title="Show both hands">LR</button></span><span class="chGroup"><button id="scalePlay" class="spk playToggle" aria-pressed="false" aria-label="Play the scale" title="Play the scale — press again to stop"><svg class="ico icoPlay" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><svg class="ico icoStop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg></button></span><span class="chGroup"><button id="scaleProgBtn" class="spk" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-label="Practice exercises: play a lit chord's notes to jump to the next one" title="Practice exercises: play a lit chord's notes to jump to the next one"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5l7 7-7 7M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button><div class="playPop" id="scaleProgPop" hidden></div><button id="progLockBtn" aria-pressed="false" class="smBtn" disabled title="Once a progression practice mode is picked: only allow its chords/scale notes, and buzz on anything else — even while a song is playing" aria-label="Restrict to this progression's chords and scale">🔒</button><button id="progResetBtn" class="smBtn" disabled title="Start the progression again from the first chord" aria-label="Start the progression again from the first chord"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0 0 13.9 3M18.5 9a8 8 0 0 0-13.9-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button><button id="progHintBtn" aria-pressed="false" class="smBtn" disabled aria-haspopup="true" aria-expanded="false" title="How much of the chord to light up" aria-label="How much of the chord to light up"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.4" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".45"/></svg></button><div class="playPop" id="progHintPop" hidden role="listbox" aria-label="How much of the chord to light up"></div></span><span class="chGroup"><button id="progKbBtn" aria-pressed="false" class="smBtn" disabled title="Once a chord progression is picked in the circle of fifths: number its chord roots on the keyboard, in order" aria-label="Show the chord progression's root note order on the keyboard">①</button></span><span class="chGroup"><button id="goodChordSoundBtn" aria-pressed="true" class="smBtn" title="Play a sound when you complete a chord correctly" aria-label="Play a sound when you complete a chord correctly">✓</button><button id="badNoteSoundBtn" aria-pressed="true" class="smBtn" title="Play a sound when you play a note outside the chord/scale" aria-label="Play a sound when you play a note outside the chord/scale">✗</button><button id="speakChordBtn" aria-pressed="false" class="smBtn" title="Say the chord name out loud as it changes" aria-label="Say the chord name out loud as it changes">🗣</button></span><span class="chGroup shiftGroup"><button id="scaleDownBtn" class="smBtn" aria-label="Down a semitone — the scale before this one" title="Down a semitone">−</button><button id="scaleShiftVal" class="shiftVal" aria-label="Semitones from where you started — press to go back" title="Semitones from where you started — press to go back">0</button><button id="scaleUpBtn" class="smBtn" aria-label="Up a semitone — the next scale up" title="Up a semitone">+</button></span></div><div class="chordinfo" id="chordInfo" hidden><button id="chordInfoClearBtn" class="rowToggle rowToggleLead" aria-label="Clear all chord toggles" title="Clear all chord toggles"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0 0 13.9 3M18.5 9a8 8 0 0 0-13.9-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button><span class="chGroup chGroup-info"><button id="chordInfoBtn" type="button" aria-pressed="false" title="Chord info"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="11" x2="12" y2="16.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.3" r="1.2" fill="currentColor"/></svg></button><button id="allNotesBtn" aria-pressed="false" title="Show every octave of this chord's notes on the keyboard">All</button><button id="extBtn" aria-pressed="false" title="Show the chord's extensions (9/11/13), numbered from the tonic">Ext</button><button id="degNumBtn" aria-pressed="true" class="chW32" title="Show/hide the chord's degree numbers on the keys">#</button></span><span class="chGroup degGroup" id="degGroup"><button id="degDownBtn" class="smBtn" aria-label="The scale degree below this one" title="Down a scale degree">−</button><button id="degVal" class="degVal" aria-label="This chord's degree in the scale" title="Which degree of the scale this chord is">–</button><button id="degUpBtn" class="smBtn" aria-label="The scale degree above this one" title="Up a scale degree">+</button></span><span class="chGroup invGroup" id="invGroup"><button class="smBtn invBtn" data-inv="0" aria-pressed="true" title="Root position">R</button><button class="smBtn invBtn" data-inv="1" aria-pressed="false" title="1st inversion">1</button><button class="smBtn invBtn" data-inv="2" aria-pressed="false" title="2nd inversion">2</button><button class="smBtn invBtn" data-inv="3" aria-pressed="false" title="3rd inversion">3</button></span><span class="chGroup chGroup-info"></span><span id="chordText"></span><button id="chordInfoToggle" class="rowToggle rowToggleSq" aria-pressed="false" aria-label="Show/hide the chord bar" title="Show/hide the chord bar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="5" cy="15" r="2" fill="currentColor"/><circle cx="12" cy="10" r="2" fill="currentColor"/><circle cx="19" cy="13" r="2" fill="currentColor"/></svg></button></div><div class="scaleChordRow" id="scaleChordsB" hidden></div><div class="scaleChordRow" id="scaleChords" hidden></div><div class="chordDeg" id="chordDegB"></div><div class="chordDeg" id="chordDeg"></div><div class="chordDeg" id="romanRowB"></div><div class="chordDeg" id="romanRow"></div><div class="chordDeg progKbRow" id="progKbRowB"></div><div class="chordDeg progKbRow" id="progKbRow"></div></div><div class="countdown" id="countdown" hidden><span id="cdNum">4</span><small id="cdLbl">count-in</small></div></div>
+      <div class="kbstage"><div class="kb" id="kb"></div><button id="keysResetBtn" class="kbReset" hidden aria-pressed="true" title="Back to the default number of keys"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0 0 13.9 3M18.5 9a8 8 0 0 0-13.9-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button><div class="kbOverlay" id="kbOverlay"><div class="chordinfo keyinfo" id="keyInfo" hidden><button id="keyInfoClearBtn" class="rowToggle rowToggleLead" aria-label="Clear all scale toggles" title="Clear all scale toggles"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0 0 13.9 3M18.5 9a8 8 0 0 0-13.9-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button><select id="root" aria-label="Root" style="display:none"></select><select id="scaleType" aria-label="Scale" style="display:none"></select><span class="keyGroup"><button id="rootBtn" class="selBtn" aria-haspopup="listbox" aria-expanded="false" title="Root"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.6" fill="currentColor"/><circle cx="17.5" cy="16" r="2.6" fill="currentColor"/></svg><span class="selVal"></span></button><button id="scaleTypeBtn" class="selBtn" aria-haspopup="listbox" aria-expanded="false" title="Scale"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V14M9 20V10M14 20V6M19 20V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="selVal"></span></button><button id="keyFromSong" class="detectBtn" title="Detect from song"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2"/><line x1="14.3" y1="14.3" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Detect</span></button><button id="relScaleBtn" class="smBtn" title="Switch to the relative major/minor" aria-label="Switch to the relative major/minor"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v14M7 3L3 7M7 3l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M17 21V7M17 21l-4-4M17 21l4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button></span><div class="selPop" id="rootPop" hidden role="listbox" aria-label="Root"></div><div class="selPop" id="scaleTypePop" hidden role="listbox" aria-label="Scale"></div><span class="chGroup"><button id="scaleChordsBtn" class="spk" aria-pressed="true" aria-label="Show the chord built on each scale note" title="Show the chord built on each scale note"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="5" cy="15" r="2" fill="currentColor"/><circle cx="12" cy="10" r="2" fill="currentColor"/><circle cx="19" cy="13" r="2" fill="currentColor"/></svg></button><button id="scaleDegBtn" aria-pressed="false" class="smBtn" title="Show/hide the scale's degree numbers (1-7) on the keys">#</button><button id="romanBtn" aria-pressed="false" class="smBtn" title="Show/hide roman numerals for each scale-degree chord">Ⅰ</button></span><button id="keyInfoToggle" class="rowToggle rowToggleSq" aria-pressed="false" aria-label="Show/hide the scale bar" title="Show/hide the scale bar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V14M9 20V10M14 20V6M19 20V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><div class="chordinfo practicebar" id="practiceBar" hidden><button id="practiceToggleInner" class="rowToggle rowToggleSq" aria-pressed="false" aria-label="Hide the practice bar" title="Hide the practice bar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2 9l10 5 10-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M6 11.5V16c0 1.6 2.7 2.9 6 2.9s6-1.3 6-2.9v-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><span class="chGroup"><button id="fingerLBtn" aria-pressed="false" class="smBtn" title="Show left-hand finger numbers">L</button><button id="fingerRBtn" aria-pressed="false" class="smBtn" title="Show right-hand finger numbers">R</button><button id="fingerBBtn" aria-pressed="false" class="smBtn chW40" aria-haspopup="true" aria-expanded="false" title="Show both hands">LR</button></span><span class="chGroup"><button id="scalePlay" class="spk playToggle" aria-pressed="false" aria-label="Play the scale" title="Play the scale — press again to stop"><svg class="ico icoPlay" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><svg class="ico icoStop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg></button></span><span class="chGroup"><button id="scaleProgBtn" class="spk" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-label="Practice exercises" title="Practice exercises"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5l7 7-7 7M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button><div class="playPop" id="scaleProgPop" hidden></div><button id="progResetBtn" class="smBtn" disabled title="Start the progression again from the first chord" aria-label="Start the progression again from the first chord"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0 0 13.9 3M18.5 9a8 8 0 0 0-13.9-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button><button id="progHintBtn" aria-pressed="false" class="smBtn" disabled aria-haspopup="true" aria-expanded="false" title="Light behaviour" aria-label="Light behaviour"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.4" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".45"/></svg></button><div class="playPop" id="progHintPop" hidden role="listbox" aria-label="Light behaviour"></div><button id="progAddsBtn" aria-pressed="false" class="smBtn chW40" disabled aria-haspopup="true" aria-expanded="false" title="Exercise types" aria-label="Exercise types"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16M4 13h16M4 8h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="18.5" cy="7.5" r="2.6" fill="currentColor"/></svg><span class="exTag"></span></button><div class="playPop" id="progAddsPop" hidden role="listbox" aria-label="Exercise types"></div></span><span class="chGroup"><button id="progKbBtn" aria-pressed="false" class="smBtn" disabled title="Once a chord progression is picked in the circle of fifths: number its chord roots on the keyboard, in order" aria-label="Show the chord progression's root note order on the keyboard">①</button></span><span class="chGroup"><button id="soundsBtn" aria-pressed="false" class="smBtn" aria-haspopup="true" aria-expanded="false" title="Feedback sounds" aria-label="Feedback sounds"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><div class="playPop" id="soundsPop" hidden role="listbox" aria-label="Feedback sounds"></div><button id="goodChordSoundBtn" hidden aria-pressed="true"></button><button id="badNoteSoundBtn" hidden aria-pressed="true"></button><button id="speakChordBtn" hidden aria-pressed="false"></button></span><span class="chGroup shiftGroup"><button id="scaleDownBtn" class="smBtn" aria-label="Down a semitone — the scale before this one" title="Down a semitone">−</button><button id="scaleShiftVal" class="shiftVal" aria-label="Semitones from where you started — press to go back" title="Semitones from where you started — press to go back">0</button><button id="scaleUpBtn" class="smBtn" aria-label="Up a semitone — the next scale up" title="Up a semitone">+</button></span></div><div class="chordinfo" id="chordInfo" hidden><button id="chordInfoClearBtn" class="rowToggle rowToggleLead" aria-label="Clear all chord toggles" title="Clear all chord toggles"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0 0 13.9 3M18.5 9a8 8 0 0 0-13.9-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button><span class="chGroup chGroup-info"><button id="chordInfoBtn" type="button" aria-pressed="false" title="Chord info"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="11" x2="12" y2="16.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.3" r="1.2" fill="currentColor"/></svg></button><button id="allNotesBtn" aria-pressed="false" title="Show every octave of this chord's notes on the keyboard">All</button><button id="extBtn" aria-pressed="false" title="Show the chord's extensions (9/11/13), numbered from the tonic">Ext</button><button id="degNumBtn" aria-pressed="true" class="chW32" title="Show/hide the chord's degree numbers on the keys">#</button></span><span class="chGroup degGroup" id="degGroup"><button id="degDownBtn" class="smBtn" aria-label="The scale degree below this one" title="Down a scale degree">−</button><button id="degVal" class="degVal" aria-label="This chord's degree in the scale" title="Which degree of the scale this chord is">–</button><button id="degUpBtn" class="smBtn" aria-label="The scale degree above this one" title="Up a scale degree">+</button></span><span class="chGroup invGroup" id="invGroup"><button class="smBtn invBtn" data-inv="0" aria-pressed="true" title="Root position">R</button><button class="smBtn invBtn" data-inv="1" aria-pressed="false" title="1st inversion">1</button><button class="smBtn invBtn" data-inv="2" aria-pressed="false" title="2nd inversion">2</button><button class="smBtn invBtn" data-inv="3" aria-pressed="false" title="3rd inversion">3</button></span><span class="chGroup chGroup-info"></span><span id="chordText"></span><button id="chordInfoToggle" class="rowToggle rowToggleSq" aria-pressed="false" aria-label="Show/hide the chord bar" title="Show/hide the chord bar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="5" cy="15" r="2" fill="currentColor"/><circle cx="12" cy="10" r="2" fill="currentColor"/><circle cx="19" cy="13" r="2" fill="currentColor"/></svg></button></div><div class="scaleChordRow" id="scaleChordsB" hidden></div><div class="scaleChordRow" id="scaleChords" hidden></div><div class="chordDeg" id="chordDegB"></div><div class="chordDeg" id="chordDeg"></div><div class="chordDeg" id="romanRowB"></div><div class="chordDeg" id="romanRow"></div><div class="chordDeg progKbRow" id="progKbRowB"></div><div class="chordDeg progKbRow" id="progKbRow"></div></div><div class="countdown" id="countdown" hidden><span id="cdNum">4</span><small id="cdLbl">count-in</small></div></div>
     </div>
     <div class="rowResize" id="playRowResize" role="separator" aria-orientation="horizontal" aria-label="Resize the play row" tabindex="0"></div>
 
@@ -783,7 +823,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
   <div class="circleOverlay" id="circleOverlay" hidden>
    <div class="circleCard" id="circleCard">
     <div class="circleHead"><h2>Circle of fifths</h2><div class="circleMiniKb" id="circleMiniKb" hidden></div><button id="circleClose" class="circleClose" aria-label="Close">&#10005;</button></div>
-    <div class="circleWrap" id="circleWrap"><div class="circleTools"><button id="circleAccBtn" class="cog" aria-pressed="false" aria-label="Show/hide number of sharps or flats" title="Show/hide number of sharps or flats"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v18M15 3v18" stroke="currentColor" stroke-width="1.8"/><path d="M5 9h14M5 15h14" stroke="currentColor" stroke-width="1.8"/></svg></button><button id="circleFlatsBtn" class="cog" aria-pressed="false" aria-label="Use sharp spellings instead of flats" title="Use sharp spellings instead of flats"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="17" text-anchor="middle" font-size="13" font-weight="800" fill="currentColor">♭♯</text></svg></button><button id="circleKbBtn" class="cog" aria-pressed="false" aria-label="Show/hide the scale on a mini keyboard" title="Show/hide the scale on a mini keyboard"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 4v10M13 4v10M16 4v10" stroke="currentColor" stroke-width="1.6"/></svg></button><button id="circleProgBtn" class="cog" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-label="Chord progressions" title="Chord progressions"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="4" cy="18" r="2.3" fill="currentColor"/><circle cx="12" cy="7" r="2.3" fill="currentColor"/><circle cx="20" cy="15" r="2.3" fill="currentColor"/><path d="M6 16.3 10 9M14 8.3 18 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg></button><div class="playPop" id="circleProgPop" hidden></div><button id="circleRomanBtn" class="cog" aria-pressed="false" aria-label="Show/hide roman numerals" title="Show/hide roman numerals"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16" text-anchor="middle" font-size="9.5" font-weight="800" fill="currentColor">Ⅰ Ⅴ</text></svg></button><button id="circleTransposeBtn" class="cog" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-label="Transpose the progression" title="Transpose the progression"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button><div class="playPop" id="circleTransposePop" hidden></div></div><div class="circleWheel" id="circleWheel"></div></div>
+    <div class="circleWrap" id="circleWrap"><div class="circleTools"><button id="circleAccBtn" class="cog" aria-pressed="false" aria-label="Show/hide number of sharps or flats" title="Show/hide number of sharps or flats"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v18M15 3v18" stroke="currentColor" stroke-width="1.8"/><path d="M5 9h14M5 15h14" stroke="currentColor" stroke-width="1.8"/></svg></button><button id="circleKbBtn" class="cog" aria-pressed="false" aria-label="Show/hide the scale on a mini keyboard" title="Show/hide the scale on a mini keyboard"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 4v10M13 4v10M16 4v10" stroke="currentColor" stroke-width="1.6"/></svg></button><button id="circleProgBtn" class="cog" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-label="Chord progressions" title="Chord progressions"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="4" cy="18" r="2.3" fill="currentColor"/><circle cx="12" cy="7" r="2.3" fill="currentColor"/><circle cx="20" cy="15" r="2.3" fill="currentColor"/><path d="M6 16.3 10 9M14 8.3 18 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg></button><div class="playPop" id="circleProgPop" hidden></div><button id="circleRomanBtn" class="cog" aria-pressed="false" aria-label="Show/hide roman numerals" title="Show/hide roman numerals"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16" text-anchor="middle" font-size="9.5" font-weight="800" fill="currentColor">Ⅰ Ⅴ</text></svg></button><button id="circleTransposeBtn" class="cog" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-label="Transpose the progression" title="Transpose the progression"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button><div class="playPop" id="circleTransposePop" hidden></div></div><div class="circleWheel" id="circleWheel"></div></div>
    </div>
   </div>
   <aside class="sheet" id="sheet" hidden>
@@ -955,7 +995,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '123 · 2026-09-16 · blank-board';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '135 · 2026-09-17 · circle-fixes';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -964,7 +1004,7 @@ const logEl = $('log');
 const log = (...a) => { logEl.textContent = (a.join(' ') + '\n' + logEl.textContent).slice(0, 4000); };
 
 /* ---------- settings ---------- */
-const defaults = { sound:'grand', lookBeats:0.125, noteColor:'#ff3d8a', nextColor:'#ffc21a', scaleColor:'#2f7cff', scaleOn:false, showPlaying:true, showNext:true, root:0, scaleType:'major', bright:100, lag:0, fold:true, loop:false, bpm:120, sig:4, accentOn:true, startOct:3, countIn:false, metro:false, keysShown: matchMedia('(max-width: 699px)').matches ? 25 : 36, arrZoom:8, device:'partykeys', pianoVol:100, songVol:100, metroVol:100, pianoMuted:false, songMuted:false, metroMuted:false, transpose:0, currentSong:'', midiIn:'', midiOut:'', arrHeight:0, playRowH:0, showFingersL:false, showFingersR:false, fingersBoth:false, bothMode:'split', scaleShift:0, goodChordSound:true, badNoteSound:true, progLock:false, progHint:'full', keepAwake:true, speakChords:false, speakDuck:45, fitKey:true, followKeys:true, ownTempo:false, groove:'click', syncMode:false, midiEnabled:true, midiOutDaw:'', midiToDawEnabled:false };
+const defaults = { sound:'grand', lookBeats:0.125, noteColor:'#ff3d8a', nextColor:'#ffc21a', scaleColor:'#2f7cff', scaleOn:false, showPlaying:true, showNext:true, root:0, scaleType:'major', bright:100, lag:0, fold:true, loop:false, bpm:120, sig:4, accentOn:true, startOct:3, countIn:false, metro:false, keysShown: matchMedia('(max-width: 699px)').matches ? 25 : 36, arrZoom:8, device:'partykeys', pianoVol:100, songVol:100, metroVol:100, pianoMuted:false, songMuted:false, metroMuted:false, transpose:0, currentSong:'', midiIn:'', midiOut:'', arrHeight:0, playRowH:0, showFingersL:false, showFingersR:false, fingersBoth:false, bothMode:'split', scaleShift:0, goodChordSound:true, badNoteSound:true, progHint:'chord', progAdds:[], progInv:'2nd', exDir:'up', exType:'chords', arpPat:'plain', keepAwake:true, speakChords:false, speakDuck:45, fitKey:true, followKeys:true, ownTempo:false, groove:'click', syncMode:false, midiEnabled:true, midiOutDaw:'', midiToDawEnabled:false };
 let S = { ...defaults };
 let noteColorEff = defaults.noteColor, nextColorEff = defaults.nextColor;   // the actual on-screen "now"/"next" colour — falls back to grey whenever it collides with the current (fixed, rainbow) scale colour, as a "pick another one" flag
 try { Object.assign(S, JSON.parse(localStorage.getItem('pk-settings') || '{}')); } catch(e) {}
@@ -1327,7 +1367,13 @@ let stepTimer = null;           // keeps the arrangement/chords live (fades, pla
 function clearPerfHistory() { hit.clear(); wrong.clear(); extraPlays = []; graded = false; goodPresses = 0; wrongPresses = 0;
   if (song) for (const n of song.notes) { delete n.missed; delete n.grade; }
   renderKeys(); drawArr(); syncArrReset(); }   // wipes the green/red review marks and leaves the song exactly as it was, without touching the playback position
-function syncArrReset() { const b = $('arrReset'); if (b) b.hidden = !(hasPerfMarks() && !songRunning()); renderScore(); }   // it appears once you stop, and only when there is something to clear
+// The score and the Reset button are absolutely positioned over the arrangement canvas, so when that canvas was
+// collapsed they stayed on screen and floated over whatever was underneath — the keyboard, usually. They belong to
+// the arrangement view, so they follow it: gone whenever it isn't actually being drawn.
+function arrShowing() { const a = $('arr'); return !!a && getComputedStyle(a).display !== 'none'; }
+function syncArrReset() { const showing = arrShowing();
+  const b = $('arrReset'); if (b) b.hidden = !(showing && hasPerfMarks() && !songRunning());   // it appears once you stop, and only when there is something to clear
+  renderScore(showing); }
 /* ---------- how it went, in numbers ----------
    Chords and single notes are counted apart on purpose: missing one note of a four-note chord is a very different
    thing from missing a melody note, and one figure covering both hides which of the two you are actually losing.
@@ -1343,10 +1389,11 @@ function perfScore() {
   return { chordPc: pc(cH, cT), chordOf: cT, notePc: pc(mH, mT), noteOf: mT,
            good: goodPresses, bad: wrongPresses, rightPc: pc(goodPresses, presses) };
 }
-function renderScore() {
+function renderScore(showing) {
   const el = $('arrScore'); if (!el) return;
+  if (showing === undefined) showing = arrShowing();
   const sc = perfScore();
-  if (!sc || !hasPerfMarks()) { el.hidden = true; el.innerHTML = ''; return; }
+  if (!showing || !sc || !hasPerfMarks()) { el.hidden = true; el.innerHTML = ''; return; }
   const bits = [];
   if (sc.chordPc !== null) bits.push('Chords <b>' + sc.chordPc + '%</b>');
   if (sc.notePc !== null) bits.push('Other notes <b>' + sc.notePc + '%</b>');
@@ -1367,7 +1414,7 @@ function noteOn(n, vel, src) {
   maybeMoveChordOctave(n);   // pressing one of the shown chord's own notes elsewhere on the keyboard moves it there
   if (!wasHeld) {   // a genuinely new press — see if it's the chord the progression is waiting for, or completes the scale-chord practice's current chord
     const arpActive = scaleProgArpMode() && scaleChordSel && !chordsBlocked();   // the arpeggio modes judge every note themselves (right pitch class, right turn) — let scaleProgAdvance below decide the sound for those, not the generic out-of-scale check
-    const progLockActive = S.progLock && !!scaleProgMode;   // a progression's picked and locked: only its chords/the scale count as right, checked regardless of whether a song is playing — the song's own note-tracking above is untouched, this is just an extra ear-training buzz
+    const progLockActive = false;   // a progression's picked and locked: only its chords/the scale count as right, checked regardless of whether a song is playing — the song's own note-tracking above is untouched, this is just an extra ear-training buzz
     if (!arpActive && S.badNoteSound && (progLockActive || S.scaleOn) && (progLockActive || !chordsBlocked()) && !inScale(n) && !scaleProgChordHasPc(n)) playMistakeBuzz();
     circleTrackProgress(n); scaleProgAdvance(n);
   }
@@ -1799,6 +1846,16 @@ function click(when, accent) {
   g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(accent ? 1.5 : 0.95, when + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, when + (accent ? 0.07 : 0.045));
   o.connect(g).connect(metroGain || master); o.start(when); o.stop(when + 0.1);
 }
+function playExerciseChord() {   // sound the exercise chord where it's lit, so "random" can be played by ear
+  if (!scaleChordSel) return;
+  try { ensureAudio(); } catch (e) { return; }
+  const deg = progDegOf(scaleChordSel.root);
+  const tpl = progAddsTpl((CHORDS.find(x => x[0] === scaleChordSel.q) || ['', [0, 4, 7]])[1], deg);
+  const rootMidi = progRootMidiFor(scaleChordSel.root, tpl);
+  const t0 = ctx.currentTime + 0.02, step = scaleProgArpMode() ? 0.16 : 0;
+  scaleProgArpSeq(tpl).forEach((iv, i) => { const v = playVoice(rootMidi + iv, 96, t0 + i * step, 'scale');
+    if (v && v.stop) v.stop(t0 + i * step + (step ? 0.42 : 1.1)); });
+}
 function playSuccessChime() {   // a short bright ascending arpeggio — feedback for "that chord was right", e.g. the scale-progression practice drill
   if (!ctx) return;
   const t0 = ctx.currentTime, notes = [880, 1108.73, 1318.51];   // A5, C#6, E6 — a quick major triad blip
@@ -2031,23 +2088,21 @@ function computeColors() {
       colors[k - BASE] = scale(hex2rgb(ROOT_COLORS[S.root]), b); previewKeys.set(k, -2); } } }
   if (!chordsBlocked() && S.scaleOn) { for (const k of liveNotes) { if (k < LOW || k > HIGH || inScale(k)) continue;   // paused practice with the scale on: flag any pressed note outside the key as a mistake
     colors[k - BASE] = scale(hex2rgb(RED), b); previewKeys.set(k, -1); } }
-  if (scaleChordSel && !chordsBlocked() && !progBlankBoard()) {   // tapped a chord label above the scale: light up its notes (or extensions), once or repeated on every octave depending on the All/Ext toggles — its tones get the scale's own colour, the rest of the scale stays a plain dark grey
-    const scInfo = activeChordInfo(); const tpl = scaleProgDom7Mode() ? invertTpl(DOM7_TPL, userInv) : scInfo ? scInfo.tpl : [0, 4, 7]; const rawTpl = scInfo ? scInfo.rawTpl : tpl;
+  if (scaleChordSel && !chordsBlocked() && !((progBlankBoard() || progScaleOnly()) && !progShowsRoot())) {   // tapped a chord label above the scale: light up its notes (or extensions), once or repeated on every octave depending on the All/Ext toggles — its tones get the scale's own colour, the rest of the scale stays a plain dark grey
+    const scInfo = activeChordInfo(); let tpl = scaleProgDom7Mode() ? invertTpl(DOM7_TPL, userInv) : scInfo ? scInfo.tpl : [0, 4, 7]; const rawTpl = scInfo ? scInfo.rawTpl : tpl;
+    tpl = progAddsTpl(tpl, progDegOf(scaleChordSel.root));   // 7ths / extensions / octave reaches, if any are ticked
     const octEx = scaleProgFixedVoicing();   // a full-octave (or inversion) exercise pins the chord to one specific register — light up only that one, not every octave, so it's clear exactly where to play
     const noteMap = octEx ? null : showExtensions ? extNoteMap(scaleChordSel.root, tpl, showAllNotes, DLOW, BASE, END, rawTpl)
                    : showAllNotes ? toneNoteMap(scaleChordSel.root, tpl, true, DLOW, BASE, END, rawTpl) : null;
     const baseColor = hex2rgb(ROOT_COLORS[S.root]);
     let keys;
     if (noteMap) keys = [...noteMap.keys()];
-    else { let rootMidi = DLOW; while (rootMidi % 12 !== scaleChordSel.root) rootMidi++; rootMidi += (octEx ? scaleProgOct : chordOct) * 12; keys = tpl.map(iv => rootMidi + iv).filter(n => n >= BASE && n <= END); }
+    else { const rootMidi = progExercise() ? progRootMidiFor(scaleChordSel.root, tpl, octEx)
+             : progLhShift((() => { let m = DLOW; while (m % 12 !== scaleChordSel.root) m++; return m + (octEx ? scaleProgOct : chordOct) * 12; })(), tpl);
+      keys = tpl.map(iv => rootMidi + iv).filter(n => n >= BASE && n <= END); }
     // Root-only drill: the exercise still runs on the whole chord — you play all of it to move on — but the keyboard
-    // only ever points at the root. "You're on Am" instead of "here is A, C and E".
-    if (scaleProgMode) {
-      if (S.progHint === 'root') keys = keys.filter(m => ((m % 12) + 12) % 12 === scaleChordSel.root);
-      else if (S.progHint === 'mistake' && !progRevealed) keys = [];   // nothing to read: find the chord yourself. Play a note that isn't in it and the whole thing lights up.
-      else if (S.progHint === 'mistakeRoot' && !progRevealed) keys = keys.filter(m => ((m % 12) + 12) % 12 === scaleChordSel.root);
-
-    }
+    // How much the drill gives away: the whole chord, just the root, or nothing — and one step more help per slip.
+    if (progExercise() && !progShowsChord()) keys = progShowsRoot() ? keys.filter(m => ((m % 12) + 12) % 12 === scaleChordSel.root) : [];
     const chordKeySet = new Set(keys);
     for (const m of keys) { const pc = m % 12;
       const got = liveNotes.has(m);
@@ -2055,10 +2110,10 @@ function computeColors() {
       const degF = noteMap ? extFade(noteMap.get(m)) : (pc === scaleChordSel.root ? 1 : 0.3);
       const f = got ? 1 : degF * 0.85;
       colors[m - BASE] = scale(baseColor, b * f); previewKeys.set(m, f); }
-    if (S.scaleOn) { for (let m = BASE; m <= END; m++) { if (chordKeySet.has(m) || !inScale(m)) continue;   // rest of the scale, not part of this chord: same dark grey regardless of extensions — sentinel -3/-4 (not/pressed) keeps this distinct from the chord tones' scale-colour fade
+    if (S.scaleOn && !(progExercise() && !progShowsScale())) { for (let m = BASE; m <= END; m++) { if (chordKeySet.has(m) || !inScale(m)) continue;   // rest of the scale, not part of this chord: same dark grey regardless of extensions — sentinel -3/-4 (not/pressed) keeps this distinct from the chord tones' scale-colour fade
       const got = liveNotes.has(m); colors[m - BASE] = scale(hex2rgb(CHORD_GREY), b * (got ? 1 : 0.7)); previewKeys.set(m, got ? -4 : -3); } } }
   if (!S.showPlaying) { expected.clear(); pressed.clear(); } if (!S.showNext) soon.clear();
-  const showScale = S.scaleOn && !scaleChordSel;   // a tapped scale-degree chord owns all of the scale's key colouring itself (chord tones + grey rest) — don't let the plain scale wash overwrite it
+  const showScale = S.scaleOn && (!scaleChordSel || (progScaleOnly() && !progShowsRoot()));   // a tapped scale-degree chord owns all of the scale's key colouring itself (chord tones + grey rest) — don't let the plain scale wash overwrite it. The exception is the scale-after-a-mistake hint, where the scale IS the answer being shown.
   for (let i = 0; i < RANGE; i++) { const m = i + BASE;
     if (pressed.has(m)) colors[i] = note; else if (expected.has(m)) colors[i] = noteLight; else if (soon.has(m)) colors[i] = scale(next, 0.1 + 0.9 * soon.get(m)); else if (showScale && inScale(m)) colors[i] = (m % 12 === S.root) ? rootC : sc; }
   if (scaleNote !== null && scaleNote >= BASE && scaleNote <= END) colors[scaleNote - BASE] = scale(hex2rgb(ROOT_COLORS[S.root]), b);
@@ -2569,6 +2624,7 @@ function invertTpl(tpl, inv) {   // rotates the interval list so the (inv)th ton
   return n === 0 ? tpl : tpl.slice(n).concat(tpl.slice(0, n).map(x => x + 12));
 }
 function activeChordInfo() {   // {rootPc, tpl, rawTpl} for whichever chord is currently on screen — `tpl` has the chosen inversion applied (for note positions), `rawTpl` is the original un-inverted order (for degree labelling, so the tonic always reads '1')
+  if (progInvOn()) userInv = 0;   // an inversions exercise owns the voicing — the chord bar's own R/1/2/3 must not invert it a second time
   const r = rawChordInfo();
   return r ? { rootPc: r.rootPc, tpl: invertTpl(r.tpl, userInv), rawTpl: r.tpl } : null;
 }
@@ -2583,26 +2639,103 @@ let scaleProgMode = null;   // null | 'fwd' | 'back' | 'bounce' | 'fwdOct' | 'ba
 let scaleProgDir = 1;   // 'bounce'/'bounceOct' mode's current direction (1 = climbing, -1 = descending) — flips at either end instead of wrapping
 let scaleProgOct = 0;   // the *Oct exercises only: how many octaves above the lit chord's lowest on-screen occurrence it's currently shown/expected at
 let scaleProgArpIdx = 0;   // 'arp'/'arpUpDown' only: how far into the current chord's note-by-note sequence you've correctly played so far
-let progRevealed = false;   // 'after a mistake' hint modes: has this chord been given away yet? Cleared every time the drill moves on.
+let progMiss = 0;   // how many wrong notes on THIS chord so far — one earns the scale, two earns the chord. Zeroed when the drill moves on.
 // "Light every key" means a blank keyboard, not a lit-up one: no chord, no scale colouring, and no blacked-out
 // keys either — exactly what the board looks like with nothing selected, so there is nothing at all to read off it.
 // The first wrong note drops it back to the normal picture: out-of-key keys out, the chord in colour.
-function progBlankBoard() { return !!scaleProgMode && S.progHint === 'allLit' && !progRevealed; }
-let progPlayOct = null;   // which octave you actually played the current drill chord in — the next chord follows your hands instead of staying where the app first put it
+function progBlankBoard() { return progExercise() && !progShowsScale(); }   // nothing given away yet
+function progScaleOnly() { return progExercise() && progShowsScale() && !progShowsChord(); }   // the key is showing, the chord still isn't
+let progPlayRoot = null;   // the root note you actually struck for the current chord — the exercise carries on in whatever octave that was
 let scaleProgInv = 0;   // 'inv' only: which inversion of the current chord is due (0 root position, 1 first, 2 second) — the chord only moves on once all three have been played
+// What the drill asks you to PLAY, on top of the plain triad — kept separate from the progression mode, which is
+// only about which chord comes next. Tick 7ths and every chord in the drill becomes a seventh chord, in the key's
+// own flavour (Cmaj7, Dm7, G7...); tick Extensions and the 9th, 11th and 13th come with it; the octave ticks ask
+// for the root again, 12 or 24 semitones up, so the drill trains the reach as well as the shape.
+const PROG_ADDS = [
+  { id: 'seventh', label: '7ths' },
+  { id: 'ext',     label: 'Extensions' },
+  { id: 'r2r',     label: 'Root 2 root' },
+  { id: 'oct2',    label: '2 octaves' },
+  { id: 'lh',      label: '2 hands left root' },
+  { id: 'inv',     label: 'Inversions', sub: 'progInv' },
+];
+const PROG_INVS = [   // 1st is root position, so the submenu offers the two that actually move the chord, plus the one that wants all three
+  { id: '2nd', label: '2nd' },
+  { id: '3rd', label: '3rd' },
+  { id: 'all', label: 'All' },
+];
+function progInvSel() { return PROG_INVS.some(x => x.id === S.progInv) ? S.progInv : '2nd'; }
+function progInvIdx() { return progInvSel() === 'all' ? Math.max(0, Math.min(2, scaleProgInv)) : progInvSel() === '3rd' ? 2 : 1; }
+function progInvOn() { return progAdd('inv'); }
+const ADD_MIGRATE = { oct1: 'r2r' };
+function progSpan() { return progAdd('oct2') ? 2 : 1; }   // how many octaves an exercise climbs before starting over
+// Where "root 2 root" puts its closing root. An octave up closes a plain triad or a seventh — but once the chord
+// reaches past an octave on its own (extensions go up to the 13th) or the exercise is running two octaves, closing
+// an octave up would land in the middle of what you just played. Then it's the two-octave root that finishes it.
+function r2rIv() { return (progAdd('oct2') || progAdd('ext')) ? 24 : 12; }
+// With two hands the chord has to sit high enough that there's a whole octave underneath it for the left hand.
+// Everything that decides where the chord IS — the lights, the sound, and the check that you played it — goes
+// through here, so they can't disagree about which octave it's in.
+// Where the exercise chord sits, full stop. chordOct is the octave YOU are playing in — it follows your hands —
+// and scaleProgOct is the exercise's own climb on top of that. Everything (the lights, the sound, and the check
+// that you played it) asks this, so they always agree.
+function progRootMidiFor(pc, tpl, useProgOct) {
+  let m = DLOW; while (m % 12 !== pc) m++;
+  m += (chordOct + ((useProgOct === undefined ? scaleProgOctMode() : useProgOct) ? scaleProgOct : 0)) * 12;
+  return progLhShift(m, tpl);
+}
+function progLhShift(rootMidi, tpl) {
+  if (!progAdd('lh') || !progExercise()) return rootMidi;
+  while (rootMidi - 12 < DLOW && rootMidi + 12 + Math.max(...tpl) <= DLOW + NKEYS - 1) rootMidi += 12;
+  return rootMidi;
+}
+function progAdd(id) { return Array.isArray(S.progAdds) && (S.progAdds.includes(id) || S.progAdds.some(x => ADD_MIGRATE[x] === id)); }
+function anyProgAdd() { return Array.isArray(S.progAdds) && S.progAdds.length > 0; }
+function diatonicIv(sc, degIdx, k) {   // semitones above the chord's root of the note k scale-steps above it (6 = the 7th, 8 = the 9th, 10 = the 11th, 12 = the 13th)
+  const i = degIdx + k; return sc[i % 7] + Math.floor(i / 7) * 12 - sc[degIdx];
+}
+function progAddsTpl(tpl, degIdx) {   // the chord's template with whatever is ticked folded in — exercise types apply to the practice exercises AND to a circle-of-fifths progression
+  if (!progExercise() || !anyProgAdd()) return tpl;
+  if (progInvOn()) tpl = invertTpl(tpl, progInvIdx());   // the exercise owns the inversion; the chord bar's own inversion is pinned to root position while this is on, so this is the only one applied
+  const sc = SCALES[S.scaleType] && SCALES[S.scaleType][1];
+  const out = tpl.slice(), add = iv => { if (!out.includes(iv)) out.push(iv); };
+  if (sc && sc.length === 7 && degIdx != null && degIdx >= 0) {
+    if (progAdd('seventh')) add(diatonicIv(sc, degIdx, 6));
+    if (progAdd('ext')) { add(diatonicIv(sc, degIdx, 8)); add(diatonicIv(sc, degIdx, 10)); add(diatonicIv(sc, degIdx, 12)); }
+  }
+  if (progAdd('r2r')) add(r2rIv());   // finish the chord on its own root again, one octave up — or two, when the chord already reaches that far
+  if (progAdd('lh')) add(-12);   // left hand takes the root, an octave below everything the right hand is holding
+  return out.sort((x, y) => x - y);
+}
+function progDegOf(pc) { const dt = diatonicTriads(SCALES[S.scaleType][1], S.root); const d = dt.find(x => x.pc === pc); return d ? d.deg : null; }
 const DOM7_TPL = [0, 4, 7, 10];   // 'dom7': a dominant 7th built on every degree, so the b7 deliberately falls outside the key on most of them
 function scaleProgInvMode() { return scaleProgMode === 'inv'; }
 function scaleProgDom7Mode() { return scaleProgMode === 'dom7'; }
 function scaleProgFixedVoicing() { return scaleProgOctMode() || scaleProgInvMode(); }   // exercises where the exact register matters, so only one octave lights up
 function scaleProgTplFor(q) { return scaleProgDom7Mode() ? DOM7_TPL : (CHORDS.find(x => x[0] === q) || ['', [0, 4, 7]])[1]; }
 function scaleProgChordHasPc(n) {   // is this note part of the exercise chord that's lit? the dominant-7th drill puts a b7 outside the key on purpose — that's the exercise, not a wrong note
-  if (!scaleProgMode || !scaleChordSel) return false;
-  const tpl = scaleProgTplFor(scaleChordSel.q), pc = ((n % 12) + 12) % 12;
+  if (!progExercise() || !scaleChordSel) return false;
+  const tpl = progAddsTpl(scaleProgTplFor(scaleChordSel.q), progDegOf(scaleChordSel.root)), pc = ((n % 12) + 12) % 12;
   return tpl.some(iv => (scaleChordSel.root + iv) % 12 === pc);
 }
 function scaleProgOctMode() { return scaleProgMode === 'fwdOct' || scaleProgMode === 'backOct' || scaleProgMode === 'bounceOct'; }
-function scaleProgArpMode() { return scaleProgMode === 'arp' || scaleProgMode === 'arpUpDown'; }
-function scaleProgArpSeq(tpl) { return scaleProgMode === 'arpUpDown' ? tpl.concat(tpl.slice(0, -1).reverse()) : tpl; }   // root→3rd→5th, or root→3rd→5th→3rd→root
+function scaleProgArpMode() { return scaleProgMode === 'arp' || scaleProgMode === 'arpUpDown' || scaleProgMode === 'arpDown'; }
+function arpOrder(n) {   // which of the chord's notes, in which order — 0 is the lowest
+  const idx = [...Array(n).keys()];
+  if (n < 3) return idx;
+  switch (arpPat()) {
+    case 'broken':  return [0, 2, 1].concat(idx.slice(3));
+    case 'alberti': return [0, 2, 1, 2];
+    case 'pedal':   return [0, 1, 0, 2].concat(idx.slice(3));
+    default:        return idx;
+  }
+}
+function scaleProgArpSeq(tpl) {   // the pattern first, then the direction: straight through, reversed, or out and back
+  const up = tpl.slice().sort((a, b) => a - b);
+  const ord = arpOrder(up.length).map(i => up[Math.min(i, up.length - 1)]);
+  return scaleProgMode === 'arpDown' ? ord.slice().reverse()
+       : scaleProgMode === 'arpUpDown' ? ord.concat(ord.slice(0, -1).reverse()) : ord;
+}
 function scaleProgChordFits(deg, oct, dt) {   // would this scale-degree chord, shown `oct` octaves above its lowest on-screen occurrence, still fit inside the visible keyboard range?
   const d = dt.find(x => x.deg === deg); if (!d) return false;
   const tpl = (CHORDS.find(x => x[0] === d.q) || ['', [0, 4, 7]])[1];
@@ -2614,19 +2747,43 @@ function scaleProgStep(deg, oct, dir) {   // one scale-degree step in either dir
   if (d > 6) { d = 0; o += 1; } else if (d < 0) { d = 6; o -= 1; }
   return [d, o];
 }
+function circleProgAdvance(n) {   // a circle-of-fifths progression judged the same way an exercise is: the whole chord, with whatever Exercise types are ticked
+  if (!circleProg || scaleProgMode || !scaleChordSel || chordsBlocked()) return;
+  const pc = scaleChordSel.root;
+  if (!scaleProgChordHasPc(n)) progMiss++;
+  if (((n % 12) + 12) % 12 === pc) progPlayRoot = n;
+  const tpl = progAddsTpl((CHORDS.find(x => x[0] === scaleChordSel.q) || ['', [0, 4, 7]])[1], progDegOf(pc));
+  const held = new Set([...liveNotes].map(x => ((x % 12) + 12) % 12));
+  if (!tpl.map(iv => (((pc + iv) % 12) + 12) % 12).every(p => held.has(p))) return;
+  if (progAdd('r2r')) { const roots = [...liveNotes].filter(x => ((x % 12) + 12) % 12 === pc);
+    if (!roots.some(x => roots.includes(x + r2rIv()))) return; }
+  if (progAdd('lh')) { const roots = [...liveNotes].filter(x => ((x % 12) + 12) % 12 === pc);
+    const rest = [...liveNotes].filter(x => ((x % 12) + 12) % 12 !== pc);
+    if (!roots.length || !rest.length || Math.min(...roots) + 12 > Math.min(...rest)) return; }
+  if (progPlayRoot !== null) {   // a progression follows your hands too — play it an octave away and it carries on there
+    const lit = progRootMidiFor(pc, tpl, false);
+    let anchor = progPlayRoot; if (progAdd('lh') && anchor < lit) anchor += 12;
+    const d = Math.round((anchor - lit) / 12); if (d) chordOct = Math.max(0, chordOct + d);
+  }
+  progPlayRoot = null;
+  if (S.goodChordSound) playSuccessChime();
+  if (progInvOn() && progInvSel() === 'all' && scaleProgInv < 2) { scaleProgInv++; userInv = 0; progMiss = 0; syncInvGroup(); renderKeys(); return; }
+  if (progInvOn()) scaleProgInv = 0;
+  progStepPtr = (progStepPtr + 1) % circleProg.steps.length;
+  renderCircleProgression(); renderProgKbRow();
+  syncCircleProgChord(false);
+}
 function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note just pressed): if a practice mode is on, react to it per the active mode — the arpeggio modes care about that one specific note; the others just check what's now held
-  if (!scaleProgMode || !scaleChordSel || chordsBlocked()) return;
+  if (!scaleProgMode) { circleProgAdvance(n); return; }
+  if (!scaleChordSel || chordsBlocked()) return;
   const dt = diatonicTriads(SCALES[S.scaleType][1], S.root); if (dt.length !== 7) return;
   const cur = scaleProgDom7Mode() ? dt.find(d => d.pc === scaleChordSel.root)
             : dt.find(d => d.pc === scaleChordSel.root && d.q === scaleChordSel.q); if (!cur) return;
-  const tpl = scaleProgDom7Mode() ? DOM7_TPL : (CHORDS.find(x => x[0] === cur.q) || ['', [0, 4, 7]])[1];
+  const tpl = progAddsTpl(scaleProgDom7Mode() ? DOM7_TPL : (CHORDS.find(x => x[0] === cur.q) || ['', [0, 4, 7]])[1], cur.deg);
   // Play the chord an octave up (or down) and the drill goes with you: note which octave the root was struck in and
   // light the NEXT chord there. The octave exercises are exempt — pinning the register is the whole point of those.
-  if (!scaleProgChordHasPc(n)) progRevealed = true;   // a note that isn't in this chord: give it away
-  if (!scaleProgFixedVoicing() && ((n % 12) + 12) % 12 === cur.pc) {
-    let base = DLOW; while (base % 12 !== cur.pc) base++;
-    const o = Math.round((n - base) / 12); if (o >= 0) progPlayOct = o;
-  }
+  if (!scaleProgChordHasPc(n)) progMiss++;   // a note that isn't in this chord: one step more help
+  if (((n % 12) + 12) % 12 === cur.pc) progPlayRoot = n;   // the last root you struck, whichever octave it was in
   if (scaleProgArpMode()) {   // note-by-note, in order — any other note (right pitch class, wrong turn) restarts this chord's sequence instead of failing it outright
     const seq = scaleProgArpSeq(tpl);
     const wantPc = (cur.pc + seq[scaleProgArpIdx]) % 12, gotPc = ((n % 12) + 12) % 12;
@@ -2636,38 +2793,68 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
     scaleProgArpIdx = 0;
   } else if (scaleProgInvMode()) {   // inversions share their pitch classes, so only the exact voicing counts — root position and its inversions are otherwise indistinguishable
     let rootMidi = DLOW; while (rootMidi % 12 !== cur.pc) rootMidi++;
+    rootMidi = progLhShift(rootMidi, tpl);
     if (!invertTpl(tpl, scaleProgInv).every(iv => liveNotes.has(rootMidi + iv))) return;
-  } else if (scaleProgOctMode()) {   // full-octave exercises: the exact register matters, so require the chord played in the octave it's actually lit at, not just anywhere
-    let rootMidi = DLOW; while (rootMidi % 12 !== cur.pc) rootMidi++; rootMidi += scaleProgOct * 12;
-    if (!tpl.every(iv => liveNotes.has(rootMidi + iv))) return;
+  } else if (scaleProgOctMode()) {   // the register matters here — but you may START the exercise anywhere, so accept the chord in whatever octave you actually played it and carry the whole exercise there
+    let found = null;
+    for (let d = 0; d <= 3 && found === null; d++) for (const k of (d ? [d, -d] : [0])) {
+      const rm = progRootMidiFor(cur.pc, tpl) + k * 12;
+      if (rm >= LOW - 24 && tpl.every(iv => liveNotes.has(rm + iv))) { found = k; break; } }
+    if (found === null) return;
+    if (found) chordOct += found;   // you picked it up an octave away: the exercise moves with you
   } else {
     const need = tpl.map(iv => (cur.pc + iv) % 12);
     const held = new Set([...liveNotes].map(n => ((n % 12) + 12) % 12));
     if (!need.every(pc => held.has(pc))) return;   // not all the chord's notes are down yet
+    // An inversion is only a different arrangement of the same notes, so a pitch-class check can't see it either:
+    // when one is asked for, the exact keys have to be down.
+    if (progInvOn()) { const rm = progRootMidiFor(cur.pc, tpl, false);
+      if (!tpl.every(iv => liveNotes.has(rm + iv)) && !tpl.every(iv => liveNotes.has(rm + iv + 12)) && !tpl.every(iv => liveNotes.has(rm + iv - 12))) return; }
+    // "the same note an octave up" is invisible to a pitch-class check — 0 and 12 are the same class. So when an
+    // octave reach is ticked, look at the actual keys: the root has to be down twice, the right distance apart.
+    if (progAdd('r2r')) {
+      const roots = [...liveNotes].filter(x => ((x % 12) + 12) % 12 === cur.pc);
+      if (!roots.some(x => roots.includes(x + r2rIv()))) return;
+    }
+    // Two hands: the left one has to be holding the root properly below the chord, not just somewhere in the pile.
+    if (progAdd('lh')) {
+      const roots = [...liveNotes].filter(x => ((x % 12) + 12) % 12 === cur.pc);
+      const rest = [...liveNotes].filter(x => ((x % 12) + 12) % 12 !== cur.pc);
+      if (!roots.length || !rest.length || Math.min(...roots) + 12 > Math.min(...rest)) return;
+    }
   }
   if (S.goodChordSound) playSuccessChime();
+  if (progInvOn() && progInvSel() === 'all' && scaleProgInv < 2) { scaleProgInv++; userInv = 0; progMiss = 0; progPlayRoot = null; syncInvGroup(); renderKeys(); return; }   // same chord again, the next inversion up — all three before it moves on
+  if (progInvOn()) scaleProgInv = 0;
   if (scaleProgInvMode() && scaleProgInv < 2) { scaleProgInv++; userInv = scaleProgInv; return; }   // same chord again, one inversion higher
   let nextDeg;
   if (scaleProgInvMode()) { scaleProgInv = 0; userInv = 0; nextDeg = (cur.deg + 1) % 7; }
+  else if (scaleProgMode === 'rand') { do { nextDeg = Math.floor(Math.random() * 7); } while (nextDeg === cur.deg); }   // anywhere in the key except where we already are — no order to lean on, so the chord has to be read from its name
   else if (scaleProgMode === 'fwd' || scaleProgArpMode() || scaleProgDom7Mode()) nextDeg = (cur.deg + 1) % 7;   // both arpeggio modes just walk forward, degree by degree
   else if (scaleProgMode === 'back') nextDeg = (cur.deg + 6) % 7;
   else if (scaleProgMode === 'bounce') { nextDeg = cur.deg + scaleProgDir;   // reverse direction at either end instead of wrapping around
     if (nextDeg > 6) { scaleProgDir = -1; nextDeg = cur.deg - 1; } else if (nextDeg < 0) { scaleProgDir = 1; nextDeg = cur.deg + 1; } }
   else if (scaleProgMode === 'fwdOct') { let [d, o] = scaleProgStep(cur.deg, scaleProgOct, 1);
-    if (!scaleProgChordFits(d, o, dt)) { d = 0; o = 0; }   // ran off the top of the keyboard — restart at the very bottom
+    if (o >= progSpan() || !scaleProgChordFits(d, o, dt)) { d = 0; o = 0; }   // done its octave (or ran off the keyboard) — back to the bottom and round again
     nextDeg = d; scaleProgOct = o; }
   else if (scaleProgMode === 'backOct') { let [d, o] = scaleProgStep(cur.deg, scaleProgOct, -1);
     if (o < 0) { o = 0; while (scaleProgChordFits(6, o + 1, dt)) o++; d = 6; }   // ran off the bottom — restart at the highest octave that still fits
     nextDeg = d; scaleProgOct = o; }
-  else { let [d, o] = scaleProgStep(cur.deg, scaleProgOct, scaleProgDir);   // bounceOct: climb the full keyboard, then reverse and descend it, indefinitely
-    if (o < 0 || !scaleProgChordFits(d, o, dt)) { scaleProgDir *= -1; [d, o] = scaleProgStep(cur.deg, scaleProgOct, scaleProgDir); }
+  else { let [d, o] = scaleProgStep(cur.deg, scaleProgOct, scaleProgDir);   // bounceOct: climb its octaves, then turn round and come back down, indefinitely
+    if (o < 0 || o >= progSpan() || !scaleProgChordFits(d, o, dt)) { scaleProgDir *= -1; [d, o] = scaleProgStep(cur.deg, scaleProgOct, scaleProgDir); }
     nextDeg = d; scaleProgOct = o; }
-  if (!scaleProgFixedVoicing() && progPlayOct !== null) {   // ...but never so high that the chord runs off the end of the keyboard
-    let o = progPlayOct; while (o > 0 && !scaleProgChordFits(nextDeg, o, dt)) o--;
-    chordOct = o; }
-  progPlayOct = null; progRevealed = false;   // next chord starts hidden again
+  // Wherever you played this chord, that's where the exercise carries on from. Measured against where it was LIT,
+  // so playing it exactly where shown changes nothing and playing it an octave away moves the whole exercise.
+  if (!scaleProgOctMode() && progPlayRoot !== null) {
+    const lit = progRootMidiFor(cur.pc, tpl);
+    let anchor = progPlayRoot; if (progAdd('lh') && anchor < lit) anchor += 12;   // that was the left hand, an octave under the chord
+    const d = Math.round((anchor - lit) / 12);
+    if (d) { let o = chordOct + d; while (o > 0 && !scaleProgChordFits(nextDeg, o, dt)) o--; chordOct = Math.max(0, o); }
+  }
+  progPlayRoot = null; progMiss = 0;   // next chord starts hidden again
   const next = dt.find(d => d.deg === nextDeg) || dt[0];
   scaleChordSel = { root: next.pc, q: scaleProgDom7Mode() ? '7' : next.q };
+  if (scaleProgMode === 'rand') setTimeout(playExerciseChord, 260);   // you get to HEAR the chord you have to find — there is no pattern to fall back on in this one
 }
 function showScaleChordPreview() {   // tapped a scale-degree chord label: show it in the "now" field/explanation row, in green, like a normal now-chord preview
   const { root: pc, q } = scaleChordSel;
@@ -2838,6 +3025,7 @@ function syncArrVisibility() {
   const hidden = manualHideArr;
   arrEl.classList.toggle('arrHidden', hidden); rez.classList.toggle('arrCollapsed', hidden);
   const t = $('arrRowToggleFull'); if (t) t.setAttribute('aria-pressed', String(!hidden));
+  syncArrReset();   // the score pill and Reset live on the canvas — they come and go with it
 }
 $('arrRowToggleFull').onclick = () => { manualHideArr = !manualHideArr; syncArrVisibility(); };
 let keysHidden = false;   // full-screen-only: hides the piano keyboard itself via #keysToggleFull, grouped with the chord-row and arrangement-view toggles
@@ -2881,7 +3069,7 @@ function keyBgColorLit(m, colors, BASE, expected, pressed, soon) {   // exactly 
   if (inPerf()) return (S.scaleOn && inScale(m)) ? SCALE_GHOST : OUT_OF_SCALE;   // in the key but not part of the music right now: a thin white glow on the board, so the notes you're allowed to play are still findable without competing with the chord
   const c = colors[m - BASE];
   if (c !== undefined && c !== OFF) return blackLift(m, (m % 12 === S.root) ? ROOT_COLORS[S.root] : rgb2hex(hex2rgb(ROOT_COLORS[S.root]).map(v => v * 0.72 + (isDark() ? 55 : 120) * 0.28)));   // the rest of the scale: the root's own hue, dimmer than the root but still plainly that colour — now that the keys around it are white, it has to carry the scale on its own
-  if (S.scaleOn && !inScale(m) && !progBlankBoard()) return OUT_OF_SCALE;   // not in the key: black, whether it's a white key or a black one — unless the drill is deliberately showing a blank board
+  if (S.scaleOn && !inScale(m) && !(progExercise() && !progShowsScale())) return OUT_OF_SCALE;   // not in the key: black, whether it's a white key or a black one — unless the drill is deliberately showing a blank board
   return '';
 }
 // ---- the PartyKeys' own LEDs, derived from the screen ----
@@ -3336,10 +3524,18 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet()
 const FIFTHS_ORDER = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5];   // pitch classes around the circle of fifths, starting at C, clockwise, each a fifth above the last
 const KEY_SIGS = ['0', '1♯', '2♯', '3♯', '4♯', '5♯', '6♯/6♭', '5♭', '4♭', '3♭', '2♭', '1♭'];   // key signature, indexed by position around FIFTHS_ORDER
 const FLAT_NAMES = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];   // flat-preferred spelling, indexed by pitch class
-const MAJ_LABEL_FLAT = FIFTHS_ORDER.map(pc => FLAT_NAMES[pc]);   // default view: every position spelled with flats where it has an accidental
-const MIN_LABEL_FLAT = FIFTHS_ORDER.map(pc => FLAT_NAMES[relMinorPc(pc)] + 'm');
-const MAJ_LABEL_SHARP = FIFTHS_ORDER.map(pc => NOTE_NAMES[pc].replace('#', '♯'));   // toggled view: every position spelled with sharps instead
-const MIN_LABEL_SHARP = FIFTHS_ORDER.map(pc => NOTE_NAMES[relMinorPc(pc)].replace('#', '♯') + 'm');
+// The circle spells itself the way the music does: going clockwise from C you collect sharps, going anticlockwise
+// you collect flats. So the right-hand half is sharp-spelled and the left-hand half flat-spelled — and on the flat
+// side both names are shown, because that's exactly where "is that D♭ or C♯?" comes up.
+const CF_SHARP = pc => NOTE_NAMES[pc].replace('#', '♯');
+function cfName(pc, i, suffix) {
+  const sh = CF_SHARP(pc), fl = FLAT_NAMES[pc];
+  if (sh === fl) return sh + (suffix || '');                       // a natural: one name either way
+  if (i <= 5) return sh + (suffix || '');                          // right-hand side: sharps
+  return [fl + (suffix || ''), sh + (suffix || '')];               // left-hand side (and the 6♯/6♭ seat): both, stacked
+}
+const MAJ_LABELS = FIFTHS_ORDER.map((pc, i) => cfName(pc, i, ''));
+const MIN_LABELS = FIFTHS_ORDER.map((pc, i) => cfName(relMinorPc(pc), i, 'm'));
 const DEGREES = [   // the 7 diatonic triads relative to whatever root is selected, as a hop (d) around the circle of fifths + which ring — same mapping the progressions use, plus iii
   { d: 0, r: 'outer', deg: 'I' }, { d: -1, r: 'outer', deg: 'IV' }, { d: 1, r: 'outer', deg: 'V' },
   { d: -1, r: 'inner', deg: 'ii' }, { d: 1, r: 'inner', deg: 'iii' }, { d: 0, r: 'inner', deg: 'vi' },
@@ -3365,7 +3561,7 @@ function buildCircleWheel() {   // built once — the wedge colours and note pos
   const rOuter = 96, rMid = 63, rInner = 33;   // outer ring = major keys, inner ring = relative minors, hole = centre label
   const seg = 360 / FIFTHS_ORDER.length;
   let outerWedges = '', innerWedges = '', dividers = '', majLabels = '', minLabels = '', accLabels = '', romanLabels = '';
-  const majLabelSet = circleSharps ? MAJ_LABEL_SHARP : MAJ_LABEL_FLAT, minLabelSet = circleSharps ? MIN_LABEL_SHARP : MIN_LABEL_FLAT;
+  const majLabelSet = MAJ_LABELS, minLabelSet = MIN_LABELS;
   FIFTHS_ORDER.forEach((pc, i) => {
     const a0 = i * seg - seg / 2, a1 = i * seg + seg / 2;
     const fill = lighten(ROOT_COLORS[pc], .3);
@@ -3376,8 +3572,8 @@ function buildCircleWheel() {   // built once — the wedge colours and note pos
     const minInk = (mr * 299 + mg * 587 + mb * 114) / 1000 > 140 ? '#1C1824' : '#FFFFFF';
     outerWedges += `<path class="cfMajor" data-pc="${pc}" data-pos="${i}" d="${cfWedge(rMid, rOuter, a0, a1)}" fill="${fill}" stroke="var(--bg)" stroke-width="1.5"></path>`;
     innerWedges += `<path class="cfMinorWedge" data-pc="${minPc}" data-pos="${i}" d="${cfWedge(rInner, rMid, a0, a1)}" fill="${minFill}" stroke="var(--bg)" stroke-width="1.5"></path>`;
-    majLabels += cfLabel('cfMajorLabel', (rMid + rOuter) / 2 + 5, i * seg, majLabelSet[i], ` style="color:${ink}"`);
-    minLabels += cfLabel('cfMinorLabel', (rInner + rMid) / 2 + 4, i * seg, minLabelSet[i], ` style="color:${minInk}"`);
+    majLabels += cfLabel('cfMajorLabel' + (Array.isArray(majLabelSet[i]) ? ' cfTwo' : ''), (rMid + rOuter) / 2 + 5, i * seg, majLabelSet[i], ` style="color:${ink}"`);
+    minLabels += cfLabel('cfMinorLabel' + (Array.isArray(minLabelSet[i]) ? ' cfTwo' : ''), (rInner + rMid) / 2 + 4, i * seg, minLabelSet[i], ` style="color:${minInk}"`);
     accLabels += cfLabel('cfAccLabel', rOuter + 8, i * seg, KEY_SIGS[i], ' style="color:var(--text)"');
     romanLabels += cfLabel(`cfRomanLabel cfRomanOuter${i}`, (rMid + rOuter) / 2 - 13, i * seg, '', ` style="color:${ink}"`);
     romanLabels += cfLabel(`cfRomanLabel cfRomanInner${i}`, (rInner + rMid) / 2 - 9, i * seg, '', ` style="color:${minInk}"`);
@@ -3475,6 +3671,17 @@ const PROGRESSIONS = [
   { name: 'ii – V – I (Jazz)', steps: [{ d: -1, r: 'inner', deg: 'ii' }, { d: 1, r: 'outer', deg: 'V' }, { d: 0, r: 'outer', deg: 'I' }] },
   { name: 'vi – IV – I – V', steps: [{ d: 0, r: 'inner', deg: 'vi' }, { d: -1, r: 'outer', deg: 'IV' }, { d: 0, r: 'outer', deg: 'I' }, { d: 1, r: 'outer', deg: 'V' }] },
   { name: 'I – IV – I – V (12-bar blues)', steps: ['I', 'I', 'I', 'I', 'IV', 'IV', 'I', 'I', 'V', 'IV', 'I', 'V'].map(deg => ({ d: deg === 'I' ? 0 : deg === 'IV' ? -1 : 1, r: 'outer', deg })) },
+  { name: 'I – V – vi – iii – IV – I – IV – V (Canon)', steps: [{ d: 0, r: 'outer', deg: 'I' }, { d: 1, r: 'outer', deg: 'V' }, { d: 0, r: 'inner', deg: 'vi' }, { d: 1, r: 'inner', deg: 'iii' }, { d: -1, r: 'outer', deg: 'IV' }, { d: 0, r: 'outer', deg: 'I' }, { d: -1, r: 'outer', deg: 'IV' }, { d: 1, r: 'outer', deg: 'V' }] },
+  { name: 'vi – ii – V – I (Circle)', steps: [{ d: 0, r: 'inner', deg: 'vi' }, { d: -1, r: 'inner', deg: 'ii' }, { d: 1, r: 'outer', deg: 'V' }, { d: 0, r: 'outer', deg: 'I' }] },
+  { name: 'I – vi – ii – V (Rhythm changes)', steps: [{ d: 0, r: 'outer', deg: 'I' }, { d: 0, r: 'inner', deg: 'vi' }, { d: -1, r: 'inner', deg: 'ii' }, { d: 1, r: 'outer', deg: 'V' }] },
+  { name: 'ii – V – I – vi (Turnaround)', steps: [{ d: -1, r: 'inner', deg: 'ii' }, { d: 1, r: 'outer', deg: 'V' }, { d: 0, r: 'outer', deg: 'I' }, { d: 0, r: 'inner', deg: 'vi' }] },
+  { name: 'I – iii – IV – V (Doo-wop up)', steps: [{ d: 0, r: 'outer', deg: 'I' }, { d: 1, r: 'inner', deg: 'iii' }, { d: -1, r: 'outer', deg: 'IV' }, { d: 1, r: 'outer', deg: 'V' }] },
+  { name: 'vi – V – IV – V (Andalusian-ish)', steps: [{ d: 0, r: 'inner', deg: 'vi' }, { d: 1, r: 'outer', deg: 'V' }, { d: -1, r: 'outer', deg: 'IV' }, { d: 1, r: 'outer', deg: 'V' }] },
+  { name: 'I – IV – vi – V', steps: [{ d: 0, r: 'outer', deg: 'I' }, { d: -1, r: 'outer', deg: 'IV' }, { d: 0, r: 'inner', deg: 'vi' }, { d: 1, r: 'outer', deg: 'V' }] },
+  { name: 'ii – IV – I – V', steps: [{ d: -1, r: 'inner', deg: 'ii' }, { d: -1, r: 'outer', deg: 'IV' }, { d: 0, r: 'outer', deg: 'I' }, { d: 1, r: 'outer', deg: 'V' }] },
+  { name: 'I – V – IV – V (Three chord)', steps: [{ d: 0, r: 'outer', deg: 'I' }, { d: 1, r: 'outer', deg: 'V' }, { d: -1, r: 'outer', deg: 'IV' }, { d: 1, r: 'outer', deg: 'V' }] },
+  { name: 'vi – iii – IV – I', steps: [{ d: 0, r: 'inner', deg: 'vi' }, { d: 1, r: 'inner', deg: 'iii' }, { d: -1, r: 'outer', deg: 'IV' }, { d: 0, r: 'outer', deg: 'I' }] },
+  { name: 'Full circle: I – IV – vii – iii – vi – ii – V – I', steps: [{ d: 0, r: 'outer', deg: 'I' }, { d: -1, r: 'outer', deg: 'IV' }, { d: -2, r: 'inner', deg: 'vii' }, { d: 1, r: 'inner', deg: 'iii' }, { d: 0, r: 'inner', deg: 'vi' }, { d: -1, r: 'inner', deg: 'ii' }, { d: 1, r: 'outer', deg: 'V' }, { d: 0, r: 'outer', deg: 'I' }] },
 ];
 let circleProg = null;   // the selected entry from PROGRESSIONS, or null
 let progTranspose = 0;   // extra hop around the circle, independent of S.root — lets you preview the progression in another key without leaving this screen
@@ -3544,6 +3751,24 @@ function updateCirclePlaying() {   // highlights whichever wedges (major AND the
   wheel.querySelectorAll('.cfMajor').forEach(el => el.classList.toggle('cfPlaying', circleChordPcs.has(+el.dataset.pc)));
   wheel.querySelectorAll('.cfMinorWedge').forEach(el => { const pc = relMinorPc(FIFTHS_ORDER[+el.dataset.pos]); el.classList.toggle('cfPlaying', circleChordPcs.has(pc)); });
 }
+function circleStepChord() {   // the chord the progression is waiting for, as a {root, q} the keyboard can light
+  if (!circleProg) return null;
+  const step = circleProg.steps[progStepPtr % circleProg.steps.length];
+  const { pc } = circleStepTarget(step);
+  const dt = diatonicTriads(SCALES[S.scaleType][1], S.root);
+  const d = dt.find(x => x.pc === pc);
+  return { root: pc, q: d ? d.q : (step.r === 'inner' ? 'm' : '') };
+}
+function syncCircleProgChord(play) {   // light it like any other drill chord, so Light behaviour and Exercise types apply to a progression too
+  if (!circleProg || scaleProgMode) return;
+  const ch = circleStepChord(); if (!ch) return;
+  if (!showScaleChords) { showScaleChords = true; const b = $('scaleChordsBtn'); if (b) b.setAttribute('aria-pressed', 'true'); }
+  savedLastNow = lastNow; savedNowNotes = nowNotes.slice(); showAllNotes = false; showExtensions = false;
+  syncChordModeButtons(); openChordInfoRow();
+  scaleChordSel = ch; progMiss = 0; userInv = 0;
+  if (play) setTimeout(playExerciseChord, 200);
+  renderKeys();
+}
 function circleTrackProgress(n) {   // call on a fresh note-press: if it matches the step we're waiting for, advance to the next one
   if (!circleProg || !$('circleOverlay') || $('circleOverlay').hidden) return;
   const pc = ((n % 12) + 12) % 12;
@@ -3557,7 +3782,9 @@ function openProgPop() {
   pop.querySelectorAll('[data-idx]').forEach(b => {
     const idx = +b.dataset.idx;
     b.setAttribute('aria-selected', String(idx >= 0 && circleProg === PROGRESSIONS[idx]));
-    b.onclick = () => { circleProg = idx >= 0 ? PROGRESSIONS[idx] : null; progStepPtr = 0; $('circleProgBtn').setAttribute('aria-pressed', String(!!circleProg)); closeProgPop(); renderCircleProgression(); syncProgKbBtn(); renderProgKbRow();  syncProgResetBtn(); };
+    b.onclick = () => { circleProg = idx >= 0 ? PROGRESSIONS[idx] : null; progStepPtr = 0; $('circleProgBtn').setAttribute('aria-pressed', String(!!circleProg)); closeProgPop(); renderCircleProgression(); syncProgKbBtn(); renderProgKbRow();
+      if (circleProg) syncCircleProgChord(false); else if (!scaleProgMode) clearScaleChordSel();
+      syncProgResetBtn(); syncProgRootBtn(); syncProgAddsBtn(); syncExerciseBtn(); renderKeys(); };
   });
   pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
   placePop(pop, btn, 'right');
@@ -3568,7 +3795,6 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeProgPop
 function syncCircleTools() {   // make the tool buttons, the mini keyboard and the wheel's own layers agree with the view toggles — on first open that's what puts the defaults on screen
   $('circleAccBtn').setAttribute('aria-pressed', String(circleShowAcc));
   $('circleRomanBtn').setAttribute('aria-pressed', String(circleShowRoman));
-  $('circleFlatsBtn').setAttribute('aria-pressed', String(circleSharps));
   $('circleKbBtn').setAttribute('aria-pressed', String(circleShowKb));
   const w = $('circleWheel'); if (w) { w.classList.toggle('showAcc', circleShowAcc); w.classList.toggle('showRoman', circleShowRoman); }
   const mk = $('circleMiniKb');
@@ -3577,13 +3803,13 @@ function syncCircleTools() {   // make the tool buttons, the mini keyboard and t
 function openCircle() { if (!$('circleWheel').children.length) buildCircleWheel(); syncCircleSelection(); syncTransposeBtn(); syncCircleTools(); resetCircleZoom(); $('circleOverlay').hidden = false; updateCirclePlaying(); }
 function closeCircle() { $('circleOverlay').hidden = true; closeProgPop(); closeTransposePop(); }
 $('circleBtn').addEventListener('pointerdown', flashCircle);
-$('circleBtn').onclick = $('circleBtnFull').addEventListener('pointerdown', flashCircle);
+$('circleBtnFull').addEventListener('pointerdown', flashCircle);
+$('circleBtn').onclick = openCircle;   // this used to be assigned the return of addEventListener — i.e. undefined — so the circle button outside full screen quietly did nothing at all
 $('circleBtnFull').onclick = openCircle;
 $('circleOverlay').addEventListener('pointerdown', e => { if (e.target === e.currentTarget) closeCircle(); });   // desktop only, in effect: the overlay is edge-to-edge on mobile (the card fills it, so there's no backdrop to click), but on desktop it's the dimmed area around the popup card — clicking there closes it
 $('circleClose').onclick = closeCircle;
 $('circleAccBtn').onclick = () => { circleShowAcc = !circleShowAcc; $('circleAccBtn').setAttribute('aria-pressed', circleShowAcc); const w = $('circleWheel'); if (w) w.classList.toggle('showAcc', circleShowAcc); };
 $('circleRomanBtn').onclick = () => { circleShowRoman = !circleShowRoman; $('circleRomanBtn').setAttribute('aria-pressed', circleShowRoman); const w = $('circleWheel'); if (w) w.classList.toggle('showRoman', circleShowRoman); };
-$('circleFlatsBtn').onclick = () => { circleSharps = !circleSharps; $('circleFlatsBtn').setAttribute('aria-pressed', circleSharps); rebuildCircleWheel(); };
 $('circleKbBtn').onclick = () => { circleShowKb = !circleShowKb; $('circleKbBtn').setAttribute('aria-pressed', circleShowKb); $('circleMiniKb').hidden = !circleShowKb; $('circleMiniKb').closest('.circleHead').classList.toggle('hasMiniKb', circleShowKb); if (circleShowKb) updateCircleMiniKb(); };
 /* ---------- pinch to zoom the wheel (and drag it around once it's bigger than the frame) ---------- */
 let cfZoom = 1, cfPanX = 0, cfPanY = 0, cfMoved = false, cfGestureEnd = -1e9;
@@ -3605,8 +3831,11 @@ function resetCircleZoom() { cfZoom = 1; cfPanX = 0; cfPanY = 0; applyCircleZoom
     if (e.target.closest('.circleTools')) return;   // the tool buttons down the side keep their normal taps
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pts.size === 1) { cfMoved = false; px0 = cfPanX; py0 = cfPanY; cx0 = e.clientX; cy0 = e.clientY; }
-    if (pts.size === 2) { d0 = spread() || 1; z0 = cfZoom; const [mx, my] = mid(); cx0 = mx; cy0 = my; px0 = cfPanX; py0 = cfPanY; }
-    try { wrap.setPointerCapture(e.pointerId); } catch (err) {}
+    if (pts.size === 2) { d0 = spread() || 1; z0 = cfZoom; const [mx, my] = mid(); cx0 = mx; cy0 = my; px0 = cfPanX; py0 = cfPanY;
+      try { wrap.setPointerCapture(e.pointerId); } catch (err) {} }
+    // A single finger does NOT capture the pointer. Capturing it here retargeted the click to the wrapper, so the
+    // click never reached the wedge under your finger and tapping a key on the circle quietly did nothing. Capture
+    // only once a gesture is actually under way (below), which is the only time it's needed.
   });
   wrap.addEventListener('pointermove', e => {
     if (!pts.has(e.pointerId)) return;
@@ -3619,6 +3848,7 @@ function resetCircleZoom() { cfZoom = 1; cfPanX = 0; cfPanY = 0; applyCircleZoom
     } else if (cfZoom > 1) {   // one finger, already zoomed in: pan. At 1x a single finger is still just a tap on a wedge.
       const dx = e.clientX - cx0, dy = e.clientY - cy0;
       if (!cfMoved && Math.hypot(dx, dy) < 10) return;
+      if (!cfMoved) { try { wrap.setPointerCapture(e.pointerId); } catch (err) {} }   // now it's a drag, so take the pointer
       cfMoved = true; cfPanX = px0 + dx; cfPanY = py0 + dy; applyCircleZoom(); e.preventDefault();
     }
   });
@@ -4020,7 +4250,7 @@ function applyAudioDoc(v) {
    delay, its own name — deliberately stays local, because making a phone match a laptop on those would be wrong. */
 const SHARED_KEYS = ['sound', 'lookBeats', 'scaleOn', 'showPlaying', 'showNext', 'root', 'scaleType', 'fold', 'loop',
   'bpm', 'sig', 'accentOn', 'countIn', 'metro', 'transpose', 'showFingersL', 'showFingersR', 'goodChordSound',
-  'badNoteSound', 'speakChords', 'speakDuck', 'fitKey', 'followKeys', 'progLock', 'progHint', 'keepAwake', 'ownTempo', 'groove', 'fingersBoth', 'bothMode'];
+  'badNoteSound', 'speakChords', 'speakDuck', 'fitKey', 'followKeys', 'progHint', 'progAdds', 'progInv', 'exDir', 'exType', 'arpPat', 'keepAwake', 'ownTempo', 'groove', 'fingersBoth', 'bothMode'];
 let sharedSnap = null, shareT = null, settingsApplied = false;
 const sharedNow = () => JSON.stringify(SHARED_KEYS.map(k => S[k]));
 function shareSettingsSoon() {
@@ -4047,7 +4277,7 @@ function refreshSharedUi() {
   try { syncSelBtn('root', 'rootBtn'); syncSelBtn('scaleType', 'scaleTypeBtn'); } catch (e) {}
   pr('speakChordBtn', S.speakChords); pr('goodChordSoundBtn', S.goodChordSound); pr('badNoteSoundBtn', S.badNoteSound);
   pr('fingerLBtn', S.showFingersL); pr('fingerRBtn', S.showFingersR); pr('accentChip', S.accentOn);
-  pr('xNow', S.showPlaying); pr('xNext', S.showNext); pr('progLockBtn', S.progLock);
+  pr('xNow', S.showPlaying); pr('xNext', S.showNext); syncSoundsBtn();
   try { setBeats(S.lookBeats, true); } catch (e) {}
   buildDots(); syncChips(); showBpm(); refreshSwatches(); renderKeys(); drawArr();
 }
@@ -4780,57 +5010,137 @@ $('scaleChordsBtn').onclick = () => { showScaleChords = !showScaleChords;
   $('scaleChordsBtn').setAttribute('aria-pressed', showScaleChords); renderKeys(); };
 $('scaleDegBtn').onclick = () => { showScaleDegNums = !showScaleDegNums; $('scaleDegBtn').setAttribute('aria-pressed', showScaleDegNums); renderKeys(); };
 $('romanBtn').onclick = () => { showRomanNums = !showRomanNums; $('romanBtn').setAttribute('aria-pressed', showRomanNums); renderKeys(); };
-const SCALE_PROG_EXERCISES = [   // the practice-drill options offered from scaleProgBtn's dropdown
-  { mode: 'fwd', label: 'Forward, one at a time' },
-  { mode: 'back', label: 'Backward, one at a time' },
-  { mode: 'bounce', label: 'Up, then back down' },
-  { mode: 'fwdOct', label: 'Forward, full octave' },
-  { mode: 'backOct', label: 'Backward, full octave' },
-  { mode: 'bounceOct', label: 'Up and down, full octave' },
-  { mode: 'arp', label: 'Arpeggio (root, 3rd, 5th)' },
-  { mode: 'arpUpDown', label: 'Arpeggio, up and down' },
-  { mode: 'inv', label: 'Inversions (root, 1st, 2nd)' },
-  { mode: 'dom7', label: 'Jazz dominant 7ths' },
+// An exercise is a DIRECTION and a TYPE, picked separately, rather than one flat list of every combination.
+// The internal mode name is derived from the pair, so everything downstream carries on unchanged.
+const EX_DIRS = [ { id: 'up', label: 'Up' }, { id: 'down', label: 'Down' }, { id: 'updown', label: 'Up/Down' } ];
+const EX_TYPES = [ { id: 'chords', label: 'Chords' }, { id: 'arp', label: 'Arpeggio' }, { id: 'rand', label: 'Random with audio' } ];
+const ARP_PATS = [   // the order the chord's notes are asked for, before the direction is applied
+  { id: 'plain',   label: 'Straight' },
+  { id: 'broken',  label: 'Broken' },
+  { id: 'alberti', label: 'Alberti' },
+  { id: 'pedal',   label: 'Pedal root' },
 ];
-function syncProgLockBtn() { const btn = $('progLockBtn'); if (!btn) return; btn.disabled = !scaleProgMode; btn.setAttribute('aria-pressed', String(S.progLock)); }
-const PROG_HINTS = [   // how much of the drill chord the keyboard gives away
-  { id: 'full',        label: 'Light the whole chord' },
-  { id: 'root',        label: 'Light the root only' },
-  { id: 'mistakeRoot', label: 'Root only, whole chord after a mistake' },
-  { id: 'mistake',     label: 'Light nothing until you make a mistake' },
-  { id: 'allLit',      label: 'Blank keyboard until you make a mistake' },
+const ARP_SHAPE = { plain: '1–3–5', broken: '1–5–3', alberti: '1–5–3–5', pedal: '1–3–1–5' };
+function exDir() { return EX_DIRS.some(x => x.id === S.exDir) ? S.exDir : 'up'; }
+function exType() { return EX_TYPES.some(x => x.id === S.exType) ? S.exType : 'chords'; }
+function arpPat() { return ARP_PATS.some(x => x.id === S.arpPat) ? S.arpPat : 'plain'; }
+let exerciseOn = false;
+function exMode() {
+  if (!exerciseOn) return null;
+  if (exType() === 'rand') return 'rand';
+  if (exType() === 'arp') return exDir() === 'down' ? 'arpDown' : exDir() === 'updown' ? 'arpUpDown' : 'arp';
+  return exDir() === 'down' ? 'backOct' : exDir() === 'updown' ? 'bounceOct' : 'fwdOct';
+}
+function applyExercise() { setScaleProgMode(exMode()); }
+function syncProgLockBtn() {}   // the lock is gone — the exercise types and light behaviour cover what it was for
+// How much the keyboard gives away, and how it gives way as you get it wrong. The two harder modes hand over their
+// help in stages: the first slip shows you the KEY you're in, the second shows you the chord itself. The count is
+// per chord — it resets every time the drill moves on.
+const PROG_HINTS = [
+  { id: 'chord', label: 'Show chord' },
+  { id: 'root',  label: 'Show root' },
+  { id: 'none',  label: 'Show nothing' },
 ];
+const HINT_MIGRATE = { full: 'chord', mistakeRoot: 'root', mistake: 'none', mistakeScale: 'none', allLit: 'none' };
+function progHint() { const h = S.progHint; return HINT_MIGRATE[h] || (PROG_HINTS.some(x => x.id === h) ? h : 'chord'); }
+function progExercise() { return !!scaleProgMode || !!circleProg; }   // a practice exercise OR a circle-of-fifths progression — both are drills, and the light/types/start buttons drive whichever is running
+function progStage() { return progHint() === 'chord' ? 2 : Math.min(2, progMiss); }   // 0 nothing, 1 the scale, 2 the chord
+function progShowsChord() { return progStage() >= 2; }
+function progShowsScale() { return progStage() >= 1; }
+function progShowsRoot() { return progHint() === 'root'; }
 function syncProgRootBtn() { const btn = $('progHintBtn'); if (!btn) return;
-  btn.disabled = !scaleProgMode; btn.setAttribute('aria-pressed', String(S.progHint !== 'full'));
-  const h = PROG_HINTS.find(x => x.id === S.progHint); if (h) btn.title = h.label; }
+  btn.disabled = !progExercise(); btn.setAttribute('aria-pressed', String(progHint() !== 'chord'));
+  const h = PROG_HINTS.find(x => x.id === progHint()); btn.title = h ? 'Light behaviour: ' + h.label : 'Light behaviour'; }
+const SOUND_OPTS = [
+  { id: 'goodChordSound', label: 'Sound when a chord is right' },
+  { id: 'badNoteSound',   label: 'Sound on a wrong note' },
+  { id: 'speakChords',    label: 'Say the chord name out loud' },
+];
+function syncSoundsBtn() { const btn = $('soundsBtn'); if (!btn) return;
+  const on = SOUND_OPTS.filter(x => !!S[x.id]);
+  btn.setAttribute('aria-pressed', String(on.length > 0));
+  btn.title = on.length ? on.map(x => x.label).join(', ') : 'Feedback sounds — all off'; }
+function closeSoundsPop() { const p = $('soundsPop'); if (!p) return; p.hidden = true; $('soundsBtn').setAttribute('aria-expanded', 'false'); }
+function openSoundsPop() {
+  const pop = $('soundsPop'), btn = $('soundsBtn');
+  const draw = () => { pop.innerHTML = SOUND_OPTS.map(x => `<button type="button" class="playOpt" data-snd="${x.id}" aria-selected="${!!S[x.id]}"><span class="tick">${S[x.id] ? '\u2713' : ''}</span>${x.label}</button>`).join('');
+    pop.querySelectorAll('[data-snd]').forEach(b => { b.onclick = () => { const k = b.dataset.snd; S[k] = !S[k]; save();
+      const mirror = { goodChordSound: 'goodChordSoundBtn', badNoteSound: 'badNoteSoundBtn', speakChords: 'speakChordBtn' }[k];
+      const el = $(mirror); if (el) el.setAttribute('aria-pressed', String(!!S[k]));   // the old buttons are kept hidden so everything that read their state still works
+      if (k === 'speakChords' && !S[k] && typeof stopSpeak === 'function') stopSpeak();
+      syncSoundsBtn(); draw(); }; }); };
+  draw(); pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); placePop(pop, btn);
+}
+function progAddsLabel() {   // a tiny tag in the corner of the icon says what's ticked, without spelling it out
+  const bits = []; if (progAdd('seventh')) bits.push('7'); if (progAdd('ext')) bits.push('+');
+  if (progAdd('r2r')) bits.push('R'); if (progAdd('oct2')) bits.push('2'); if (progAdd('lh')) bits.push('L');
+  if (progInvOn()) bits.push(progInvSel() === 'all' ? 'A' : progInvSel() === '3rd' ? '3' : '2');
+  return bits.join('');
+}
+function syncProgAddsBtn() { const btn = $('progAddsBtn'); if (!btn) return;
+  btn.disabled = !progExercise(); btn.setAttribute('aria-pressed', String(anyProgAdd()));
+  const tag = btn.querySelector('.exTag'); if (tag) tag.textContent = progAddsLabel();
+  const on = PROG_ADDS.filter(x => progAdd(x.id)).map(x => x.id === 'inv' ? 'Inversions (' + progInvSel() + ')' : x.label);
+  btn.title = on.length ? 'Exercise types: ' + on.join(', ') : 'Exercise types'; }
+function closeProgAddsPop() { const p = $('progAddsPop'); if (!p) return; p.hidden = true; $('progAddsBtn').setAttribute('aria-expanded', 'false'); }
+function openProgAddsPop() {   // a checklist, not a radio list: these stack, so the popup stays open as you tick
+  const pop = $('progAddsPop'), btn = $('progAddsBtn');
+  const draw = () => {
+    pop.innerHTML = PROG_ADDS.map(x => {
+      let html = `<button type="button" class="playOpt" data-add="${x.id}" aria-selected="${progAdd(x.id)}"><span class="tick">${progAdd(x.id) ? '\u2713' : ''}</span>${x.label}</button>`;
+      if (x.id === 'inv' && progInvOn()) html += '<div class="subRow">' + PROG_INVS.map(v => `<button type="button" data-inv2="${v.id}" aria-selected="${progInvSel() === v.id}">${v.label}</button>`).join('') + '</div>';
+      return html; }).join('');
+    pop.querySelectorAll('[data-add]').forEach(b => { b.onclick = () => {
+      const id = b.dataset.add, cur = Array.isArray(S.progAdds) ? S.progAdds.slice() : [];
+      S.progAdds = cur.includes(id) ? cur.filter(x => x !== id) : cur.concat(id);
+      scaleProgInv = 0; userInv = 0;
+      save(); syncProgAddsBtn(); draw(); renderKeys(); }; });
+    pop.querySelectorAll('[data-inv2]').forEach(b => { b.onclick = () => {
+      S.progInv = b.dataset.inv2; scaleProgInv = 0; userInv = 0;
+      save(); syncProgAddsBtn(); draw(); renderKeys(); }; }); };
+  draw(); pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); placePop(pop, btn);
+}
 function closeProgHintPop() { const p = $('progHintPop'); if (!p) return; p.hidden = true; $('progHintBtn').setAttribute('aria-expanded', 'false'); }
 function openProgHintPop() {
   const pop = $('progHintPop'), btn = $('progHintBtn');
   pop.innerHTML = PROG_HINTS.map(x => `<button type="button" class="playOpt" data-hint="${x.id}">${x.label}</button>`).join('');
   pop.querySelectorAll('[data-hint]').forEach(b => { const id = b.dataset.hint;
-    b.setAttribute('aria-selected', String(S.progHint === id));
-    b.onclick = () => { S.progHint = id; save(); progRevealed = false; syncProgRootBtn(); closeProgHintPop(); renderKeys(); }; });
+    b.setAttribute('aria-selected', String(progHint() === id));
+    b.onclick = () => { S.progHint = id; save(); progMiss = 0; syncProgRootBtn(); closeProgHintPop(); renderKeys(); }; });
   pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); placePop(pop, btn);
 }
 // Back to the top of the drill without having to switch the exercise off and on again: the lit chord goes back to
 // the first degree, every counter the exercises keep (direction, octave, arpeggio step, inversion) is zeroed, and a
 // circle-of-fifths progression rewinds to its first step too.
-function syncProgResetBtn() { const btn = $('progResetBtn'); if (btn) btn.disabled = !(scaleProgMode || circleProg); }
+function syncProgResetBtn() { const btn = $('progResetBtn'); if (btn) btn.disabled = !progExercise(); }
+const EX_ICON = '<path d="M4 5l7 7-7 7M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>';
+const PROG_ICON = '<circle cx="4" cy="18" r="2.3" fill="currentColor"/><circle cx="12" cy="7" r="2.3" fill="currentColor"/><circle cx="20" cy="15" r="2.3" fill="currentColor"/><path d="M6 16.3 10 9M14 8.3 18 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>';
+// A circle-of-fifths progression IS the exercise while it's picked, so the exercise list is closed off and the
+// button wears the progression's own icon — the rest of the group (light behaviour, types, start again) then
+// drives the progression instead.
+function syncExerciseBtn() { const btn = $('scaleProgBtn'); if (!btn) return;
+  const onProg = !!circleProg && !scaleProgMode;
+  btn.disabled = onProg;
+  btn.setAttribute('aria-pressed', String(!!scaleProgMode || onProg));
+  if (!scaleProgMode) exerciseOn = false;
+  btn.title = btn.ariaLabel = onProg ? 'Running a circle-of-fifths progression' : 'Practice exercises';
+  const svg = btn.querySelector('svg'); if (svg) svg.innerHTML = onProg ? PROG_ICON : EX_ICON;
+  if (onProg) closeScaleProgPop(); }
 function restartScaleProg() {
   if (!scaleProgMode && !circleProg) return;
-  scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayOct = null; progRevealed = false;
+  scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null; progMiss = 0;
   if (typeof resetChordOct === 'function') resetChordOct();
   if (typeof syncInvGroup === 'function') syncInvGroup();
   if (scaleProgMode) {
     const dt = diatonicTriads(SCALES[S.scaleType][1], S.root); const first = dt.find(d => d.deg === 0);
     if (first) scaleChordSel = { root: first.pc, q: scaleProgDom7Mode() ? '7' : first.q };
   }
-  if (circleProg) { progStepPtr = 0; renderCircleProgression(); renderProgKbRow(); }
+  if (circleProg) { progStepPtr = 0; renderCircleProgression(); renderProgKbRow(); if (!scaleProgMode) syncCircleProgChord(false); }
   const btn = $('progResetBtn'); if (btn) { btn.classList.add('primary'); setTimeout(() => btn.classList.remove('primary'), 160); }
   renderKeys();
 }
 function setScaleProgMode(mode) {   // mode: null (off) or one of SCALE_PROG_EXERCISES' — mutually exclusive by construction, since only one can be picked from the dropdown at a time
-  scaleProgMode = mode; scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayOct = null;
+  scaleProgMode = mode; scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null;
   $('scaleProgBtn').setAttribute('aria-pressed', String(!!scaleProgMode));
   if (scaleProgMode) {
     if (!showScaleChords) { showScaleChords = true; $('scaleChordsBtn').setAttribute('aria-pressed', 'true'); }
@@ -4845,24 +5155,41 @@ function setScaleProgMode(mode) {   // mode: null (off) or one of SCALE_PROG_EXE
     const q = scaleProgDom7Mode() ? '7' : (d ? d.q : scaleChordSel.q);
     if (q !== scaleChordSel.q) scaleChordSel = { root: scaleChordSel.root, q };
   }
-  syncProgLockBtn(); syncProgResetBtn(); syncProgRootBtn();
+  syncProgLockBtn(); syncProgResetBtn(); syncProgRootBtn(); syncProgAddsBtn(); syncExerciseBtn();
   renderKeys();
 }
-$('progLockBtn').onclick = () => { S.progLock = !S.progLock; save(); syncProgLockBtn(); };
+
 $('progHintBtn').onclick = () => { $('progHintPop').hidden ? openProgHintPop() : closeProgHintPop(); };
+$('progAddsBtn').onclick = () => { $('progAddsPop').hidden ? openProgAddsPop() : closeProgAddsPop(); };
+syncExerciseBtn();
+$('soundsBtn').onclick = () => { $('soundsPop').hidden ? openSoundsPop() : closeSoundsPop(); };
+document.addEventListener('pointerdown', ev => { if (!$('soundsPop').hidden && !ev.target.closest('#soundsPop') && !ev.target.closest('#soundsBtn')) closeSoundsPop(); });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeSoundsPop(); });
+syncSoundsBtn();
+document.addEventListener('pointerdown', ev => { if (!$('progAddsPop').hidden && !ev.target.closest('#progAddsPop') && !ev.target.closest('#progAddsBtn')) closeProgAddsPop(); });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeProgAddsPop(); });
+syncProgAddsBtn();
 document.addEventListener('pointerdown', e => { if (!$('progHintPop').hidden && !e.target.closest('#progHintPop') && !e.target.closest('#progHintBtn')) closeProgHintPop(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeProgHintPop(); });
 syncProgRootBtn();
 $('progResetBtn').onclick = restartScaleProg; syncProgResetBtn();
 function closeScaleProgPop() { const p = $('scaleProgPop'); if (!p) return; p.hidden = true; $('scaleProgBtn').setAttribute('aria-expanded', 'false'); }
-function openScaleProgPop() {
+function openScaleProgPop() {   // On/Off, then two rows of choices — direction and type — and the arpeggio's own pattern row when that's the type
   const pop = $('scaleProgPop'), btn = $('scaleProgBtn');
-  pop.innerHTML = '<button type="button" class="playOpt" data-mode="">Off</button>' + SCALE_PROG_EXERCISES.map(x => `<button type="button" class="playOpt" data-mode="${x.mode}">${x.label}</button>`).join('');
-  pop.querySelectorAll('[data-mode]').forEach(b => {
-    const mode = b.dataset.mode || null;
-    b.setAttribute('aria-selected', String(scaleProgMode === mode));
-    b.onclick = () => { setScaleProgMode(mode); closeScaleProgPop(); };
-  });
+  const row = (label, items, cur, attr) => `<div class="exRow"><span class="exLbl">${label}</span><div class="exOpts">` +
+    items.map(x => `<button type="button" data-${attr}="${x.id}" aria-selected="${cur === x.id}">${x.label}</button>`).join('') + '</div></div>';
+  const draw = () => {
+    pop.innerHTML = `<button type="button" class="playOpt" data-onoff="1" aria-selected="${exerciseOn}"><span class="tick">${exerciseOn ? '\u2713' : ''}</span>${exerciseOn ? 'On' : 'Off'}</button>`
+      + row('Direction', EX_DIRS, exDir(), 'exdir')
+      + row('Type', EX_TYPES, exType(), 'extype')
+      + (exType() === 'arp' ? row('Arpeggio', ARP_PATS.map(x => ({ id: x.id, label: x.label })), arpPat(), 'arppat')
+         + `<div class="exNote">${ARP_SHAPE[arpPat()] || ''}</div>` : '');
+    pop.querySelector('[data-onoff]').onclick = () => { exerciseOn = !exerciseOn; applyExercise(); draw(); placePop(pop, btn); };
+    pop.querySelectorAll('[data-exdir]').forEach(b => { b.onclick = () => { S.exDir = b.dataset.exdir; save(); exerciseOn = true; applyExercise(); draw(); placePop(pop, btn); }; });
+    pop.querySelectorAll('[data-extype]').forEach(b => { b.onclick = () => { S.exType = b.dataset.extype; save(); exerciseOn = true; applyExercise(); draw(); placePop(pop, btn); }; });
+    pop.querySelectorAll('[data-arppat]').forEach(b => { b.onclick = () => { S.arpPat = b.dataset.arppat; save(); applyExercise(); draw(); placePop(pop, btn); }; });
+  };
+  draw();
   pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
   placePop(pop, btn);
 }
@@ -4904,7 +5231,7 @@ function syncBarToggles() {
 ['keyInfoToggleTop', 'keyInfoToggleFull'].forEach(id => { const b = $(id); if (b) b.onclick = () => { $('keyInfoToggle').onclick(); }; });
 ['chordInfoToggleTop', 'chordInfoToggleFull'].forEach(id => { const b = $(id); if (b) b.onclick = () => { $('chordInfoToggle').onclick(); }; });
 syncBarToggles();
-$('keyInfoClearBtn').onclick = () => { showScaleChords = false; showScaleDegNums = false; showRomanNums = false; S.showFingersL = false; S.showFingersR = false; scaleProgMode = null; scaleProgOct = 0; scaleProgArpIdx = 0; closeScaleProgPop(); clearScaleChordSel();
+$('keyInfoClearBtn').onclick = () => { showScaleChords = false; showScaleDegNums = false; showRomanNums = false; S.showFingersL = false; S.showFingersR = false; scaleProgMode = null; exerciseOn = false; scaleProgOct = 0; scaleProgArpIdx = 0; closeScaleProgPop(); clearScaleChordSel();
   $('scaleChordsBtn').setAttribute('aria-pressed', 'false'); $('scaleDegBtn').setAttribute('aria-pressed', 'false'); $('romanBtn').setAttribute('aria-pressed', 'false'); $('fingerLBtn').setAttribute('aria-pressed', 'false'); $('fingerRBtn').setAttribute('aria-pressed', 'false'); $('scaleProgBtn').setAttribute('aria-pressed', 'false'); syncProgLockBtn();
   save(); renderKeys(); };
 $('chordInfoClearBtn').onclick = () => { showAllNotes = false; showExtensions = false; showDegNums = false; S.showFingersL = S.showFingersR = S.fingersBoth = false; save(); hand = null; userInv = 0; syncInvGroup(); syncChordModeButtons(); syncHands(); renderKeys(); };
