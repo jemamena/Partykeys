@@ -1037,7 +1037,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '148 · 2026-09-17 · metro-two-rows';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '151 · 2026-09-17 · say-every-chord';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1927,9 +1927,14 @@ function click(when, accent) {
   g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(accent ? 1.5 : 0.95, when + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, when + (accent ? 0.07 : 0.045));
   o.connect(g).connect(metroGain || master); o.start(when); o.stop(when + 0.1);
 }
-function announceChord(delay) {   // level 3 has nothing to look at, so the chord is played instead — the same way the random exercise does it
-  if (!progHintAudio() && scaleProgMode !== 'rand') return;
-  setTimeout(playExerciseChord, delay === undefined ? 240 : delay);
+function announceChord(delay) {
+  const d = delay === undefined ? 240 : delay;
+  if (scaleProgMode === 'rand') setTimeout(playExerciseChord, d);   // the random exercise is played by ear — that's the whole point of it
+  // With "Say the chord name out loud" ticked, every exercise announces each chord as it comes up, whatever the
+  // light level. At level 3 that name is all you get; at the others it just tells you what you're looking at.
+  if (!progExercise() || !S.speakChords || !scaleChordSel) return;
+  const nm = NOTE_NAMES[scaleChordSel.root] + (scaleChordSel.q || '');
+  setTimeout(() => { const txt = speakableChord(transposeName(nm, S.transpose)); if (txt) { lastSpoken = txt; say(txt); } }, d);
 }
 function playExerciseChord() {   // sound the exercise chord where it's lit, so "random" can be played by ear
   if (!scaleChordSel) return;
@@ -2630,6 +2635,9 @@ let arrPreview = false, arrNotes = [];   // tapped the arrangement while paused:
 function exitChordPreview() { preview = null; if (scaleChordSel) clearScaleChordSel(); $('chordInfo').hidden = true; $('chordNow').classList.remove('sel'); $('chordNext').classList.remove('sel'); userInv = 0; syncInvGroup(); }
 let showAllNotes = false;   // toggle: repeat the chord's notes on every octave, instead of just once
 let showExtensions = false;   // toggle: which notes to include — chord tones only (off) or chord tones plus 7/9/11/13 (on). independent of showAllNotes.
+// A drill is a test, so the answer keys come off the board: degree numbers, roman numerals and the row of chord
+// labels all step aside while one is running. The toggles keep their own state and come straight back afterwards.
+function overlaysOff() { return progExercise(); }
 let showDegNums = true;   // toggle: show the degree numbers (from All/Ext) in a row above the keys
 let showScaleDegNums = false;   // toggle in the key-explanation row: show the plain scale's degree numbers (1-7) on its keys, when no chord is active
 let showRomanNums = false;   // toggle in the key-explanation row (next to "#"): roman numerals for each scale-degree chord, always in their own strip below whatever else is showing
@@ -2732,8 +2740,8 @@ let progMiss = 0;   // how many wrong notes on THIS chord so far — one earns t
 // "Light every key" means a blank keyboard, not a lit-up one: no chord, no scale colouring, and no blacked-out
 // keys either — exactly what the board looks like with nothing selected, so there is nothing at all to read off it.
 // The first wrong note drops it back to the normal picture: out-of-key keys out, the chord in colour.
-function progBlankBoard() { return circleLearnOn() ? circleLearnStage() < 1 : (progExercise() && !progShowsScale()); }   // nothing given away yet
-function progScaleOnly() { return circleLearnOn() ? circleLearnStage() === 2 : (progExercise() && progShowsScale() && !progShowsChord()); }   // the key is showing, the chord still isn't
+function progBlankBoard() { return circleLearnOn() ? circleLearnStage() < 1 : (progExercise() && !progShowsChord() && !progShowsRoot()); }   // nothing given away yet
+function progScaleOnly() { return circleLearnOn() ? circleLearnStage() === 2 : false; }   // only the circle drill has a "just the scale" rung
 let justWrapped = false;   // the chord right after a restart must not be dragged by anything left over from the run that just ended
 let runBaseOct = 0;   // the octave the current run started in — a wrap back to the beginning returns here, so the
                       // restart lands exactly where the first chord of the run was, not wherever the top of it drifted to
@@ -2945,9 +2953,13 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
     if (onClosing || (o >= top && !wantClosing) || !scaleProgChordFits(d, o, dt)) { d = 0; o = 0; chordOct = runBaseOct; wrapped = true; justWrapped = true; recentNotes.clear(); progPlayRoot = null; }
     nextDeg = d; scaleProgOct = o; }
   else if (scaleProgMode === 'backOct') { let [d, o] = scaleProgStep(cur.deg, scaleProgOct, -1);
-    if (o < 0) { const top = progSpan();   // ran off the bottom — start again from the top of the run
-      chordOct = runBaseOct; wrapped = true;
-      if (progEndsOnRoot() && scaleProgChordFits(0, top, dt)) { d = 0; o = top; } else { d = 6; o = Math.max(0, top - 1); } }
+    // Going down is the mirror of going up: it STARTS on the tonic at the top of its range and walks down the
+    // degrees, reaching the tonic an octave below — two, with "2 octaves" — when "root 2 root" is ticked.
+    const top = progSpan();
+    const atBottom = cur.deg === 0 && scaleProgOct <= 0;            // that was the closing tonic
+    const wantClosing = progEndsOnRoot() && d === 0 && o === 0;     // ...and this would be it
+    if (atBottom || o < 0 || (d === 0 && o === 0 && !wantClosing) || !scaleProgChordFits(d, o, dt)) {
+      d = 0; o = top; chordOct = runBaseOct; wrapped = true; justWrapped = true; recentNotes.clear(); progPlayRoot = null; }
     nextDeg = d; scaleProgOct = o; }
   else { let [d, o] = scaleProgStep(cur.deg, scaleProgOct, scaleProgDir);   // bounceOct: climb its octaves, then turn round and come back down, indefinitely
     const top = progSpan();
@@ -3013,7 +3025,7 @@ function selectScaleChord(pc, q, keepShift) {   // shared "tap this chord" behav
 function scChordClick() { selectScaleChord(+this.dataset.pc, this.dataset.q); }   // shared by both the white and the black chord-name rows
 function renderScaleChordRow() {   // a black key's chord label gets its own row, stacked above the white row (same treatment as the finger badges and the degree numbers) — sized exactly like the white labels now, even though that's wider than the black key underneath. Fine: with its own row, there's nothing beside it to overlap.
   const row = $('scaleChords'), rowB = $('scaleChordsB');
-  const matches = showScaleChords ? scaleChordMatches() : [];
+  const matches = (showScaleChords && !overlaysOff()) ? scaleChordMatches() : [];
   const whiteW = matches.filter(m => !m.el.classList.contains('b')).map(m => m.w);
   const labelFs = matches.length ? Math.max(7, Math.min(14, (whiteW.length ? Math.min(...whiteW) : Math.min(...matches.map(m => m.w))) * 0.34)) : 13;
   const partsW = [], partsB = [];
@@ -3029,7 +3041,7 @@ function renderScaleChordRow() {   // a black key's chord label gets its own row
 }
 function renderRomanRow() {   // its own toggle ("Ⅰ" next to "#"), independent of the chord-name row — always the last strip in the overlay column, so it sits right above the keys, below everything else that's showing. Sized from the white keys alone so a narrow black key never shrinks every numeral; a black key's own numeral gets its own row stacked above the white one, same treatment as the finger badges and the degree numbers
   const row = $('romanRow'), rowB = $('romanRowB');
-  const matches = showRomanNums ? scaleChordMatches() : [];
+  const matches = (showRomanNums && !overlaysOff()) ? scaleChordMatches() : [];
   if (!matches.length) { row.innerHTML = ''; row.style.height = '0'; rowB.innerHTML = ''; rowB.style.height = '0'; return; }
   const whiteWidths = matches.filter(m => !m.el.classList.contains('b')).map(m => m.w);
   const fs = Math.max(12, Math.min(26, (whiteWidths.length ? Math.min(...whiteWidths) : Math.min(...matches.map(m => m.w))) * 0.65));
@@ -3064,7 +3076,7 @@ function updateFingers() {
         nm = showExtensions ? extNoteMap(info.rootPc, info.tpl, allOn, anchor, DLOW, top, info.rawTpl)
            : allOn ? toneNoteMap(info.rootPc, info.tpl, true, anchor, DLOW, top, info.rawTpl)
            : toneNoteMap(info.rootPc, info.tpl, false, anchor, DLOW, top, info.rawTpl); }   // plain root-position voicing still gets its degree numbers, not just All/Ext
-      if (showDegNums && info) { const dm = showExtensions ? extNoteMap(info.rootPc, info.tpl, allOn, degAnchor, DLOW, topKey(), info.rawTpl)
+      if (showDegNums && !overlaysOff() && info) { const dm = showExtensions ? extNoteMap(info.rootPc, info.tpl, allOn, degAnchor, DLOW, topKey(), info.rawTpl)
           : toneNoteMap(info.rootPc, info.tpl, allOn, degAnchor, DLOW, topKey(), info.rawTpl);
         if (dm) for (const [n, labels] of dm) degMap.set(n, labels.join('/')); }
       if (hand) {   // same note set the keys are actually lit with — every note All/Ext show in view, not just the single folded chord — so the fingering covers the whole spread
@@ -3092,7 +3104,7 @@ function updateFingers() {
         else if (hand === 'L') tileHand(i => 'L' + lh[i], DLOW, top);
         else tileHand(i => 'R' + rh[i], DLOW, top);
       }
-      if (S.scaleOn && showScaleDegNums) {   // "#" toggle in the key-explanation row: every scale note's degree number (1-7), repeating every octave in view
+      if (S.scaleOn && showScaleDegNums && !overlaysOff()) {   // "#" toggle in the key-explanation row: every scale note's degree number (1-7), repeating every octave in view
         const steps = SCALES[S.scaleType][1]; const top = topKey();
         for (let k = DLOW; k <= top; k++) { const off = ((k - S.root) % 12 + 12) % 12; const idx = steps.indexOf(off); if (idx >= 0) degMap.set(k, String(idx + 1)); }
       }
@@ -5285,10 +5297,16 @@ const HINT_MIGRATE = { full: 'chord', mistakeRoot: 'root', mistake: 'audio', mis
 function progHintAudio() { return progHint() === 'audio'; }   // level 3: nothing on the keys, you get to hear it instead
 function progHint() { const h = S.progHint; return HINT_MIGRATE[h] || (PROG_HINTS.some(x => x.id === h) ? h : 'chord'); }
 function progExercise() { return !!scaleProgMode || !!circleProg || circleLearnOn(); }   // a practice exercise OR a circle-of-fifths progression — both are drills, and the light/types/start buttons drive whichever is running
-function progStage() { return progHint() === 'chord' ? 2 : Math.min(2, progMiss); }   // 0 nothing, 1 the scale, 2 the chord
-function progShowsChord() { return circleLearnOn() ? circleLearnStage() >= 3 : progStage() >= 2; }
-function progShowsScale() { return circleLearnOn() ? circleLearnStage() >= 2 : progStage() >= 1; }
-function progShowsRoot() { return circleLearnOn() ? circleLearnStage() === 1 : progHint() === 'root'; }
+// Level 1 shows the chord outright. Level 2 gives you the root, and hands over the chord on your first slip.
+// Level 3 shows nothing at all — you get the chord's NAME spoken instead — then the root on the first slip and
+// the chord on the second.
+function progShowsChord() { if (circleLearnOn()) return circleLearnStage() >= 3;
+  const h = progHint(); return h === 'chord' || (h === 'root' && progMiss >= 1) || (h === 'audio' && progMiss >= 2); }
+function progShowsRoot() { if (circleLearnOn()) return circleLearnStage() === 1;
+  if (progShowsChord()) return false;
+  const h = progHint(); return h === 'root' || (h === 'audio' && progMiss >= 1); }
+function progShowsScale() { return circleLearnOn() ? circleLearnStage() >= 2 : progShowsChord(); }
+function progStage() { return progShowsChord() ? 2 : progShowsRoot() ? 1 : 0; }
 function syncProgRootBtn() { const btn = $('progHintBtn'); if (!btn) return;
   btn.disabled = !progExercise(); btn.setAttribute('aria-pressed', String(progHint() !== 'chord'));
   const h = PROG_HINTS.find(x => x.id === progHint()); btn.title = h ? 'Light behaviour: ' + h.label : 'Light behaviour'; }
@@ -5370,7 +5388,7 @@ function syncExerciseBtn() { const btn = $('scaleProgBtn'); if (!btn) return;
   if (onProg) closeScaleProgPop(); }
 function restartScaleProg() {
   if (!scaleProgMode && !circleProg && !circleLearnOn()) return;
-  scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null; progMiss = 0; runBaseOct = chordOct;
+  scaleProgDir = 1; scaleProgOct = scaleProgMode === 'backOct' ? progSpan() : 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null; progMiss = 0; runBaseOct = chordOct;
   if (typeof resetChordOct === 'function') resetChordOct();
   if (typeof syncInvGroup === 'function') syncInvGroup();
   if (scaleProgMode) {
@@ -5380,10 +5398,11 @@ function restartScaleProg() {
   if (circleLearnOn()) { circleLearnPick(); return; }
   if (circleProg) { progStepPtr = 0; renderCircleProgression(); renderProgKbRow(); if (!scaleProgMode) syncCircleProgChord(false); }
   const btn = $('progResetBtn'); if (btn) { btn.classList.add('primary'); setTimeout(() => btn.classList.remove('primary'), 160); }
-  renderKeys();
+  renderKeys(); announceChord();   // a fresh start gets the same announcement a new chord does
 }
 function setScaleProgMode(mode) {   // mode: null (off) or one of SCALE_PROG_EXERCISES' — mutually exclusive by construction, since only one can be picked from the dropdown at a time
   scaleProgMode = mode; scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null; runBaseOct = chordOct;
+  if (mode === 'backOct') scaleProgOct = progSpan();   // descending runs begin on the tonic at the top of their range
   $('scaleProgBtn').setAttribute('aria-pressed', String(!!scaleProgMode));
   if (scaleProgMode) {
   // Starting a drill used to open the scale bar and the chord bar and reset their All/Ext toggles. It doesn't
