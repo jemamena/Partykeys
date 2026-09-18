@@ -1037,7 +1037,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '151 · 2026-09-17 · say-every-chord';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '153 · 2026-09-18 · hold-the-leds';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1738,8 +1738,8 @@ function onMidi(e) {
   if (!S.midiEnabled) return;   // toggled off from the top-bar MIDI button — ignore physical keyboard input entirely while off
   const [st, d1, d2] = e.data; const cmd = st & 0xF0;
   const n = dev().lights ? d1 + (LOW - DEV_LOW) : d1; // PartyKeys/PopuPiano: map their C3-based keys to the chosen start octave; other keyboards play as-is
-  if (cmd === 0x90 && d2 > 0) { noteOn(n, d2, 'midi'); liveBroadcast({ cmd: 'note', note: { n, vel: d2, on: true } }); dawNoteOn(n, d2); }
-  else if (cmd === 0x80 || (cmd === 0x90 && d2 === 0)) { noteOff(n, 'midi'); liveBroadcast({ cmd: 'note', note: { n, on: false } }); dawNoteOff(n); }
+  if (cmd === 0x90 && d2 > 0) { noteOn(n, d2, 'midi'); liveBroadcast({ cmd: 'note', note: { n, vel: d2, on: true } }); dawNoteOn(n, d2); ledGrabBack(); }
+  else if (cmd === 0x80 || (cmd === 0x90 && d2 === 0)) { noteOff(n, 'midi'); liveBroadcast({ cmd: 'note', note: { n, on: false } }); dawNoteOff(n); ledGrabBack(); }
 }
 const HDR = [0xF0, 0x05, 0x30, 0x7F, 0x7F, 0x20, 0x00];
 function outSend(bytes) {   // the LEDs are driven over USB when it's there, otherwise over Bluetooth
@@ -1747,8 +1747,35 @@ function outSend(bytes) {   // the LEDs are driven over USB when it's there, oth
   if (bleReady()) { bleSend(bytes); return true; }
   return false;
 }
-function enterLedMode() { if (!dev().lights) return; if (!midiOut && !bleReady()) return; if (midiOut && !sysexGranted) return;
-  if (outSend([...HDR, 0x0F, 0x01, 0xF7])) { ledModeSent = true; log('LED mode enabled on', midiOut ? midiOut.name : (bleDevice && bleDevice.name) || 'Bluetooth'); } }
+let ledModeAt = 0;   // when LED mode was last asserted — the firmware can take the lighting back, so it gets re-asserted
+function enterLedMode(quiet) { if (!dev().lights) return false; if (!midiOut && !bleReady()) return false; if (midiOut && !sysexGranted) return false;
+  if (!outSend([...HDR, 0x0F, 0x01, 0xF7])) return false;
+  ledModeSent = true; ledModeAt = performance.now();
+  if (!quiet) log('LED mode enabled on', midiOut ? midiOut.name : (bleDevice && bleDevice.name) || 'Bluetooth');
+  return true; }
+// Taking the board over isn't a one-off. The PartyKeys firmware keeps its own lighting mode running underneath and
+// repaints a key the moment that key is pressed, so one LED-mode message at connect time holds right up until you
+// play something. Re-assert it: on a heartbeat while connected, and again straight after a key goes down. Each
+// re-assert is followed by a FULL frame (lastSent cleared) — the board has just been painted by something other
+// than us, so the per-key diff would otherwise decide there was nothing to send.
+const LED_REASSERT_MS = 1500;   // heartbeat while nothing is being played
+const LED_PRESS_MS = 200;       // after a press, at most this often — BLE frames are coalesced to ~20fps as it is
+function ledReassert(minGap) {
+  if (!ledModeSent) return false;                       // nothing to re-assert yet; the first frame enters LED mode
+  if (!dev().lights || (!midiOut && !bleReady())) return false;
+  if (midiOut && !sysexGranted) return false;
+  if (performance.now() - ledModeAt < minGap) return false;
+  if (!enterLedMode(true)) return false;
+  lastSent.fill('');                                    // the firmware just repainted: send everything, not the diff
+  return true;
+}
+let ledPlayAt = 0;
+function ledGrabBack() { ledPlayAt = performance.now(); if (ledReassert(LED_PRESS_MS)) pushLeds(true); }   // every key down and up
+// While you're playing, the heartbeat is brisk — the firmware is being provoked constantly. Once the keyboard has
+// been quiet for a few seconds nothing is repainting it behind us, so it drops to a slow tick that only exists to
+// catch a mode button being pressed on the board itself.
+setInterval(() => { const busy = performance.now() - ledPlayAt < 6000;
+  if (ledReassert(busy ? LED_REASSERT_MS : 10000)) pushLeds(true); }, LED_REASSERT_MS);
 const lastSent = [];
 function buildColorMsg(colors, force) {   // the LED frame for whatever changed since the last one, or null when nothing did
   const groups = new Map();
@@ -2740,8 +2767,8 @@ let progMiss = 0;   // how many wrong notes on THIS chord so far — one earns t
 // "Light every key" means a blank keyboard, not a lit-up one: no chord, no scale colouring, and no blacked-out
 // keys either — exactly what the board looks like with nothing selected, so there is nothing at all to read off it.
 // The first wrong note drops it back to the normal picture: out-of-key keys out, the chord in colour.
-function progBlankBoard() { return circleLearnOn() ? circleLearnStage() < 1 : (progExercise() && !progShowsChord() && !progShowsRoot()); }   // nothing given away yet
-function progScaleOnly() { return circleLearnOn() ? circleLearnStage() === 2 : false; }   // only the circle drill has a "just the scale" rung
+function progBlankBoard() { return circleLearnOn() ? circleLearnStage() < 1 : (progExercise() && progRung() === 0); }   // nothing given away yet
+function progScaleOnly() { return circleLearnOn() ? circleLearnStage() === 2 : (progExercise() && progRung() === 1); }   // the scale is showing, the chord and its root are not
 let justWrapped = false;   // the chord right after a restart must not be dragged by anything left over from the run that just ended
 let runBaseOct = 0;   // the octave the current run started in — a wrap back to the beginning returns here, so the
                       // restart lands exactly where the first chord of the run was, not wherever the top of it drifted to
@@ -5289,23 +5316,25 @@ function syncProgLockBtn() {}   // the lock is gone — the exercise types and l
 // help in stages: the first slip shows you the KEY you're in, the second shows you the chord itself. The count is
 // per chord — it resets every time the drill moves on.
 const PROG_HINTS = [
-  { id: 'chord', label: '1 · Chord' },
-  { id: 'root',  label: '2 · Root key' },
-  { id: 'audio', label: '3 · Audio only' },
+  { id: 'chord',  label: '1 · Chord' },
+  { id: 'root',   label: '2 · Root key' },
+  { id: 'scale',  label: '3 · Scale' },
+  { id: 'hidden', label: '4 · All hidden' },
 ];
-const HINT_MIGRATE = { full: 'chord', mistakeRoot: 'root', mistake: 'audio', mistakeScale: 'audio', allLit: 'audio', none: 'audio' };
-function progHintAudio() { return progHint() === 'audio'; }   // level 3: nothing on the keys, you get to hear it instead
+const HINT_MIGRATE = { full: 'chord', mistakeRoot: 'root', mistake: 'hidden', mistakeScale: 'scale', allLit: 'hidden', none: 'hidden', audio: 'hidden' };
+// One ladder of help, four rungs: nothing · the scale · the root · the chord. A level just says which rung you
+// start on, and every wrong note on the same chord climbs one more.
+const HINT_RUNG = { hidden: 0, scale: 1, root: 2, chord: 3 };
+function progRung() { return Math.min(3, (HINT_RUNG[progHint()] ?? 3) + progMiss); }
+function progHintAudio() { return progHint() === 'hidden'; }   // level 4: nothing on the keys at all, so the name is spoken instead
 function progHint() { const h = S.progHint; return HINT_MIGRATE[h] || (PROG_HINTS.some(x => x.id === h) ? h : 'chord'); }
 function progExercise() { return !!scaleProgMode || !!circleProg || circleLearnOn(); }   // a practice exercise OR a circle-of-fifths progression — both are drills, and the light/types/start buttons drive whichever is running
 // Level 1 shows the chord outright. Level 2 gives you the root, and hands over the chord on your first slip.
 // Level 3 shows nothing at all — you get the chord's NAME spoken instead — then the root on the first slip and
 // the chord on the second.
-function progShowsChord() { if (circleLearnOn()) return circleLearnStage() >= 3;
-  const h = progHint(); return h === 'chord' || (h === 'root' && progMiss >= 1) || (h === 'audio' && progMiss >= 2); }
-function progShowsRoot() { if (circleLearnOn()) return circleLearnStage() === 1;
-  if (progShowsChord()) return false;
-  const h = progHint(); return h === 'root' || (h === 'audio' && progMiss >= 1); }
-function progShowsScale() { return circleLearnOn() ? circleLearnStage() >= 2 : progShowsChord(); }
+function progShowsChord() { return circleLearnOn() ? circleLearnStage() >= 3 : progRung() >= 3; }
+function progShowsRoot() { return circleLearnOn() ? circleLearnStage() === 1 : progRung() === 2; }
+function progShowsScale() { if (circleLearnOn()) return circleLearnStage() >= 2; const r = progRung(); return r === 1 || r >= 3; }
 function progStage() { return progShowsChord() ? 2 : progShowsRoot() ? 1 : 0; }
 function syncProgRootBtn() { const btn = $('progHintBtn'); if (!btn) return;
   btn.disabled = !progExercise(); btn.setAttribute('aria-pressed', String(progHint() !== 'chord'));
@@ -5365,7 +5394,10 @@ function openProgHintPop() {
   pop.innerHTML = PROG_HINTS.map(x => `<button type="button" class="playOpt" data-hint="${x.id}">${x.label}</button>`).join('');
   pop.querySelectorAll('[data-hint]').forEach(b => { const id = b.dataset.hint;
     b.setAttribute('aria-selected', String(progHint() === id));
-    b.onclick = () => { S.progHint = id; save(); progMiss = 0; syncProgRootBtn(); closeProgHintPop(); renderKeys(); }; });
+    // The spoken name follows its own tick and nothing else: picking "All hidden" no longer switches speech on
+    // behind your back. If you want to hear the chord at level 4, tick "Say the chord name out loud" in Sounds.
+    b.onclick = () => { S.progHint = id; progMiss = 0;
+      save(); syncProgRootBtn(); closeProgHintPop(); renderKeys(); announceChord(); }; });
   pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); placePop(pop, btn);
 }
 // Back to the top of the drill without having to switch the exercise off and on again: the lit chord goes back to
