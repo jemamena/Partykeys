@@ -1034,7 +1034,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '158 · 2026-09-23 · random-order';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '159 · 2026-09-23 · root-to-root';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -2565,7 +2565,7 @@ function updateCountdown() {
   if (rem === cdRem) return; cdRem = rem;
   [...el.children].forEach((d, i) => { d.classList.toggle('on', i < rem); d.classList.toggle('now', i === rem - 1); });
 }
-function clearScaleChordSel() { if (!scaleChordSel) return; resetChordOct(); scaleChordSel = null; lastNow = savedLastNow; nowNotes = savedNowNotes.slice(); lastChords = ''; $('chordInfo').hidden = true; userInv = 0; syncInvGroup(); }
+function clearScaleChordSel() { if (!scaleChordSel) return; resetChordOct(); scaleChordSel = null; if (typeof syncProgAddsBtn === 'function') syncProgAddsBtn(); lastNow = savedLastNow; nowNotes = savedNowNotes.slice(); lastChords = ''; $('chordInfo').hidden = true; userInv = 0; syncInvGroup(); }
 function updateChords() {
   if (scaleChordSel) { if (chordsBlocked()) clearScaleChordSel(); else { showScaleChordPreview(); return; } }
   let now = [], start = Infinity, end = 0; nextName = '';
@@ -2780,26 +2780,47 @@ function progInvOn() { return progAdd('inv'); }
 const ADD_MIGRATE = { oct1: 'r2r' };
 function progSpan() { return progAdd('oct2') ? 2 : 1; }   // how many octaves an exercise climbs before starting over
 // Where "root 2 root" puts its closing root. An octave up closes a plain triad or a seventh — but once the chord
-// reaches past an octave on its own (extensions go up to the 13th) or the exercise is running two octaves, closing
-// an octave up would land in the middle of what you just played. Then it's the two-octave root that finishes it.
-// "Root 2 root" is about the RUN, not about each chord: the exercise climbs its octave (or two) and finishes on
-// the tonic it started from, rather than stopping on the 7th and dropping back. No middle root is asked for —
-// unless the arpeggio pattern happens to want one.
-function r2rIv() { return progSpan() * 12; }
-function progEndsOnRoot() { return progAdd('r2r'); }
+// "Root 2 root" is about each CHORD: every one is played from its root up to that same root again, so a triad is
+// four notes (1-3-5-8) and a seventh is five (1-3-5-7-8). Only the top root is asked for, never a middle one —
+// unless the arpeggio pattern happens to want one. When the chord already reaches past an octave on its own
+// (extensions go up to the 13th) or the exercise is running two octaves, it's the two-octave root that closes it.
+function r2rIv() {
+  const want = (progSpan() > 1 || progAdd('ext')) ? 24 : 12;
+  // Going down, the reach hangs BELOW each chord while the run itself walks down too, so the two spans add up. A
+  // two-octave reach over a two-octave run wants four octaves and there are only three on the board — in that case
+  // the reach drops back to a single octave rather than the run seizing up in one register.
+  if (want === 24 && progExercise() && scaleProgDescends() && want + progSpan() * 12 > NKEYS - 1) return 12;
+  return want;
+}
+// Root to root is about the CHORD — the triad plus the same root an octave away (above going up, below going
+// down). It does not add a closing tonic chord of its own at the end of the run: the run plays each degree once
+// and starts again, exactly as it does without the tick.
+function progEndsOnRoot() { return false; }
+// Where a descending run starts: the tonic as high as it will go and still fit, counting whatever the ticks add
+// under it. Normally that is simply the top of the run's range; with a two-octave reach hanging below the chord
+// there may be only one register left that works, and this finds it instead of starting off the keyboard.
+function progDescentStartOct() {
+  const dt = diatonicTriads(SCALES[S.scaleType][1], S.root);
+  for (let o = progSpan(); o > 0; o--) if (scaleProgChordFits(0, o, dt)) return o;
+  return 0;
+}
 // With two hands the chord has to sit high enough that there's a whole octave underneath it for the left hand.
 // Everything that decides where the chord IS — the lights, the sound, and the check that you played it — goes
 // through here, so they can't disagree about which octave it's in.
 // Where the exercise chord sits, full stop. chordOct is the octave YOU are playing in — it follows your hands —
 // and scaleProgOct is the exercise's own climb on top of that. Everything (the lights, the sound, and the check
 // that you played it) asks this, so they always agree.
+// A descending root-to-root chord hangs an octave BELOW its own root, so the whole run is lifted by that octave —
+// otherwise its lowest notes would fall off the bottom of the keyboard. The exercise's own counters are untouched:
+// they still run 0..span, this only decides where that lands in real notes.
+function progRunLift() { return (progExercise() && progAdd('r2r') && scaleProgDescends()) ? r2rIv() / 12 : 0; }
 function progRootMidiFor(pc, tpl, useProgOct) {
   let m = DLOW; while (m % 12 !== pc) m++;
-  m += (chordOct + ((useProgOct === undefined ? scaleProgOctMode() : useProgOct) ? scaleProgOct : 0)) * 12;
+  m += (chordOct + progRunLift() + ((useProgOct === undefined ? scaleProgOctMode() : useProgOct) ? scaleProgOct : 0)) * 12;
   return progLhShift(m, tpl);
 }
 function progLhShift(rootMidi, tpl) {
-  if (!progAdd('lh') || !progExercise()) return rootMidi;
+  if (!progAdd('lh') || !progAddsApply()) return rootMidi;
   while (rootMidi - 12 < DLOW && rootMidi + 12 + Math.max(...tpl) <= DLOW + NKEYS - 1) rootMidi += 12;
   return rootMidi;
 }
@@ -2808,8 +2829,12 @@ function anyProgAdd() { return Array.isArray(S.progAdds) && S.progAdds.length > 
 function diatonicIv(sc, degIdx, k) {   // semitones above the chord's root of the note k scale-steps above it (6 = the 7th, 8 = the 9th, 10 = the 11th, 12 = the 13th)
   const i = degIdx + k; return sc[i % 7] + Math.floor(i / 7) * 12 - sc[degIdx];
 }
-function progAddsTpl(tpl, degIdx) {   // the chord's template with whatever is ticked folded in — exercise types apply to the practice exercises AND to a circle-of-fifths progression
-  if (!progExercise() || !anyProgAdd()) return tpl;
+// Whatever is ticked applies wherever a chord is being SHOWN — a practice exercise, a circle-of-fifths
+// progression, or simply a chord tapped from the scale row. Tick "root 2 root" and the chord grows its octave
+// root there and then, instead of only once a drill is running.
+function progAddsApply() { return progExercise() || !!scaleChordSel; }
+function progAddsTpl(tpl, degIdx) {
+  if (!progAddsApply() || !anyProgAdd()) return tpl;
   if (progInvOn()) tpl = invertTpl(tpl, progInvIdx());   // the exercise owns the inversion; the chord bar's own inversion is pinned to root position while this is on, so this is the only one applied
   const sc = SCALES[S.scaleType] && SCALES[S.scaleType][1];
   const out = tpl.slice(), add = iv => { if (!out.includes(iv)) out.push(iv); };
@@ -2818,8 +2843,13 @@ function progAddsTpl(tpl, degIdx) {   // the chord's template with whatever is t
     if (progAdd('ext')) { add(diatonicIv(sc, degIdx, 8)); add(diatonicIv(sc, degIdx, 10)); add(diatonicIv(sc, degIdx, 12)); }
   }
 
+  // Root to root: the chord plus the SAME root an octave away — up when the run climbs, down when it descends.
+  // Going down you start on the top root and finish on the root below it, so the whole chord hangs under its
+  // starting root: the closing root is added, then everything is dropped by that same octave.
+  const drop = progAdd('r2r') && scaleProgDescends() ? r2rIv() : 0;
+  if (progAdd('r2r')) add(r2rIv());
   if (progAdd('lh')) add(-12);   // left hand takes the root, an octave below everything the right hand is holding
-  return out.sort((x, y) => x - y);
+  return (drop ? out.map(iv => iv - drop) : out).sort((x, y) => x - y);
 }
 function progDegOf(pc) { const dt = diatonicTriads(SCALES[S.scaleType][1], S.root); const d = dt.find(x => x.pc === pc); return d ? d.deg : null; }
 const DOM7_TPL = [0, 4, 7, 10];   // 'dom7': a dominant 7th built on every degree, so the b7 deliberately falls outside the key on most of them
@@ -2830,7 +2860,7 @@ function scaleProgTplFor(q) { return scaleProgDom7Mode() ? DOM7_TPL : (CHORDS.fi
 function scaleProgChordHasPc(n) {   // is this note part of the exercise chord that's lit? the dominant-7th drill puts a b7 outside the key on purpose — that's the exercise, not a wrong note
   if (!progExercise() || !scaleChordSel) return false;
   const tpl = progAddsTpl(scaleProgTplFor(scaleChordSel.q), progDegOf(scaleChordSel.root)), pc = ((n % 12) + 12) % 12;
-  return tpl.some(iv => (scaleChordSel.root + iv) % 12 === pc);
+  return tpl.some(iv => ((((scaleChordSel.root + iv) % 12) + 12) % 12) === pc);
 }
 // The arpeggio exercises walk their degrees exactly like the chord ones — same octave machinery, same direction.
 // Without this an arpeggio going DOWN reversed the notes inside each chord but still climbed the degrees, so the
@@ -2857,9 +2887,12 @@ function scaleProgArpSeq(tpl) {   // the pattern first, then the direction: stra
 }
 function scaleProgChordFits(deg, oct, dt) {   // would this scale-degree chord, shown `oct` octaves above its lowest on-screen occurrence, still fit inside the visible keyboard range?
   const d = dt.find(x => x.deg === deg); if (!d) return false;
-  const tpl = (CHORDS.find(x => x[0] === d.q) || ['', [0, 4, 7]])[1];
+  const tpl = progAddsTpl((CHORDS.find(x => x[0] === d.q) || ['', [0, 4, 7]])[1], deg);   // whatever is ticked counts: a closing root or a 13th needs room too
   let rootMidi = DLOW; while (rootMidi % 12 !== d.pc) rootMidi++;
-  return rootMidi + oct * 12 + Math.max(...tpl) <= DLOW + NKEYS - 1;
+  // Both ends have to be on the keyboard: a descending root-to-root chord hangs BELOW its root, so the bottom of
+  // it is what runs out of keys first.
+  const base = rootMidi + (oct + progRunLift()) * 12;
+  return base + Math.max(...tpl) <= DLOW + NKEYS - 1 && base + Math.min(...tpl, 0) >= DLOW;
 }
 function scaleProgStep(deg, oct, dir) {   // one scale-degree step in either direction, rolling the octave over at either end of the 7 degrees
   let d = deg + dir, o = oct;
@@ -2870,7 +2903,7 @@ function circleProgAdvance(n) {   // a circle-of-fifths progression judged the s
   if (!circleProg || scaleProgMode || !scaleChordSel || chordsBlocked()) return;
   const pc = scaleChordSel.root;
   if (!scaleProgChordHasPc(n)) progMiss++;
-  if (((n % 12) + 12) % 12 === pc) progPlayRoot = n;
+  if (((n % 12) + 12) % 12 === pc && progPlayRoot === null) progPlayRoot = n;   // the first root of this attempt — see scaleProgAdvance
   const tpl = progAddsTpl((CHORDS.find(x => x[0] === scaleChordSel.q) || ['', [0, 4, 7]])[1], progDegOf(pc));
   const held = chordHeldPcs();
   if (!tpl.map(iv => (((pc + iv) % 12) + 12) % 12).every(p => held.has(p))) return;
@@ -2912,10 +2945,13 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
   // Play the chord an octave up (or down) and the drill goes with you: note which octave the root was struck in and
   // light the NEXT chord there. The octave exercises are exempt — pinning the register is the whole point of those.
   if (!scaleProgChordHasPc(n)) progMiss++;   // a note that isn't in this chord: one step more help
-  if (((n % 12) + 12) % 12 === cur.pc) progPlayRoot = n;   // the last root you struck, whichever octave it was in
+  // The FIRST root of this attempt, whichever octave it was in. First, not last: with "root 2 root" the chord
+  // has a root at both ends, and taking the last one would read the closing octave as "you moved up an octave"
+  // and drag the whole exercise up with it, one octave per chord.
+  if (((n % 12) + 12) % 12 === cur.pc && progPlayRoot === null) progPlayRoot = n;
   if (scaleProgArpMode()) {   // note-by-note, in order — any other note (right pitch class, wrong turn) restarts this chord's sequence instead of failing it outright
     const seq = scaleProgArpSeq(tpl);
-    const wantPc = (cur.pc + seq[scaleProgArpIdx]) % 12, gotPc = ((n % 12) + 12) % 12;
+    const wantPc = (((cur.pc + seq[scaleProgArpIdx]) % 12) + 12) % 12, gotPc = ((n % 12) + 12) % 12;   // a descending root-to-root chord has negative intervals, and JS keeps the sign through %
     if (gotPc !== wantPc) { if (S.badNoteSound) playMistakeBuzz(); scaleProgArpIdx = 0; return; }
     scaleProgArpIdx++;
     if (scaleProgArpIdx < seq.length) return;   // more notes still due before this chord counts as done
@@ -2933,7 +2969,7 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
     if (found && !justWrapped) { chordOct += found; if (scaleProgOct === 0) runBaseOct = chordOct; }
     justWrapped = false;   // you picked it up an octave away: the exercise moves with you — and if that was the first chord of the run, that's its new home
   } else {
-    const need = tpl.map(iv => (cur.pc + iv) % 12);
+    const need = tpl.map(iv => (((cur.pc + iv) % 12) + 12) % 12);
     const held = chordHeldPcs();
     if (!need.every(pc => held.has(pc))) return;   // not all the chord's notes are down yet
     // An inversion is only a different arrangement of the same notes, so a pitch-class check can't see it either:
@@ -2977,7 +3013,7 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
     const atBottom = cur.deg === 0 && scaleProgOct <= 0;            // that was the closing tonic
     const wantClosing = progEndsOnRoot() && d === 0 && o === 0;     // ...and this would be it
     if (atBottom || o < 0 || (d === 0 && o === 0 && !wantClosing) || !scaleProgChordFits(d, o, dt)) {
-      d = 0; o = top; chordOct = runBaseOct; wrapped = true; justWrapped = true; recentNotes.clear(); progPlayRoot = null; }
+      d = 0; o = progDescentStartOct(); chordOct = runBaseOct; wrapped = true; justWrapped = true; recentNotes.clear(); progPlayRoot = null; }
     nextDeg = d; scaleProgOct = o; }
   else { let [d, o] = scaleProgStep(cur.deg, scaleProgOct, scaleProgDir);   // bounceOct: climb its octaves, then turn round and come back down, indefinitely
     const top = progSpan();
@@ -3038,6 +3074,7 @@ function selectScaleChord(pc, q, keepShift) {   // shared "tap this chord" behav
     openChordInfoRow();
     scaleChordSel = { root: pc, q }; preview = null; arrPreview = false; $('chordNow').classList.remove('sel'); $('chordNext').classList.remove('sel'); }
   else clearScaleChordSel();   // toggled out: restore whatever now-chord was showing before
+  if (typeof syncProgAddsBtn === 'function') syncProgAddsBtn();   // the exercise types apply to a tapped chord too, so the button wakes up with one
   renderKeys();
 }
 function scChordClick() { selectScaleChord(+this.dataset.pc, this.dataset.q); }   // shared by both the white and the black chord-name rows
@@ -5375,7 +5412,7 @@ function progAddsLabel() {   // a tiny tag in the corner of the icon says what's
   return bits.join('');
 }
 function syncProgAddsBtn() { const btn = $('progAddsBtn'); if (!btn) return;
-  btn.disabled = !progExercise(); btn.setAttribute('aria-pressed', String(anyProgAdd()));
+  btn.disabled = !progAddsApply();   // usable on a tapped chord too, not only inside a drill btn.setAttribute('aria-pressed', String(anyProgAdd()));
   const tag = btn.querySelector('.exTag'); if (tag) tag.textContent = progAddsLabel();
   const on = PROG_ADDS.filter(x => progAdd(x.id)).map(x => x.id === 'inv' ? 'Inversions (' + progInvSel() + ')' : x.label);
   btn.title = on.length ? 'Exercise types: ' + on.join(', ') : 'Exercise types'; }
@@ -5429,7 +5466,7 @@ function syncExerciseBtn() { const btn = $('scaleProgBtn'); if (!btn) return;
   if (onProg) closeScaleProgPop(); }
 function restartScaleProg() {
   if (!scaleProgMode && !circleProg && !circleLearnOn()) return;
-  scaleProgDir = 1; scaleProgOct = scaleProgDescends() ? progSpan() : 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null; progMiss = 0; runBaseOct = chordOct;
+  scaleProgDir = 1; scaleProgOct = scaleProgDescends() ? progDescentStartOct() : 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null; progMiss = 0; runBaseOct = chordOct;
   if (typeof resetChordOct === 'function') resetChordOct();
   if (typeof syncInvGroup === 'function') syncInvGroup();
   if (scaleProgMode) {
@@ -5443,7 +5480,7 @@ function restartScaleProg() {
 }
 function setScaleProgMode(mode) {   // mode: null (off) or one of SCALE_PROG_EXERCISES' — mutually exclusive by construction, since only one can be picked from the dropdown at a time
   scaleProgMode = mode; scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null; runBaseOct = chordOct;
-  if (scaleProgDescends()) scaleProgOct = progSpan();   // descending runs begin on the tonic at the top of their range
+  if (scaleProgDescends()) scaleProgOct = progDescentStartOct();   // descending runs begin on the tonic at the top of their range
   $('scaleProgBtn').setAttribute('aria-pressed', String(!!scaleProgMode));
   if (scaleProgMode) {
   // Starting a drill used to open the scale bar and the chord bar and reset their All/Ext toggles. It doesn't
