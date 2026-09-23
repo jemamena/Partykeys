@@ -494,8 +494,8 @@ body.kbfull .kb{cursor:zoom-out}
 #progAddsPop .subRow button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 
 #scaleProgPop .exRow{padding:6px 8px 4px}
-#scaleProgPop .exOpts{display:flex;gap:6px;justify-content:center}
-#scaleProgPop .exDir{min-height:0;width:52px;height:36px;padding:0;border-radius:6px;flex:none;display:flex;align-items:center;justify-content:center}
+#scaleProgPop .exOpts{display:flex;gap:6px;justify-content:center;width:100%}
+#scaleProgPop .exDir{min-height:0;flex:1 1 0;min-width:40px;max-width:52px;height:36px;padding:0;border-radius:6px;display:flex;align-items:center;justify-content:center}
 #scaleProgPop .exDir .ico{width:20px;height:20px}
 #scaleProgPop .exStack{display:flex;flex-direction:column;gap:4px;padding:6px 8px 2px}
 #scaleProgPop .exWide{width:100%;min-height:0;padding:8px 12px;font-size:13px;border-radius:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}
@@ -1034,7 +1034,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '157 · 2026-09-23 · offline';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '158 · 2026-09-23 · random-order';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1936,7 +1936,7 @@ function click(when, accent) {
 }
 function announceChord(delay) {
   const d = delay === undefined ? 240 : delay;
-  if (scaleProgMode === 'rand') setTimeout(playExerciseChord, d);   // the random exercise is played by ear — that's the whole point of it
+  if (scaleProgRandMode()) setTimeout(playExerciseChord, d);   // the random exercise is played by ear — that's the whole point of it, arpeggio or not
   // With "Say the chord name out loud" ticked, every exercise announces each chord as it comes up, whatever the
   // light level. At level 3 that name is all you get; at the others it just tells you what you're looking at.
   if (!progExercise() || !S.speakChords || !scaleChordSel) return;
@@ -2835,8 +2835,9 @@ function scaleProgChordHasPc(n) {   // is this note part of the exercise chord t
 // The arpeggio exercises walk their degrees exactly like the chord ones — same octave machinery, same direction.
 // Without this an arpeggio going DOWN reversed the notes inside each chord but still climbed the degrees, so the
 // root of every chord went up while the arpeggio itself went down.
-function scaleProgOctMode() { return scaleProgMode === 'fwdOct' || scaleProgMode === 'backOct' || scaleProgMode === 'bounceOct' || scaleProgArpMode(); }
-function scaleProgArpMode() { return scaleProgMode === 'arp' || scaleProgMode === 'arpUpDown' || scaleProgMode === 'arpDown'; }
+function scaleProgRandMode() { return scaleProgMode === 'rand' || scaleProgMode === 'randArp'; }   // the next chord is picked at random — no register to pin, and you get to hear it
+function scaleProgOctMode() { return scaleProgMode === 'fwdOct' || scaleProgMode === 'backOct' || scaleProgMode === 'bounceOct' || (scaleProgArpMode() && !scaleProgRandMode()); }
+function scaleProgArpMode() { return scaleProgMode === 'arp' || scaleProgMode === 'arpUpDown' || scaleProgMode === 'arpDown' || scaleProgMode === 'randArp'; }
 function scaleProgDescends() { return scaleProgMode === 'backOct' || scaleProgMode === 'arpDown'; }
 function arpOrder(n) {   // which of the chord's notes, in which order — 0 is the lowest
   const idx = [...Array(n).keys()];
@@ -2959,7 +2960,7 @@ function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note ju
   if (scaleProgInvMode() && scaleProgInv < 2) { scaleProgInv++; userInv = scaleProgInv; return; }   // same chord again, one inversion higher
   let nextDeg;
   if (scaleProgInvMode()) { scaleProgInv = 0; userInv = 0; nextDeg = (cur.deg + 1) % 7; }
-  else if (scaleProgMode === 'rand') { do { nextDeg = Math.floor(Math.random() * 7); } while (nextDeg === cur.deg); }   // anywhere in the key except where we already are — no order to lean on, so the chord has to be read from its name
+  else if (scaleProgRandMode()) { do { nextDeg = Math.floor(Math.random() * 7); } while (nextDeg === cur.deg); }   // anywhere in the key except where we already are — no order to lean on, so the chord has to be read from its name
   else if (scaleProgMode === 'fwd' || scaleProgDom7Mode()) nextDeg = (cur.deg + 1) % 7;
   else if (scaleProgMode === 'back') nextDeg = (cur.deg + 6) % 7;
   else if (scaleProgMode === 'bounce') { nextDeg = cur.deg + scaleProgDir;   // reverse direction at either end instead of wrapping around
@@ -5289,10 +5290,11 @@ $('romanBtn').onclick = () => { showRomanNums = !showRomanNums; $('romanBtn').se
 const DIR_ICONS = {
   up: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V5M12 5l-6 6M12 5l6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   down: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v15M12 19l-6-6M12 19l6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  rand: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="9" r="1.5" fill="currentColor"/><circle cx="15" cy="15" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
   updown: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20V5M8 5 4 9M8 5l4 4M16 4v15M16 19l-4-4M16 19l4-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
-const EX_DIRS = [ { id: 'up', label: 'Up' }, { id: 'down', label: 'Down' }, { id: 'updown', label: 'Up/Down' } ];
-const EX_TYPES = [ { id: 'chords', label: 'Chords' }, { id: 'arp', label: 'Arpeggio' }, { id: 'rand', label: 'Random with audio' } ];
+const EX_DIRS = [ { id: 'up', label: 'Up' }, { id: 'down', label: 'Down' }, { id: 'updown', label: 'Up/Down' }, { id: 'rand', label: 'Random — played by ear' } ];
+const EX_TYPES = [ { id: 'chords', label: 'Chords' }, { id: 'arp', label: 'Arpeggio' } ];
 const ARP_PATS = [   // the order the chord's notes are asked for, before the direction is applied
   { id: 'plain',   label: 'Straight' },
   { id: 'broken',  label: 'Broken' },
@@ -5302,13 +5304,16 @@ const ARP_PATS = [   // the order the chord's notes are asked for, before the di
 const ARP_SHAPE = { plain: '1–3–5', broken: '1–5–3', alberti: '1–5–3–5', pedal: '1–3–1–5' };
 function exDir() { return EX_DIRS.some(x => x.id === S.exDir) ? S.exDir : 'up'; }
 function exType() { return EX_TYPES.some(x => x.id === S.exType) ? S.exType : 'chords'; }
+if (S.exType === 'rand') { S.exType = 'chords'; S.exDir = 'rand'; save(); }   // Random moved from the type list to the direction list
 function arpPat() { return ARP_PATS.some(x => x.id === S.arpPat) ? S.arpPat : 'plain'; }
 let exerciseOn = false;
+// Direction and type are independent: the direction says which chord comes next (up the scale, down it, back and
+// forth, or anywhere at random), the type says what you play when it gets there (the chord, or its arpeggio).
+// "Random" is what used to be the third type — it is an order, so it now pairs with arpeggios too.
 function exMode() {
   if (!exerciseOn) return null;
-  if (exType() === 'rand') return 'rand';
-  if (exType() === 'arp') return exDir() === 'down' ? 'arpDown' : exDir() === 'updown' ? 'arpUpDown' : 'arp';
-  return exDir() === 'down' ? 'backOct' : exDir() === 'updown' ? 'bounceOct' : 'fwdOct';
+  if (exType() === 'arp') return exDir() === 'rand' ? 'randArp' : exDir() === 'down' ? 'arpDown' : exDir() === 'updown' ? 'arpUpDown' : 'arp';
+  return exDir() === 'rand' ? 'rand' : exDir() === 'down' ? 'backOct' : exDir() === 'updown' ? 'bounceOct' : 'fwdOct';
 }
 function applyExercise() { setScaleProgMode(exMode()); }
 function syncProgLockBtn() {}   // the lock is gone — the exercise types and light behaviour cover what it was for
