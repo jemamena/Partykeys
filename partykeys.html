@@ -932,7 +932,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
         <span class="status"><span class="dot" id="connDot"></span><span id="connText">Plug the keyboard in (USB / USB-C OTG on a phone), tap Connect, then Allow</span></span>
       </div>
       <div class="sub" id="buildTag" style="margin-top:10px;opacity:.65;font-variant-numeric:tabular-nums"></div>
-      <div class="sub" id="offlineTag" style="margin-top:6px;opacity:.65">Offline: checking…</div>
+      <div class="row between" style="margin-top:6px;align-items:center;gap:10px"><div class="sub" id="offlineTag" style="opacity:.65;flex:1 1 auto">Offline: checking…</div><button id="offlineBtn" style="flex:none" title="Throw the saved copy away and load the newest build from the web">Update now</button></div>
     </section>
 
     <section class="panel" data-sheet="play">
@@ -1034,7 +1034,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '159 · 2026-09-23 · root-to-root';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '162 · 2026-09-24 · update-now';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -5663,6 +5663,7 @@ syncKeysReset();
 // as before — it just won't open without a connection.
 function setOfflineTag(txt, warn) { const el = $('offlineTag'); if (!el) return; el.textContent = txt; el.style.color = warn ? 'var(--warn, #ffc21a)' : ''; }
 (function registerOffline() {
+  { const ub = $('offlineBtn'); if (ub) ub.onclick = () => location.reload(); }   // a plain reload is the fallback wherever there is no service worker to clear
   const ok = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   if (!('serviceWorker' in navigator)) { setOfflineTag('Offline: this browser has no service workers — the page needs a connection to open'); return; }
   if (!ok) { setOfflineTag('Offline: needs an https address — open the hosted link rather than a local copy'); return; }
@@ -5682,6 +5683,20 @@ function setOfflineTag(txt, warn) { const el = $('offlineTag'); if (!el) return;
     setOfflineTag('Offline: not set up — sw.js needs to sit next to partykeys.html on the same address', true);
     log('Offline: service worker not registered (' + (e && e.message || e) + ')');
   });
+  // A stuck build is the one thing a saved copy can do to you, so there is always a lever: this clears the saved
+  // copy and reloads, and the reload itself has to come from the web.
+  const ub = $('offlineBtn');
+  if (ub) ub.onclick = () => {
+    ub.disabled = true; setOfflineTag('Offline: fetching the newest build…');
+    const go = () => location.reload();
+    navigator.serviceWorker.getRegistration().then(r => {
+      if (!r) return go();
+      navigator.serviceWorker.addEventListener('message', ev => { if (ev.data === 'cacheCleared') go(); }, { once: true });
+      const w = r.active || navigator.serviceWorker.controller;
+      if (w) w.postMessage('clearCache'); else go();
+      setTimeout(go, 4000);   // whatever happens, the reload happens
+    }).catch(go);
+  };
   window.addEventListener('online', () => log('Back online'));
   window.addEventListener('offline', () => log('Offline — the app keeps working; cloud sync waits for a connection'));
 })();

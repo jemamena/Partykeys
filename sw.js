@@ -33,12 +33,24 @@ self.addEventListener('activate', e => {
   })());
 });
 
-self.addEventListener('message', e => { if (e.data === 'skipWaiting') self.skipWaiting(); });
+self.addEventListener('message', e => {
+  if (e.data === 'skipWaiting') { self.skipWaiting(); return; }
+  if (e.data === 'clearCache') {   // "Update now" in Settings: throw the saved copy away so the next load has to come from the web
+    e.waitUntil((async () => {
+      for (const k of await caches.keys()) if (k.startsWith('partykeys-')) await caches.delete(k);
+      if (e.source && e.source.postMessage) e.source.postMessage('cacheCleared');
+    })());
+  }
+});
 
 function fromNetwork(req) {   // a request that gives up quickly, so a flaky connection doesn't hold the app hostage
+  // cache: 'reload' skips the BROWSER's own HTTP cache as well. Without it, a freshly uploaded page can still come
+  // back stale for as long as the host's max-age says (GitHub Pages sends ten minutes), and "network-first" would
+  // quietly serve yesterday's build.
+  const fresh = new Request(req.url, { cache: 'reload', credentials: 'same-origin', redirect: 'follow' });
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('timeout')), NET_TIMEOUT);
-    fetch(req).then(r => { clearTimeout(t); resolve(r); }, err => { clearTimeout(t); reject(err); });
+    fetch(fresh).then(r => { clearTimeout(t); resolve(r); }, err => { clearTimeout(t); reject(err); });
   });
 }
 
