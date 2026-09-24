@@ -1750,11 +1750,25 @@ function enterLedMode(quiet) { if (!dev().lights) return false; if (!midiOut && 
   ledModeSent = true; ledModeAt = performance.now();
   if (!quiet) log('LED mode enabled on', midiOut ? midiOut.name : (bleDevice && bleDevice.name) || 'Bluetooth');
   return true; }
-// Build 153 re-sent this message on a heartbeat and after every key press, to take the lighting back from the
-// firmware. On the real board that made things worse, not better: it goes dark on connect and stays dark until a
-// mode is changed on the keyboard itself. So the message doesn't latch "app owns the LEDs" — repeating it flips
-// the board into a state it won't come out of. It is sent ONCE per connection again, and nothing repeats it.
-function ledGrabBack() {}   // kept as the one call site for a future, safer takeover; deliberately does nothing
+// Build 153 re-sent the enter-LED-mode message on a heartbeat and after every key press, to take the lighting back
+// from the firmware. On the real board that made things worse, not better: it went dark on connect and stayed dark
+// until a mode was changed on the keyboard itself, and the vendor's own protocol notes say that message is
+// "required once" per connection. So it is sent once and never repeated.
+//
+// The firmware still paints a key under your finger, and there is no documented way to switch that off. What CAN
+// be done safely is to paint over it: colour frames (the 0x15 command) are plain data — they don't echo, they
+// don't change any mode, and whatever they set persists. So every key down and up schedules a FULL frame, with the
+// per-key diff cleared, since the board has just been painted by something other than us and the diff would
+// otherwise decide there was nothing to send.
+const LED_REPAINT_MS = 90;   // at most one full frame this often: a fast run costs a handful, not one per note
+let ledRepaintT = 0;
+function ledGrabBack() {
+  if (!ledModeSent || !dev().lights) return;
+  if (!midiOut && !bleReady()) return;
+  if (midiOut && !sysexGranted) return;
+  if (ledRepaintT) return;
+  ledRepaintT = setTimeout(() => { ledRepaintT = 0; lastSent.fill(''); pushLeds(true); }, LED_REPAINT_MS);
+}
 const lastSent = [];
 function buildColorMsg(colors, force) {   // the LED frame for whatever changed since the last one, or null when nothing did
   const groups = new Map();
