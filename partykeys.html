@@ -1491,7 +1491,7 @@ function noteOn(n, vel, src) {
     if (stepMode) { attempted = true; if (any) stepAdvanceIfDone(false); } }
   maybeMoveChordOctave(n);   // pressing one of the shown chord's own notes elsewhere on the keyboard moves it there
   if (!wasHeld) {   // a genuinely new press — see if it's the chord the progression is waiting for, or completes the scale-chord practice's current chord
-    const arpActive = scaleProgArpMode() && scaleChordSel && !chordsBlocked();   // the arpeggio modes judge every note themselves (right pitch class, right turn) — let scaleProgAdvance below decide the sound for those, not the generic out-of-scale check
+    const arpActive = (scaleProgArpMode() && scaleChordSel && !chordsBlocked()) || scaleRunMode();   // the scale run judges every note itself too   // the arpeggio modes judge every note themselves (right pitch class, right turn) — let scaleProgAdvance below decide the sound for those, not the generic out-of-scale check
     const progLockActive = false;   // a progression's picked and locked: only its chords/the scale count as right, checked regardless of whether a song is playing — the song's own note-tracking above is untouched, this is just an extra ear-training buzz
     if (!arpActive && S.badNoteSound && (progLockActive || S.scaleOn) && (progLockActive || !chordsBlocked()) && !inScale(n) && !scaleProgChordHasPc(n)) playMistakeBuzz();
     circleTrackProgress(n); scaleProgAdvance(n);
@@ -2948,8 +2948,42 @@ function chordHeld() { const s = new Set(liveNotes);
   for (const [n, t] of recentNotes) { if (performance.now() - t < CHORD_HOLD_MS) s.add(n); else recentNotes.delete(n); }
   return s; }
 function chordHeldPcs() { const s = new Set(); for (const n of chordHeld()) s.add(((n % 12) + 12) % 12); return s; }
+// ---------- the scale run ----------
+// No chord, no lights: you play the scale itself, note by note, and the board stays as plain as it is when nothing
+// is running. A wrong note buzzes and the run waits where it is (one slip doesn't cost you the whole scale); a
+// finished scale chimes and starts over. The key is never shown — but the Scale button at the top always shows it
+// on demand, which is the whole point of keeping the board blank here.
+let scaleRunSeq = [], scaleRunIdx = 0, scaleRunBase = null;
+function scaleRunMode() { return scaleProgMode === 'scaleRun'; }
+function scaleRunOffsets() {   // semitones from the note the run starts on
+  const set = (SCALES[S.scaleType] && SCALES[S.scaleType][1] || [0,2,4,5,7,9,11]).slice().sort((a, b) => a - b);
+  const span = progSpan(), up = [];
+  for (let o = 0; o < span; o++) for (const d of set) up.push(d + o * 12);
+  up.push(span * 12);   // ...and the octave root that closes it
+  const dir = exDir();
+  if (dir === 'down') return up.slice().reverse().map(v => v - span * 12);   // start on the top root, finish on the root below
+  if (dir === 'updown') return up.concat(up.slice(0, -1).reverse());         // up and back down, the top note played once
+  return up;   // 'up', and 'random' has no meaning for a scale — it runs up
+}
+function resetScaleRun() { scaleRunSeq = scaleRunOffsets(); scaleRunIdx = 0; scaleRunBase = null; }
+function scaleRunAdvance(n) {
+  if (!scaleRunSeq.length) resetScaleRun();
+  if (scaleRunIdx === 0) {   // waiting for the tonic — in whatever octave you choose to start in
+    if (((n % 12) + 12) % 12 !== ((S.root % 12) + 12) % 12) { if (S.badNoteSound) playMistakeBuzz(); return; }
+    // ...as long as the whole run fits on the keyboard from there. Starting too high would ask for notes the board
+    // doesn't have, so that start is refused rather than leaving you stuck halfway up.
+    const lo = n + Math.min(...scaleRunSeq), hi = n + Math.max(...scaleRunSeq);
+    if (lo < DLOW || hi > DLOW + NKEYS - 1) { if (S.badNoteSound) playMistakeBuzz(); return; }
+    scaleRunBase = n; scaleRunIdx = 1; renderKeys(); return;
+  }
+  if (n !== scaleRunBase + scaleRunSeq[scaleRunIdx]) { if (S.badNoteSound) playMistakeBuzz(); return; }   // stay put: the same note is still the one due
+  scaleRunIdx++;
+  if (scaleRunIdx >= scaleRunSeq.length) { if (S.goodChordSound) playSuccessChime(); scaleRunIdx = 0; scaleRunBase = null; }   // a whole scale, cleanly: that's the sound
+  renderKeys();
+}
 function scaleProgAdvance(n) {   // called on a fresh key-press (n = the note just pressed): if a practice mode is on, react to it per the active mode — the arpeggio modes care about that one specific note; the others just check what's now held
   if (circleLearnOn()) { circleLearnAdvance(n); return; }
+  if (scaleRunMode()) { scaleRunAdvance(n); return; }
   if (!scaleProgMode) { circleProgAdvance(n); return; }
   if (!scaleChordSel || chordsBlocked()) return;
   const dt = diatonicTriads(SCALES[S.scaleType][1], S.root); if (dt.length !== 7) return;
@@ -5345,7 +5379,7 @@ const DIR_ICONS = {
   updown: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20V5M8 5 4 9M8 5l4 4M16 4v15M16 19l-4-4M16 19l4-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 const EX_DIRS = [ { id: 'up', label: 'Up' }, { id: 'down', label: 'Down' }, { id: 'updown', label: 'Up/Down' }, { id: 'rand', label: 'Random — played by ear' } ];
-const EX_TYPES = [ { id: 'chords', label: 'Chords' }, { id: 'arp', label: 'Arpeggio' } ];
+const EX_TYPES = [ { id: 'chords', label: 'Chords' }, { id: 'arp', label: 'Arpeggio' }, { id: 'scale', label: 'Scale run' } ];
 const ARP_PATS = [   // the order the chord's notes are asked for, before the direction is applied
   { id: 'plain',   label: 'Straight' },
   { id: 'broken',  label: 'Broken' },
@@ -5363,6 +5397,7 @@ let exerciseOn = false;
 // "Random" is what used to be the third type — it is an order, so it now pairs with arpeggios too.
 function exMode() {
   if (!exerciseOn) return null;
+  if (exType() === 'scale') return 'scaleRun';   // the scale itself, note by note — the direction decides which way it runs
   if (exType() === 'arp') return exDir() === 'rand' ? 'randArp' : exDir() === 'down' ? 'arpDown' : exDir() === 'updown' ? 'arpUpDown' : 'arp';
   return exDir() === 'rand' ? 'rand' : exDir() === 'down' ? 'backOct' : exDir() === 'updown' ? 'bounceOct' : 'fwdOct';
 }
@@ -5394,7 +5429,8 @@ function progExercise() { return !!scaleProgMode || !!circleProg || circleLearnO
 // the chord on the second.
 function progShowsChord() { return circleLearnOn() ? circleLearnStage() >= 3 : progRung() >= 3; }
 function progShowsRoot() { return circleLearnOn() ? circleLearnStage() === 1 : progRung() === 2; }
-function progShowsScale() { if (circleLearnOn()) return circleLearnStage() >= 2; const r = progRung(); return r === 1 || r >= 3; }
+function progShowsScale() { if (scaleRunMode()) return false;   // the scale run has no help ladder: the key is shown only when YOU ask for it with the Scale button
+  if (circleLearnOn()) return circleLearnStage() >= 2; const r = progRung(); return r === 1 || r >= 3; }
 function progStage() { return progShowsChord() ? 2 : progShowsRoot() ? 1 : 0; }
 function syncProgRootBtn() { const btn = $('progHintBtn'); if (!btn) return;
   btn.disabled = !progExercise(); btn.setAttribute('aria-pressed', String(progHint() !== 'chord'));
@@ -5482,6 +5518,7 @@ function restartScaleProg() {
   if (!scaleProgMode && !circleProg && !circleLearnOn()) return;
   scaleProgDir = 1; scaleProgOct = scaleProgDescends() ? progDescentStartOct() : 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null; progMiss = 0; runBaseOct = chordOct;
   if (typeof resetChordOct === 'function') resetChordOct();
+  if (scaleRunMode()) { resetScaleRun(); renderKeys(); const rb = $('progResetBtn'); if (rb) { rb.classList.add('primary'); setTimeout(() => rb.classList.remove('primary'), 160); } return; }
   if (typeof syncInvGroup === 'function') syncInvGroup();
   if (scaleProgMode) {
     const dt = diatonicTriads(SCALES[S.scaleType][1], S.root); const first = dt.find(d => d.deg === 0);
@@ -5496,7 +5533,8 @@ function setScaleProgMode(mode) {   // mode: null (off) or one of SCALE_PROG_EXE
   scaleProgMode = mode; scaleProgDir = 1; scaleProgOct = 0; scaleProgArpIdx = 0; scaleProgInv = 0; userInv = 0; progPlayRoot = null; runBaseOct = chordOct;
   if (scaleProgDescends()) scaleProgOct = progDescentStartOct();   // descending runs begin on the tonic at the top of their range
   $('scaleProgBtn').setAttribute('aria-pressed', String(!!scaleProgMode));
-  if (scaleProgMode) {
+  if (scaleRunMode()) { clearScaleChordSel(); resetScaleRun(); }   // no chord is lit for a scale run — the board stays blank
+  if (scaleProgMode && !scaleRunMode()) {
   // Starting a drill used to open the scale bar and the chord bar and reset their All/Ext toggles. It doesn't
   // touch them any more: the drill begins with the screen exactly as you left it, and whatever you had showing
   // stays showing.
@@ -5513,7 +5551,7 @@ function setScaleProgMode(mode) {   // mode: null (off) or one of SCALE_PROG_EXE
   }
   syncProgLockBtn(); syncProgResetBtn(); syncProgRootBtn(); syncProgAddsBtn(); syncExerciseBtn();
   renderKeys();
-  if (scaleProgMode) announceChord(320);
+  if (scaleProgMode && !scaleRunMode()) announceChord(320);
 }
 
 $('progHintBtn').onclick = () => { $('progHintPop').hidden ? openProgHintPop() : closeProgHintPop(); };
