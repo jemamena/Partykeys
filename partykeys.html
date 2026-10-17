@@ -1034,7 +1034,7 @@ body.kbfull .miniQueueFull:not([hidden]){display:flex}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const BUILD = '162 · 2026-09-24 · update-now';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
+const BUILD = '163 · 2026-10-17 · lights-switch';   // bumped on every release — shown in Settings and logged at startup, so "did the new file actually deploy?" is answerable at a glance
 let NKEYS = 36; const DEV_LOW = 48;
 const DEVICES = { partykeys: { keys: 36, lights: true }, generic: { keys: 0, lights: false } };
 const dev = () => DEVICES[S.device] || DEVICES.partykeys;
@@ -1796,7 +1796,9 @@ let ledWhyLast = '';
 function ledWhy(reason, text) { if (ledWhyLast === reason) return; ledWhyLast = reason; setConn('warn', 'Key lights: ' + text); }   // setConn already writes to the Log, so one call covers both
 function ledOk() { if (ledWhyLast) { ledWhyLast = ''; } }
 function sendColors(colors, force) {   // colors: array[NKEYS] of [r,g,b]
-  if (S.lightsOff) return;   // the keyboard's lights are switched off from the top bar — the screen still shows everything
+  // Switched off from the top bar. Say so on the connection line — a silent return here is indistinguishable
+  // from a broken LED path, and that is exactly how it was read.
+  if (S.lightsOff) { ledWhy('lightsoff', 'Keyboard lights are switched OFF — tap the bulb in the top bar to turn them back on'); return; }
   if (!dev().lights) { ledWhy('nolights', 'Key lights are off — Keyboard is set to “Other MIDI keyboard (no lights)” in Settings'); return; }
   if (!midiOut && !bleReady()) { ledWhy('noout', 'No MIDI output — the keyboard can be played but nothing is connected to drive its lights. Pick the PartyKeys under “MIDI out” in Settings, or connect it with the Bluetooth button.'); return; }
   if (midiOut && !sysexGranted) { ledWhy('nosysex', 'The browser refused SysEx, and the key lights need it — reload the page and allow the MIDI prompt'); return; }
@@ -4235,6 +4237,7 @@ $('bleBtn').onclick = connectBle;
 $('testLightsBtn').onclick = () => {   // all keys white for a moment, then back — proves the LED path end to end without needing a scale or chord
   if (!midiOut && !bleReady()) { setConn('warn', 'Connect the keyboard first — USB or Bluetooth'); return; }
   if (!dev().lights) { setConn('warn', 'Key lights are off — Keyboard is set to “Other MIDI keyboard (no lights)”'); return; }
+  if (S.lightsOff) { S.lightsOff = false; save(); syncLightsBtn(); log('Test lights: the lights switch was off — turning it back on'); }   // asking for a test IS asking for light
   ledModeSent = false; enterLedMode(); lastSent.fill('');
   log('Test lights: all keys white');
   sendColors(new Array(NKEYS).fill([255, 255, 255]), true);
@@ -4247,9 +4250,13 @@ syncMidiToggleBtn();
 $('midiToggleBtn').onclick = $('midiToggleBtnFull').onclick = () => { S.midiEnabled = !S.midiEnabled; save(); syncMidiToggleBtn(); };
 // The keyboard's lights, off and on again, without unplugging anything: the app stops sending colour frames and
 // blanks the board once. Everything on screen carries on exactly as before.
+const BULB_ICO = '<path d="M9 18h6M10 21h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
+  + '<path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5.9 1.1 1 1.8l.1.4h5l.1-.4c.1-.7.4-1.3 1-1.8A6 6 0 0 0 12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>';
+const BULB_OFF_ICO = BULB_ICO + '<path d="M4 20 20 4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>';
 function syncLightsBtn() { const off = !!S.lightsOff;
-  const txt = off ? 'Keyboard lights off — tap to turn them back on' : 'Turn the keyboard lights off';
-  [$('lightsBtn'), $('lightsBtnFull')].forEach(b => { if (!b) return; b.setAttribute('aria-pressed', String(off)); b.title = txt; b.setAttribute('aria-label', txt); }); }
+  const txt = off ? 'Keyboard lights OFF — tap to turn them back on' : 'Turn the keyboard lights off';
+  [$('lightsBtn'), $('lightsBtnFull')].forEach(b => { if (!b) return; b.setAttribute('aria-pressed', String(off)); b.title = txt; b.setAttribute('aria-label', txt);
+    const svg = b.querySelector('svg'); if (svg) svg.innerHTML = off ? BULB_OFF_ICO : BULB_ICO; }); }
 syncLightsBtn();
 $('lightsBtn').onclick = $('lightsBtnFull').onclick = () => {
   S.lightsOff = !S.lightsOff; save(); syncLightsBtn();
